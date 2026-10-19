@@ -49,7 +49,7 @@ Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhid
 - Sem backend: não há senha, e-mail, notificação ou segurança real; dados ficam só no navegador (limite de armazenamento; ao atingir, o app avisa e mantém o que foi digitado).
 - Excluir um item remove **sem aviso** a reivindicação pendente de quem a fez (premissa P18).
 - Categorias e locais são **dados demonstrativos**; a lista real do campus ainda não foi definida.
-- Premissas **P8–P10 e P14–P24** (SPEC §9) aguardam confirmação da equipe/professor.
+- Premissas **P8–P10 e P14–P25** (SPEC §9) aguardam confirmação da equipe/professor.
 - Verificado em Chromium; Safari, Firefox, leitor de tela e dispositivos reais **não** foram testados (ver `docs/prototype/qa/RELATORIO-QA.md`).
 - Trello e Figma ainda não foram sincronizados com este protótipo.
 
