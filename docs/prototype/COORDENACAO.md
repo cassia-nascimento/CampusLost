@@ -8,7 +8,7 @@
 |---|---|---|---|
 | *Orquestrador* (contexto principal) | Requisitos, priorização, delegação, integração, commits, aceite. Absorve o "Product & Requirements Analyst": o trabalho de traduzir RFs em telas/critérios é pontual e já está em `SPEC.md`; um agente permanente só duplicaria contexto. | `CLAUDE.md`, `.claude/**`, `docs/prototype/*.md` (exceto `DESIGN.md`), configs da raiz, `frontend/package.json` | todas |
 | `ux-designer` | Identidade visual e design system | `docs/prototype/DESIGN.md`, `frontend/src/app/globals.css`, `frontend/public/brand/**` | leitura + escrita de arquivos (sem Bash) |
-| `mock-engineer` | Tipos, regras puras, schemas, serviços mock, testes de domínio | `frontend/src/{types,lib/rules,lib/validation,services}/**`, `vitest.config.ts` | arquivos + Bash |
+| `mock-engineer` | Tipos, regras puras, schemas, serviços mock, testes de domínio | `frontend/src/{types,lib/rules,lib/validation,services}/**`, `vitest.config.mts` | arquivos + Bash |
 | `frontend-engineer` | Telas, componentes, hooks, providers | `frontend/src/{app,components,hooks,providers}/**`, `lib/utils.ts`, `lib/format.ts` | todas |
 | `qa-a11y` | Testes funcionais, 360 px, acessibilidade, evidências | `docs/prototype/qa/**` | todas (inclui navegador, se disponível) |
 | `code-reviewer` | Revisão independente, somente leitura | nada | Read/Glob/Grep/Bash |

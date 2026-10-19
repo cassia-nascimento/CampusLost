@@ -173,4 +173,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P19 | Destinatário da devolução | A autora/o autor da reivindicação aceita; sem campo livre | [Premissa] (T02) |
 | P20 | Itens do seed e fotos | Seed sem fotos (UI usa placeholder); senhas não existem no protótipo | [Premissa] (T02) |
 
+| P21 | Sessão compartilhada entre abas quebraria a demonstração com duas abas (aluno + administração) | Sessão em `sessionStorage` (por aba, sobrevive a recarregar); dados em `localStorage` compartilhados | [Premissa] (revisão T03-a) |
+| P22 | Item pode mostrar ao usuário comum o motivo de não poder reivindicar sem expor reivindicações de terceiros | O serviço devolve `viewer.{claim,edit,delete,registerReturn}` (decisões prontas) em `items.get`; a UI só exibe | decisão técnica (revisão T03-a) |
+
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.

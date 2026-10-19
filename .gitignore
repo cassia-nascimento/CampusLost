@@ -51,7 +51,9 @@ CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 GEMINI.md
-.claude/
+.claude/*
+!.claude/agents/
+!.claude/agents/**
 .cursor/
 .cursorrules
 .windsurfrules
