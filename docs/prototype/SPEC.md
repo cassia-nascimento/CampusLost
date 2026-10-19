@@ -114,7 +114,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 - AC03.5 Sem resultado → estado vazio com ação de limpar filtros.
 
 **RF04**
-- AC04.1 Usuário comum vê "É meu" em item Disponível/Em reivindicação, exceto se já tiver reivindicação ativa ou recusada naquele item (explicar).
+- AC04.1 Usuário comum vê "É meu" em item Disponível/Em reivindicação, exceto se já tiver reivindicação ativa ou recusada naquele item, ou se o item já tiver uma reivindicação aceita (P14); o motivo é sempre explicado na tela.
 - AC04.2 Enviar reivindicação muda item Disponível → Em reivindicação.
 - AC04.3 Múltiplas reivindicações de usuários diferentes no mesmo item são permitidas.
 - AC04.4 Administração vê e analisa reivindicações pendentes.
@@ -165,3 +165,12 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P11 | Campo de período filtra por qual data? | Data em que o item foi encontrado | [Premissa] |
 | P12 | Busca por texto livre não consta no RF03 | Fora do escopo (só filtros) | [Premissa] |
 | P13 | Proposta prevê sprints de 2 semanas; decisões falam em 3 sprints semanais; prazo 27/10/2026 | Não afeta o protótipo; cronograma segue o Trello da equipe | informativo |
+| P14 | Pode haver novas reivindicações num item que já tem uma aceita? | Não: bloqueado até a devolução (evita duas aceitas) | [Premissa] (T02) |
+| P15 | Reivindicação aceita pode ser desfeita/recusada depois? | Não; o item só sai de Em reivindicação pela devolução | [Premissa] (T02) |
+| P16 | "Mais recentes primeiro" ordena por quê? | Data de registro do item (item novo vai ao topo); ordenar por data encontrada é opcional. Período da busca filtra pela data encontrada (P11); período de devoluções filtra pela data da devolução | [Premissa] (T02) |
+| P17 | Fila de pendentes da administração | Da mais antiga para a mais nova | [Premissa] (T02) |
+| P18 | Excluir item com reivindicações | Remove também as reivindicações (somem de "Minhas reivindicações") | [Premissa] (T02) |
+| P19 | Destinatário da devolução | A autora/o autor da reivindicação aceita; sem campo livre | [Premissa] (T02) |
+| P20 | Itens do seed e fotos | Seed sem fotos (UI usa placeholder); senhas não existem no protótipo | [Premissa] (T02) |
+
+Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.
