@@ -71,8 +71,6 @@ const TOP_LEVEL_PATHS = new Set([
   "/minhas-reivindicacoes",
   "/admin",
   "/admin/devolucoes",
-  // TEMP T04 — página de verificação em "/"; sai na T05 (vira redirecionamento).
-  "/",
 ]);
 
 export function isTopLevelPath(pathname: string): boolean {
