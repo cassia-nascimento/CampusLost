@@ -4,5 +4,5 @@ export const CONTROL_CLASSES =
   "hover:border-ink-muted " +
   "focus-visible:border-primary focus-visible:shadow-[inset_0_0_0_1px_var(--color-primary)] " +
   "aria-invalid:border-danger-border aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger-border)] " +
-  "read-only:border-transparent read-only:bg-disabled-bg " +
+  "[&[readonly]]:border-transparent [&[readonly]]:bg-disabled-bg " +
   "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-fg";

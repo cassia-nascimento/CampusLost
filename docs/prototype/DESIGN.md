@@ -321,7 +321,7 @@ Base comum: altura 48 px (`touch-target-lg`), `px-3.5`, `rounded-md`, fundo `sur
 - **Select:** `<select>` **nativo** (seletor de sistema no celular é mais rápido e acessível que menu customizado), `appearance: none` + `ChevronDown` 20 px à direita; opção vazia "Selecione…" só quando o campo é obrigatório e sem padrão.
 - **Textarea:** altura mínima 112 px (≈ 4 linhas), `resize-y`; contador "0/500" em `text-meta` `ink-subtle` aparece a partir de 80 % do limite.
 - **Data:** `<input type="date">` nativo; `max` = hoje no registro; formato exibido do SO (dd/mm/aaaa).
-- **FileInput (foto):** botão `secondary` "Adicionar foto" (`ImagePlus`) que aciona `<input type="file" accept="image/jpeg,image/png,image/webp">` (sem `capture`: o celular oferece câmera **ou** galeria). Selecionada: pré-visualização 4:3 (largura 100 %, máx. 20 rem), nome do arquivo e dois botões `ghost` "Trocar foto" / "Remover foto" (44 px). Erros de tipo/tamanho aparecem como erro de campo. **Limite proposto: 2 MB (JPG/PNG/WebP)** — [Premissa]; ver risco em §12 (R2). Foto é sempre opcional (SPEC P6).
+- **FileInput (foto):** botão `secondary` "Adicionar foto" (`ImagePlus`) que aciona `<input type="file" accept="image/jpeg,image/png,image/webp">` (sem `capture`: o celular oferece câmera **ou** galeria). Selecionada: pré-visualização 4:3 (largura 100 %, máx. 20 rem), nome do arquivo e dois botões `ghost` "Trocar foto" / "Remover foto" (44 px). Erros de tipo/tamanho aparecem como erro de campo. **Limite adotado: 10 MB de entrada (JPG/PNG/WebP), reduzida automaticamente no cliente para ≤ 640 px** — [Premissa]; fotos de celular costumam passar de 2 MB; ver risco em §12 (R2). Foto é sempre opcional (SPEC P6).
 
 ### 6.3 Field (rótulo + ajuda + erro)
 
@@ -617,7 +617,7 @@ Desktop (≥ 1024): foto à esquerda (≈ 5/12), coluna de dados à direita; bot
 |                                        |
 |  Foto (opcional)                       |
 |  [ 📷 Adicionar foto ]  JPG, PNG ou    |
-|                         WebP, até 2 MB |
+|                         WebP, até 10 MB |
 |                                        |
 |  O que foi encontrado?                 |
 |  ( Garrafa térmica*                  ) |
@@ -901,8 +901,8 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Aviso antifraude | Não escreva na descrição detalhes que só o dono saberia (número de série, conteúdo, marcas). Eles serão perguntados na reivindicação. |
 | Rótulos | Foto (opcional) · O que foi encontrado? · Descrição · Categoria · Onde foi encontrado? · Quando foi encontrado? · Onde está guardado agora? |
 | Ajudas | Ex.: Garrafa térmica, Chaveiro, Fone de ouvido · Cor, tamanho, estado. · Para o dono saber onde retirar. |
-| Foto | Adicionar foto · Trocar foto · Remover foto · JPG, PNG ou WebP, até 2 MB |
-| Erros | Informe o que foi encontrado. · Descreva o item. · Escolha uma categoria. · Escolha onde foi encontrado. · A data não pode ser no futuro. · Informe onde o item está guardado. · Formato não aceito. Use JPG, PNG ou WebP. · A foto passa de 2 MB. Escolha uma menor. |
+| Foto | Adicionar foto · Trocar foto · Remover foto · JPG, PNG ou WebP, até 10 MB |
+| Erros | Informe o que foi encontrado. · Descreva o item. · Escolha uma categoria. · Escolha onde foi encontrado. · A data não pode ser no futuro. · Informe onde o item está guardado. · Formato não aceito. Use JPG, PNG ou WebP. · A foto passa de 10 MB. Escolha uma menor. |
 | Botões | Registrar item · Salvar alterações · Cancelar · Excluir item |
 | Toasts | Item registrado. Ele já aparece na busca. · Alterações salvas. · Item excluído. |
 | Excluir (diálogo) | **Excluir este item?** "{título}" será removido da busca. Esta ação não pode ser desfeita. (+ "As {n} reivindicações ligadas a ele também serão removidas.") |
@@ -961,7 +961,7 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 | # | Problema | Por que importa | Proposta adotada neste design |
 |---|---|---|---|
 | R1 | A descrição **pública** do item pode revelar o detalhe que o dono usaria para provar posse (SPEC P7) — o fraudador só copia. | Enfraquece a validação por perguntas. | Aviso antifraude no formulário de registro (§9.5); a reivindicação pede o que **não** está na descrição (§9.6). Sem mudança de regra. |
-| R2 | Foto é guardada como `photoDataUrl` em `localStorage` (quota típica de ~5 MB). Fotos de celular têm 3–10 MB. | O armazenamento estoura e o app quebra silenciosamente. | Limite de 2 MB **e** redução no cliente (lado maior ≤ 1280 px, JPEG ≈ 0,8) antes de salvar — pedido ao `frontend-engineer`/`mock-engineer`; erro claro se ainda assim estourar a quota. |
+| R2 | Foto é guardada como `photoDataUrl` em `localStorage` (quota típica de ~5 MB). Fotos de celular têm 3–10 MB. | O armazenamento estoura e o app quebra silenciosamente. | Limite de 10 MB de entrada **e** redução obrigatória no cliente (lado maior ≤ 640 px, JPEG) antes de salvar — pedido ao `frontend-engineer`/`mock-engineer`; erro claro se ainda assim estourar a quota. |
 | R3 | Recusa **sem motivo** e sem reenvio (SPEC §4/AC04.7) deixa a pessoa sem saída. | Frustração e retrabalho presencial. | Texto orienta a procurar a administração (§10); campo de motivo fica como sugestão futura (não incluído). |
 | R4 | A SPEC não diz o que acontece com as **reivindicações** ao excluir um item. | Pode deixar reivindicação órfã ou apagar histórico sem aviso. | Premissa de design: exclusão remove as reivindicações do item e o diálogo avisa a contagem. **Registrar como P14 e alinhar com `mock-engineer`.** |
 | R5 | O filtro de período do **usuário** usa a data em que o item foi *encontrado* (P11), mas a listagem de **devoluções** (admin) não tem data de achado óbvia. | Rótulo ambíguo ("período de quê?"). | Rótulos explícitos: "Encontrado de/até" na busca; "Devolvido de/até" em devoluções (data de `returnedAt`). **Confirmar com o orquestrador** — se preferirem filtrar devoluções pela data do achado, só muda o rótulo. |

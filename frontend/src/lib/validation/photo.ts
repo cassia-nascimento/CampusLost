@@ -1,6 +1,6 @@
 /** Limites da foto do item (AC02.2). A foto é opcional (P6). */
 export const PHOTO_ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 export const PHOTO_MAX_DIMENSION = 640;
 export const PHOTO_ACCEPT_ATTR = PHOTO_ACCEPTED_TYPES.join(",");
 
