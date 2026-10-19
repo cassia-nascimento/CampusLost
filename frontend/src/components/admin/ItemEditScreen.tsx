@@ -37,7 +37,7 @@ export function ItemEditScreen({ itemId }: { itemId: string }) {
     await services.items.update(itemId, input);
     setLeaving(true);
     toast.success("Alterações salvas.");
-    router.push(`/itens/${itemId}`);
+    router.replace(`/itens/${itemId}`);
   }
 
   async function remove() {

@@ -3,20 +3,25 @@ import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
 import { toLocalDateString, isFutureDate } from "@/lib/rules/dates";
 import { boundedText, emptyToUndefined, isoDate } from "./common";
 
+/** Limites de tamanho dos textos do item; os `maxLength` dos formulários usam estas constantes. */
+export const ITEM_TITLE_MAX = 80;
+export const ITEM_DESCRIPTION_MAX = 500;
+export const ITEM_STORED_AT_MAX = 120;
+
 /**
  * Schema do item (RF02). A data não pode ser futura: `getToday` devolve o dia local de referência.
  * Os valores de categoria/local vêm do módulo de dados demonstrativos.
  */
 export function createItemSchema(getToday: () => string = () => toLocalDateString(new Date())) {
   return z.object({
-    title: boundedText("um título", 3, 80),
-    description: boundedText("uma descrição", 10, 500),
+    title: boundedText("um título", 3, ITEM_TITLE_MAX),
+    description: boundedText("uma descrição", 10, ITEM_DESCRIPTION_MAX),
     category: z.enum(DEMO_CATEGORIES, { error: "Escolha uma categoria." }),
     foundLocation: z.enum(DEMO_LOCATIONS, { error: "Escolha o local onde foi encontrado." }),
     foundDate: isoDate.refine((d) => !isFutureDate(d, getToday()), {
       error: "A data não pode ser no futuro.",
     }),
-    storedAt: boundedText("onde o item está guardado", 3, 120),
+    storedAt: boundedText("onde o item está guardado", 3, ITEM_STORED_AT_MAX),
   });
 }
 export const itemSchema = createItemSchema();

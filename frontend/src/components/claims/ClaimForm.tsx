@@ -11,12 +11,9 @@ import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/hooks/use-toast";
-import { claimSchema, type ClaimFormValues } from "@/lib/validation";
+import { CLAIM_PROOF_MAX, CLAIM_WHERE_WHEN_MAX, claimSchema, type ClaimFormValues } from "@/lib/validation";
 import { services } from "@/services";
 import { isServiceError, type ItemStatus } from "@/types/domain";
-
-const PROOF_MAX = 500;
-const WHERE_WHEN_MAX = 300;
 
 /** Erros que significam "o estado do item mudou e você não pode mais reivindicar" (a regra é do serviço). */
 const BLOCKING_CODES = ["DUPLICATE_CLAIM", "CLAIM_BLOCKED", "ITEM_RETURNED", "FORBIDDEN"];
@@ -105,7 +102,7 @@ export function ClaimForm({ itemId, itemStatus, onSent, onBlocked }: ClaimFormPr
           hint="Ex.: marcas, riscos, objetos dentro, capa. Não repita a descrição pública."
           error={errors.proofDetails?.message}
         >
-          <Textarea maxLength={PROOF_MAX} currentLength={proofLength} {...register("proofDetails")} />
+          <Textarea maxLength={CLAIM_PROOF_MAX} currentLength={proofLength} {...register("proofDetails")} />
         </Field>
 
         <Field
@@ -113,7 +110,7 @@ export function ClaimForm({ itemId, itemStatus, onSent, onBlocked }: ClaimFormPr
           hint="Ex.: Biblioteca, na terça à tarde."
           error={errors.lostWhereWhen?.message}
         >
-          <Input maxLength={WHERE_WHEN_MAX} autoComplete="off" {...register("lostWhereWhen")} />
+          <Input maxLength={CLAIM_WHERE_WHEN_MAX} autoComplete="off" {...register("lostWhereWhen")} />
         </Field>
 
         <Notice tone="info">

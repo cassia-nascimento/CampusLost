@@ -1,50 +1,41 @@
+import { getClaimMessages, returnedItemNotice } from "@/components/claims/claim-messages";
 import { LinkButton } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
-import { formatInstantDate } from "@/lib/format";
+import type { Tone } from "@/components/ui/tones";
 import type { ItemDetail } from "@/services";
-import type { Claim } from "@/types/domain";
+import type { Claim, ClaimStatus } from "@/types/domain";
 
 const MY_CLAIMS_HREF = "/minhas-reivindicacoes";
 
-function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) {
-  const { item } = detail;
-  const returned = item.status === "returned";
-  const action = (
-    <LinkButton href={MY_CLAIMS_HREF} variant="secondary">
-      Ver minha reivindicação
-    </LinkButton>
-  );
+const CLAIM_NOTICE_TONE: Record<ClaimStatus, Tone> = { pending: "info", accepted: "success", rejected: "danger" };
 
-  switch (claim.status) {
-    case "pending":
-      return (
-        <Notice tone="info" title="Reivindicação pendente" action={action}>
-          Você já reivindicou este item. Acompanhe em Minhas reivindicações.
-        </Notice>
-      );
-    case "accepted":
-      return (
-        <Notice tone="success" title="Reivindicação aceita" action={action}>
-          {returned
-            ? "Sua reivindicação foi aceita e a devolução foi registrada."
-            : `Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em ${item.storedAt}.`}
-        </Notice>
-      );
-    case "rejected":
-      return (
-        <Notice tone="danger" title="Reivindicação recusada" action={action}>
-          {returned
-            ? "Sua reivindicação foi recusada."
-            : "Sua reivindicação foi recusada e não é possível enviar outra para este item. Se acha que foi engano, procure a administração."}
-        </Notice>
-      );
-  }
+function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) {
+  const { item, returnRecord } = detail;
+  const message = getClaimMessages({
+    claimStatus: claim.status,
+    itemStatus: item.status,
+    storedAt: item.storedAt,
+    returnedAt: returnRecord?.returnedAt,
+  });
+  return (
+    <Notice
+      tone={CLAIM_NOTICE_TONE[claim.status]}
+      title={message.noticeTitle}
+      action={
+        <LinkButton href={MY_CLAIMS_HREF} variant="secondary">
+          Ver minha reivindicação
+        </LinkButton>
+      }
+    >
+      {message.notice}
+    </Notice>
+  );
 }
 
 /**
  * Avisos do detalhe (DESIGN §9.4), sempre a partir do que o serviço decidiu (`detail.viewer`) e do estado
  * do item: devolvido (somente leitura), a reivindicação da própria pessoa ou o motivo de não poder
- * reivindicar. Não decide permissão nenhuma — só explica.
+ * reivindicar. Não decide permissão nenhuma — só explica. Os textos da reivindicação vêm de `claim-messages`.
  */
 export function ItemViewerNotices({ detail }: { detail: ItemDetail }) {
   const { item, myClaims, viewer, returnRecord } = detail;
@@ -55,10 +46,7 @@ export function ItemViewerNotices({ detail }: { detail: ItemDetail }) {
     <>
       {returned ? (
         <Notice tone="neutral" title="Item devolvido">
-          {returnRecord
-            ? `Este item já foi devolvido em ${formatInstantDate(returnRecord.returnedAt)}.`
-            : "Este item já foi devolvido."}{" "}
-          Ele não aparece mais na busca e fica somente para leitura.
+          {returnedItemNotice(returnRecord?.returnedAt)} Ele não aparece mais na busca e fica somente para leitura.
         </Notice>
       ) : null}
 

@@ -15,6 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { toLocalDateString } from "@/lib/rules";
 import {
   createItemSchema,
+  ITEM_DESCRIPTION_MAX,
+  ITEM_STORED_AT_MAX,
+  ITEM_TITLE_MAX,
   PHOTO_ACCEPT_ATTR,
   PHOTO_MAX_BYTES,
   validatePhotoFile,
@@ -244,11 +247,11 @@ export function ItemForm({
         hint="Ex.: Garrafa térmica, Chaveiro, Fone de ouvido"
         error={errors.title?.message}
       >
-        <Input {...register("title")} maxLength={80} autoComplete="off" />
+        <Input {...register("title")} maxLength={ITEM_TITLE_MAX} autoComplete="off" />
       </Field>
 
       <Field label="Descrição" hint="Cor, tamanho, estado." error={errors.description?.message}>
-        <Textarea {...register("description")} maxLength={500} currentLength={description.length} />
+        <Textarea {...register("description")} maxLength={ITEM_DESCRIPTION_MAX} currentLength={description.length} />
       </Field>
 
       <Field label="Categoria" error={errors.category?.message}>
@@ -285,7 +288,7 @@ export function ItemForm({
         hint="Para o dono saber onde retirar."
         error={errors.storedAt?.message}
       >
-        <Input {...register("storedAt")} maxLength={120} placeholder="Ex.: Portaria" autoComplete="off" />
+        <Input {...register("storedAt")} maxLength={ITEM_STORED_AT_MAX} placeholder="Ex.: Portaria" autoComplete="off" />
       </Field>
 
       {children}

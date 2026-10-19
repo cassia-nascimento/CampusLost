@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
 import type { User, UserRole } from "@/types/domain";
@@ -38,6 +39,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       services.auth.getCurrentUser().then(
         (current) => {
           if (read !== latestRead.current) return;
+          if (!current) forgetItemsSearch(); // sem sessão (saiu, ou a demonstração foi reiniciada)
           setUser(current);
           setStatus("ready");
         },
@@ -69,6 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         await services.auth.signOut();
         latestRead.current++;
+        forgetItemsSearch(); // a próxima pessoa não herda os filtros desta
         setUser(null);
       },
     }),
