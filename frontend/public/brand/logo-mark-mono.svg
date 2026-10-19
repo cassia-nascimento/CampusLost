@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CampusLost">
+  <title>CampusLost</title>
+  <!-- Versão monocromática: usa currentColor; o "C" é vazado por máscara (funciona sobre qualquer fundo). -->
+  <defs>
+    <mask id="cl-c" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <path fill="none" stroke="#000" stroke-width="5" stroke-linecap="round" d="M43.2 30.4A11.5 11.5 0 1 0 43.2 45.6"/>
+    </mask>
+  </defs>
+  <path fill="currentColor" fill-rule="evenodd" mask="url(#cl-c)" d="M22 6H52a6 6 0 0 1 6 6V52a6 6 0 0 1-6 6H12a6 6 0 0 1-6-6V22ZM21 16.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/>
+</svg>

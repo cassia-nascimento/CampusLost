@@ -1,26 +1,417 @@
 @import "tailwindcss";
 
+/*
+  CampusLost — tokens do design system.
+  Fonte de verdade da explicação: docs/prototype/DESIGN.md (razões de contraste, uso, componentes).
+
+  Regras:
+  - Nenhuma cor, raio, sombra ou tamanho de texto fora destes tokens.
+  - A paleta padrão do Tailwind foi REMOVIDA de propósito (`--color-*: initial`):
+    classes como `bg-blue-500` ou `text-white` não existem aqui. Use os nomes semânticos
+    (bg-surface, text-ink, text-on-primary, border-line-strong, ...).
+  - Fontes auto-hospedadas via @fontsource-variable (importadas no layout.tsx, ver DESIGN.md §3).
+    Nunca next/font/google.
+*/
+
+@theme {
+  /* ------------------------------------------------------------------ */
+  /* Cores                                                               */
+  /* ------------------------------------------------------------------ */
+  --color-*: initial;
+
+  /* Superfícies (papel quente, não branco puro: reduz ofuscamento ao ar livre) */
+  --color-paper: #f6f4ef; /* fundo da página */
+  --color-surface: #ffffff; /* cards, campos, diálogos */
+  --color-sunken: #ebe8df; /* áreas rebaixadas: placeholder de foto, abas, skeleton base */
+  --color-line: #d8d4c8; /* divisores decorativos (NÃO usar como borda de controle) */
+  --color-line-strong: #7c8580; /* borda de controles: >= 3:1 (WCAG 1.4.11) */
+
+  /* Texto */
+  --color-ink: #1a2321;
+  --color-ink-muted: #46524e;
+  --color-ink-subtle: #58645f; /* apoio/placeholder; só sobre paper, surface ou sunken */
+
+  /* Marca: "petróleo" */
+  --color-primary: #0b5563;
+  --color-primary-hover: #084553;
+  --color-primary-pressed: #06384a;
+  --color-primary-soft: #e4f1f2;
+  --color-primary-softer: #cbe4e7;
+  --color-on-primary: #ffffff;
+
+  /* Foco */
+  --color-focus: #0b5563;
+  --color-focus-on-dark: #f6f4ef;
+
+  /* Ação destrutiva (botão sólido) */
+  --color-danger-solid: #b42318;
+  --color-danger-solid-hover: #8f1b12;
+  --color-on-danger: #ffffff;
+
+  /* Tons semânticos (fg = texto/ícone, bg = fundo, border = contorno >= 3:1 sobre o bg) */
+  --color-success-fg: #14613a;
+  --color-success-bg: #e0f2e6;
+  --color-success-border: #2e8b57;
+
+  --color-warning-fg: #764200;
+  --color-warning-bg: #fbebc6;
+  --color-warning-border: #b97500;
+
+  --color-danger-fg: #9a1b1b;
+  --color-danger-bg: #fbe1de;
+  --color-danger-border: #c0392b;
+
+  --color-neutral-fg: #37444f;
+  --color-neutral-bg: #e3e8ec;
+  --color-neutral-border: #5c6b78;
+
+  --color-info-fg: #084553;
+  --color-info-bg: #e4f1f2;
+  --color-info-border: #3f8591;
+
+  /* Utilitários visuais */
+  --color-disabled-bg: #ebe8df;
+  --color-disabled-fg: #58645f;
+  --color-scrim: rgb(26 35 33 / 0.55);
+  --color-skeleton: #e2ded2;
+  --color-skeleton-hi: #eeebe3;
+
+  /* ------------------------------------------------------------------ */
+  /* Tipografia                                                          */
+  /* ------------------------------------------------------------------ */
+  /*
+    `--font-sans-local` / `--font-display-local` são ganchos opcionais: se o frontend preferir
+    next/font/local, basta definir essas variáveis no <html>. Sem elas, vale a família do
+    pacote @fontsource-variable/* (nomes "Public Sans Variable" / "Bricolage Grotesque Variable").
+  */
+  --font-sans:
+    var(--font-sans-local, "Public Sans Variable"), "Public Sans", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    var(--font-display-local, "Bricolage Grotesque Variable"), "Bricolage Grotesque",
+    var(--font-sans-local, "Public Sans Variable"), "Public Sans", ui-sans-serif, system-ui,
+    sans-serif;
+
+  /* Nenhum texto abaixo de 14 px (uso em pé, ao ar livre). */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.45;
+
+  /* Escala semântica (preferir estas) */
+  --text-meta: 0.875rem; /* 14 — metadados, badges, ajuda */
+  --text-meta--line-height: 1.45;
+  --text-body: 1rem; /* 16 — corpo e campos (>= 16 evita zoom do iOS) */
+  --text-body--line-height: 1.5;
+  --text-lead: 1.125rem; /* 18 — destaque, título de card */
+  --text-lead--line-height: 1.4;
+  --text-h3: 1.25rem; /* 20 */
+  --text-h3--line-height: 1.3;
+  --text-h2: clamp(1.375rem, 1.25rem + 0.6vw, 1.625rem); /* 22 → 26 */
+  --text-h2--line-height: 1.25;
+  --text-h1: clamp(1.75rem, 1.45rem + 1.2vw, 2.25rem); /* 28 → 36 */
+  --text-h1--line-height: 1.15;
+  --text-display: clamp(2.125rem, 1.6rem + 2.2vw, 3rem); /* 34 → 48 (só /entrar e /cadastro) */
+  --text-display--line-height: 1.08;
+
+  /* ------------------------------------------------------------------ */
+  /* Raios e sombras                                                     */
+  /* ------------------------------------------------------------------ */
+  --radius-*: initial;
+  --radius-sm: 0.375rem; /* 6  — chips pequenos, skeleton */
+  --radius-md: 0.625rem; /* 10 — botões, campos */
+  --radius-lg: 0.875rem; /* 14 — cards */
+  --radius-xl: 1.25rem; /* 20 — diálogos, bottom sheet (topo) */
+  --radius-full: 9999px; /* badges, chips, avatar */
+
+  --shadow-*: initial;
+  --shadow-card: 0 1px 2px rgb(26 35 33 / 0.07), 0 0 0 1px rgb(26 35 33 / 0.04);
+  --shadow-raised: 0 6px 16px -4px rgb(26 35 33 / 0.14), 0 2px 4px rgb(26 35 33 / 0.06);
+  --shadow-overlay: 0 20px 44px -10px rgb(26 35 33 / 0.3), 0 4px 10px rgb(26 35 33 / 0.1);
+  --shadow-bar: 0 -1px 0 rgb(26 35 33 / 0.08), 0 -6px 14px -8px rgb(26 35 33 / 0.18);
+
+  /* ------------------------------------------------------------------ */
+  /* Larguras de conteúdo (max-w-form, max-w-page, max-w-admin)          */
+  /* ------------------------------------------------------------------ */
+  --container-form: 40rem; /* 640 — formulários e leitura */
+  --container-page: 72rem; /* 1152 — busca e detalhe */
+  --container-admin: 80rem; /* 1280 — painel e análise lado a lado */
+
+  /* Movimento */
+  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Tokens não mapeados a utilitários do Tailwind */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --size-touch: 2.75rem; /* 44 px — mínimo de qualquer alvo de toque (AC07.2) */
+  --size-touch-lg: 3rem; /* 48 px — ações principais (uso com uma mão) */
+  --header-h: 3.5rem; /* 56 px */
+  --bottomnav-h: 4rem; /* 64 px, + safe-area */
+  --gutter: 1rem; /* 16 px a 360 px */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@media (min-width: 48rem) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --gutter: 1.5rem;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (min-width: 64rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
+/* ==================================================================== */
+/* Base                                                                 */
+/* ==================================================================== */
+@layer base {
+  :root {
+    color-scheme: light; /* tema escuro fora do escopo do protótipo (DESIGN.md §2.6) */
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--header-h) + 1rem);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    font-optical-sizing: auto;
+    overflow-wrap: break-word; /* título longo nunca gera rolagem horizontal a 360 px */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+  }
+
+  h3 {
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    font-weight: 650;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Formulários: herdam a fonte; 16 px evita zoom automático no iOS */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-subtle);
+    opacity: 1;
+  }
+
+  ::selection {
+    background-color: var(--color-primary-softer);
+    color: var(--color-ink);
+  }
+
+  input,
+  select,
+  textarea,
+  progress {
+    accent-color: var(--color-primary);
+  }
+
+  /* Foco visível, sempre (AC08.1). Anel de 3 px + folga de 2 px: razão >= 6,8:1 sobre qualquer superfície. */
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  /* Superfícies escuras (ex.: toast): anel claro */
+  [data-surface="dark"]:focus-visible,
+  [data-surface="dark"] :focus-visible {
+    outline-color: var(--color-focus-on-dark);
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Diálogo nativo e bottom sheet */
+  dialog::backdrop {
+    background-color: var(--color-scrim);
+  }
+
+  body:has(dialog[open]) {
+    overflow: hidden; /* trava rolagem do fundo */
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline-color: Highlight;
+    }
+  }
+}
+
+/* ==================================================================== */
+/* Utilitários do design system                                         */
+/* ==================================================================== */
+
+/* Alvo de toque mínimo de 44 px (AC07.2) */
+@utility touch-target {
+  min-height: var(--size-touch);
+  min-width: var(--size-touch);
+}
+
+/* Alvo de 48 px para ações principais (polegar, uma mão) */
+@utility touch-target-lg {
+  min-height: var(--size-touch-lg);
+  min-width: var(--size-touch-lg);
+}
+
+/* Áreas seguras de aparelhos com notch / barra de gestos */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Reserva espaço para o BottomNav fixo no fim do conteúdo */
+@utility pb-bottomnav {
+  padding-bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+/* Margem lateral responsiva (16 / 24 / 32 px) */
+@utility px-gutter {
+  padding-inline: var(--gutter);
+}
+
+/* Link em texto corrido: cor + sublinhado (cor nunca é o único sinal) */
+@utility link {
+  color: var(--color-primary);
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.2em;
+  &:hover {
+    color: var(--color-primary-hover);
+    text-decoration-thickness: 0.14em;
+  }
+  &:active {
+    color: var(--color-primary-pressed);
+  }
+}
+
+/* Números alinhados (datas, contagens) */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skeleton: bloco cinza com brilho suave; vira estático com movimento reduzido */
+@utility skeleton {
+  background-color: var(--color-skeleton);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-skeleton) 0%,
+    var(--color-skeleton-hi) 50%,
+    var(--color-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: skeleton-shimmer 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Recorte "etiqueta" (canto superior esquerdo chanfrado): motivo da marca.
+   Usar em placeholder de foto, ícone de EmptyState e painel da tela de entrada.
+   Combina com border-radius (os outros três cantos continuam arredondados). */
+@utility tag-shape {
+  clip-path: polygon(26% 0, 100% 0, 100% 100%, 0 100%, 0 26%);
+}
+
+/* Entrada do bottom sheet / diálogo / toast */
+@keyframes cl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cl-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility animate-rise {
+  animation: cl-rise var(--motion-base) var(--ease-standard) both;
+}
+
+@utility animate-fade {
+  animation: cl-fade var(--motion-base) var(--ease-standard) both;
 }
