@@ -23,7 +23,7 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
     <Link
       href={`/itens/${item.id}`}
       className={cn(
-        "flex min-h-30 flex-wrap gap-3 rounded-lg bg-surface p-3 shadow-card transition-shadow",
+        "flex min-h-30 min-w-0 flex-wrap gap-3 rounded-lg bg-surface p-3 shadow-card transition-shadow",
         "hover:shadow-raised active:bg-paper",
         "sm:h-full sm:flex-col sm:flex-nowrap sm:gap-0 sm:overflow-hidden sm:p-0",
         className,
@@ -37,12 +37,12 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
         className="size-24 shrink-0 rounded-md sm:h-auto sm:w-full sm:aspect-[4/3] sm:rounded-none"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:p-4">
-        <h2 className="line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
+        <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
         <div>
           <ItemStatusBadge status={item.status} />
         </div>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-subtle">
-          <span className="inline-flex items-center gap-1">
+          <span className="user-text inline-flex items-center gap-1">
             <MapPin aria-hidden="true" className="size-4 shrink-0" />
             {item.foundLocation}
           </span>

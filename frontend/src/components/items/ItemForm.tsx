@@ -125,6 +125,9 @@ export function ItemForm({
   const [formError, setFormError] = useState<{ message: string } | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const photoRef = useRef<HTMLDivElement>(null);
+  // Trava síncrona contra envio duplo: `status` só muda na próxima renderização, e dois disparos no mesmo
+  // instante (D7) chegariam os dois a `onSubmit`.
+  const submittingRef = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -195,13 +198,17 @@ export function ItemForm({
   }
 
   async function submit(values: ItemFormValues) {
-    if (status !== "idle") return;
+    if (submittingRef.current || status !== "idle") return;
+    submittingRef.current = true;
     setStatus("saving");
     setFormError(null);
     try {
       await onSubmit(photo === undefined ? values : { ...values, photo });
       setStatus(stayAfterSuccess ? "idle" : "done");
+      // Com `done` a trava continua: a página navega a seguir e não pode haver um segundo envio.
+      if (stayAfterSuccess) submittingRef.current = false;
     } catch (cause) {
+      submittingRef.current = false;
       setStatus("idle");
       handleFailure(cause);
     }

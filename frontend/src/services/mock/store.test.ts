@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMockServices } from "./index";
 import { createDelay } from "./latency";
 import { fitWithin } from "./photo";
 import { createDefaultStorage, createMemoryStorage, type KeyValueStorage } from "./storage";
@@ -277,5 +278,63 @@ describe("foto", () => {
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile("a.gif", "image/gif") }), "PHOTO_INVALID");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile("a.jpg", "image/jpeg", 6 * 1024 * 1024) }), "PHOTO_INVALID");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile() }), "PHOTO_INVALID"); // node: sem canvas
+  });
+});
+
+describe("store: persistência declarada (demo.persistence)", () => {
+  function fakeStorage() {
+    const backing = new Map<string, string>();
+    return {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: (k: string, v: string) => void backing.set(k, v),
+      removeItem: (k: string) => void backing.delete(k),
+    };
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("memória (sem navegador) é volátil; armazenamento que não informa é tratado como durável", () => {
+    expect(createMemoryStorage().isDurable?.()).toBe(false);
+    expect(createDefaultStorage().isDurable?.()).toBe(false); // node: sem window
+    expect(createHarness().services.demo.persistence()).toBe("volatile");
+    const unknown = createHarness({ storage: fakeStorage() });
+    expect(unknown.services.demo.persistence()).toBe("durable");
+  });
+
+  it("com localStorage disponível é durável", () => {
+    vi.stubGlobal("window", { localStorage: fakeStorage(), sessionStorage: fakeStorage() });
+    const svc = createMockServices({ latency: 0 });
+    expect(svc.demo.persistence()).toBe("durable");
+  });
+
+  it("com localStorage bloqueado é volátil, mas o app segue funcionando em memória", async () => {
+    vi.stubGlobal("window", {
+      get localStorage(): Storage {
+        throw new DOMException("blocked", "SecurityError");
+      },
+      sessionStorage: fakeStorage(),
+    });
+    const svc = createMockServices({ latency: 0 });
+    expect(svc.demo.persistence()).toBe("volatile");
+    await svc.auth.signInAsDemo("student");
+    expect((await svc.items.list()).length).toBeGreaterThan(5);
+  });
+
+  it("a mensagem de cota cheia não manda reduzir a foto (todas já são redimensionadas)", async () => {
+    const memory = createMemoryStorage();
+    const storage: KeyValueStorage = {
+      getItem: (k) => memory.getItem(k),
+      removeItem: (k) => memory.removeItem(k),
+      setItem: (k, v) => {
+        if (k === DB_KEY && v.includes("Chaveiro de cota")) throw new DOMException("quota", "QuotaExceededError");
+        memory.setItem(k, v);
+      },
+    };
+    const h = createHarness({ storage });
+    await h.services.auth.signInAsDemo("student");
+    const error = await expectCode(h.services.items.create({ ...validItem, title: "Chaveiro de cota" }), "STORAGE_FULL");
+    expect(error.message).not.toMatch(/foto menor/i);
+    expect(error.message).toMatch(/Reiniciar demonstração/);
+    expect(error.message).toMatch(/sem ela/);
   });
 });

@@ -197,7 +197,7 @@ function ReviewContent({
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <Panel title="O que foi publicado">
           {item.photoDataUrl ? (
             <>
@@ -226,7 +226,7 @@ function ReviewContent({
           />
           <div>
             <p className="text-meta text-ink-subtle">Descrição pública</p>
-            <p className="mt-0.5 text-body break-words whitespace-pre-wrap">{item.description}</p>
+            <p className="user-text mt-0.5 text-body whitespace-pre-wrap">{item.description}</p>
           </div>
           <div className="-ml-4 flex flex-wrap gap-1">
             <LinkButton href={withOrigin(`/itens/${item.id}`, `/admin/reivindicacoes/${claim.id}`)} variant="ghost">
@@ -242,8 +242,8 @@ function ReviewContent({
 
         <Panel title="O que a pessoa respondeu">
           <div>
-            <p className="text-lead font-semibold">{claim.claimant.name}</p>
-            <p className="mt-0.5 text-meta break-all text-ink-muted">{claim.claimant.email}</p>
+            <p className="user-text text-lead font-semibold">{claim.claimant.name}</p>
+            <p className="user-text mt-0.5 text-meta text-ink-muted">{claim.claimant.email}</p>
             <p className="mt-0.5 text-meta text-ink-subtle">
               Papel informado no cadastro: {ROLE_LABEL[claim.claimant.role]}
             </p>
@@ -409,7 +409,7 @@ function DecisionNotice({
 function ItemHeading({ title, status }: { title: string; status: ItemStatus }) {
   return (
     <div className="min-w-0">
-      <h3 className="font-sans text-lead font-semibold tracking-normal break-words">{title}</h3>
+      <h3 className="user-text font-sans text-lead font-semibold tracking-normal">{title}</h3>
       <div className="mt-2">
         <ItemStatusBadge status={status} />
       </div>
@@ -419,7 +419,7 @@ function ItemHeading({ title, status }: { title: string; status: ItemStatus }) {
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-5 rounded-lg bg-surface p-4 shadow-card md:p-5">
+    <section className="flex min-w-0 flex-col gap-5 rounded-lg bg-surface p-4 shadow-card md:p-5">
       <h2 className="text-meta font-semibold tracking-wide text-ink-subtle uppercase">{title}</h2>
       {children}
     </section>
@@ -430,7 +430,7 @@ function Answer({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <p className="text-meta text-ink-subtle">{label}</p>
-      <p className="mt-1 rounded-md bg-paper p-3 text-body break-words whitespace-pre-wrap">{children}</p>
+      <p className="user-text mt-1 rounded-md bg-paper p-3 text-body whitespace-pre-wrap">{children}</p>
     </div>
   );
 }
