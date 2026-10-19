@@ -25,9 +25,9 @@ export function createReturnService(ctx: MockContext): ReturnService {
   const { store } = ctx;
   return {
     register: (itemId) =>
-      ctx.run("returns.register", () =>
+      ctx.run("returns.register", (who) =>
         store.transaction((db) => {
-          const actor = requireUser(ctx, db, "register_return");
+          const actor = requireUser(db, who, "register_return");
           const item = findItem(db, itemId);
           const { item: nextItem, record } = registerReturn({
             actor,
@@ -43,9 +43,9 @@ export function createReturnService(ctx: MockContext): ReturnService {
       ),
 
     list: (period) =>
-      ctx.run("returns.list", () => {
+      ctx.run("returns.list", (who) => {
         const db = store.read();
-        requireUser(ctx, db, "view_returns");
+        requireUser(db, who, "view_returns");
         const parsed = parseInput(periodSchema, period ?? {});
         return sortReturns(filterReturnsByPeriod(db.returns, parsed)).map((r) => toView(db, r));
       }),

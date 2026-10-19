@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
 import { isActiveClaim } from "@/lib/rules";
-import { buildSeed } from "./seed";
+import { buildSeed, DEMO_DATA_NOTICE } from "./seed";
 import { TEST_NOW } from "./test-utils";
 
 describe("seed", () => {
@@ -45,6 +45,15 @@ describe("seed", () => {
       expect(DEMO_CATEGORIES).toContain(item.category);
       expect(DEMO_LOCATIONS).toContain(item.foundLocation);
     }
+  });
+
+  it("textos usam só locais do catálogo demonstrativo e há aviso de dados fictícios (S6)", () => {
+    expect(DEMO_DATA_NOTICE).toMatch(/fictícios/);
+    for (const item of db.items) {
+      expect([...DEMO_LOCATIONS, "Entregue ao dono"]).toContain(item.storedAt);
+    }
+    const text = db.claims.map((c) => `${c.proofDetails} ${c.lostWhereWhen}`).join(" ");
+    expect(text).not.toMatch(/\bsala\b|\bmesa\b|laborat|corredor/i);
   });
 
   it("é consistente com a máquina de estados", () => {

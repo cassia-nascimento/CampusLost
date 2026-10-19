@@ -70,6 +70,12 @@ export const processPhotoInBrowser: PhotoProcessor = async (file) => {
         dataUrl = canvas.toDataURL("image/jpeg", quality);
         if (dataUrl.length <= MAX_DATA_URL_LENGTH) break;
       }
+      if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+        throw new ServiceError(
+          "PHOTO_INVALID",
+          "A foto continua grande demais mesmo depois de reduzida. Escolha uma imagem mais simples ou menor.",
+        );
+      }
       return dataUrl;
     } finally {
       decoded.release();

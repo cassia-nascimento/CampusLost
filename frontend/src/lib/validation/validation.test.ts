@@ -140,6 +140,18 @@ describe("filtros", () => {
     expect(messages(periodSchema.safeParse({ from: "x" }))).toContain("Informe uma data válida.");
   });
 
+  it("mensagens pt-BR nos valores inválidos (I3)", () => {
+    const errors = toFieldErrors(
+      itemFiltersSchema.safeParse({ category: "Joias", location: "Lua", status: "returned", sort: "random" }).error!,
+    );
+    expect(errors).toEqual({
+      category: "Categoria inválida.",
+      location: "Local inválido.",
+      status: "Situação inválida.",
+      sort: "Ordenação inválida.",
+    });
+  });
+
   it("não aceita status Devolvido na busca", () => {
     expect(itemFiltersSchema.safeParse({ status: "returned" }).success).toBe(false);
   });

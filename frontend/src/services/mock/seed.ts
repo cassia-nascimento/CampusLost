@@ -1,9 +1,14 @@
 /**
  * Seed reproduzível do protótipo. TODOS os dados abaixo são fictícios e
- * demonstrativos (nomes, itens, locais). Datas são relativas a `now`.
+ * demonstrativos (nomes, itens, locais; ver `DEMO_DATA_NOTICE`). Os locais usados
+ * são apenas os do catálogo demonstrativo. Datas são relativas a `now`.
  */
 import type { Claim, Item, ReturnRecord, User, UserRole } from "@/types/domain";
 import { addDays, addHours, toLocalDateString } from "@/lib/rules/dates";
+
+/** Aviso para a interface: todo o conteúdo do seed é fictício. */
+export const DEMO_DATA_NOTICE =
+  "Dados fictícios de demonstração (pessoas, itens e locais); não representam o campus real.";
 
 export interface Db {
   /** Versão do formato persistido; muda junto com a chave do store. */
@@ -60,7 +65,7 @@ export function buildSeed(now: Date): Db {
       description: "Fones intra-auriculares brancos, com estojo de carregamento pequeno.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
-      storedAt: "Balcão da biblioteca",
+      storedAt: "Biblioteca",
       status: "available",
       createdById: "user-rafael",
     }),
@@ -69,7 +74,7 @@ export function buildSeed(now: Date): Db {
       description: "Carteira de estudante dentro de uma capinha transparente, encontrada no chão.",
       category: "Documentos",
       foundLocation: "Portaria",
-      storedAt: "Portaria (gaveta de achados)",
+      storedAt: "Portaria",
       status: "available",
       createdById: "user-admin",
     }),
@@ -78,7 +83,7 @@ export function buildSeed(now: Date): Db {
       description: "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.",
       category: "Chaves",
       foundLocation: "Bloco A",
-      storedAt: "Sala da administração",
+      storedAt: "Portaria",
       status: "under_claim",
       createdById: "user-lucas",
     }),
@@ -87,7 +92,7 @@ export function buildSeed(now: Date): Db {
       description: "Calculadora científica preta com capa deslizante e arranhões na tampa.",
       category: "Eletrônicos",
       foundLocation: "Bloco A",
-      storedAt: "Sala da administração",
+      storedAt: "Portaria",
       status: "under_claim",
       createdById: "user-lucas",
     }),
@@ -96,7 +101,7 @@ export function buildSeed(now: Date): Db {
       description: "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.",
       category: "Roupas",
       foundLocation: "Cantina",
-      storedAt: "Portaria (gaveta de achados)",
+      storedAt: "Portaria",
       status: "available",
       createdById: "user-beatriz",
     }),
@@ -105,7 +110,7 @@ export function buildSeed(now: Date): Db {
       description: "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
-      storedAt: "Sala da administração",
+      storedAt: "Portaria",
       status: "under_claim",
       createdById: "user-rafael",
     }),
@@ -114,7 +119,7 @@ export function buildSeed(now: Date): Db {
       description: "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.",
       category: "Outros",
       foundLocation: "Cantina",
-      storedAt: "Cantina (prateleira atrás do balcão)",
+      storedAt: "Cantina",
       status: "available",
       createdById: "user-admin",
     }),
@@ -123,7 +128,7 @@ export function buildSeed(now: Date): Db {
       description: "Guarda-chuva preto automático com cabo curvo de madeira.",
       category: "Outros",
       foundLocation: "Portaria",
-      storedAt: "Portaria (gaveta de achados)",
+      storedAt: "Portaria",
       status: "available",
       createdById: "user-marina",
     }),
@@ -141,7 +146,7 @@ export function buildSeed(now: Date): Db {
       description: "Óculos de grau com armação preta retangular, dentro de um estojo cinza.",
       category: "Outros",
       foundLocation: "Cantina",
-      storedAt: "Sala da administração",
+      storedAt: "Portaria",
       status: "available",
       createdById: "user-rafael",
     }),
@@ -180,35 +185,35 @@ export function buildSeed(now: Date): Db {
     // item-03: duas pendentes (usuários diferentes, AC04.3)
     claim(1, 3, "user-beatriz", 20, "pending", null,
       "Uma das chaves é de um cadeado de armário e tem um risco de esmalte azul.",
-      "Perdi no corredor do Bloco A, ontem à tarde."),
+      "Perdi no Bloco A, ontem à tarde."),
     claim(2, 3, "user-rafael", 8, "pending", null,
       "O chaveiro tem uma etiqueta de fita branca com as iniciais RL.",
-      "Provavelmente caiu do meu bolso ao sair da sala 12, ontem."),
+      "Provavelmente caiu do meu bolso no Bloco A, ontem."),
     // item-04: única reivindicação recusada -> item voltou a Disponível (AC04.6/AC04.7)
     claim(3, 4, "user-marina", 80, "rejected", 60,
       "É um casaco azul de moletom.",
-      "Perdi na cantina na semana passada."),
+      "Perdi na Cantina na semana passada."),
     // item-05: uma aceita e uma recusada automaticamente (AC04.5)
     claim(4, 5, "user-marina", 100, "accepted", 40,
       "O adesivo maior na tampa é de uma banda; a tecla Esc está um pouco solta.",
-      "Esqueci na mesa 4 da biblioteca, no começo da semana passada, de manhã."),
+      "Esqueci na Biblioteca, no começo da semana passada, de manhã."),
     claim(5, 5, "user-lucas", 90, "rejected", 40,
       "Notebook cinza com adesivos.",
       "Não lembro exatamente, acho que foi na biblioteca."),
     // item-07: duas pendentes, uma delas da demo aluna
     claim(6, 7, "user-marina", 30, "pending", null,
       "A capa deslizante está sem um dos cantos e tem meu sobrenome escrito a lápis por dentro.",
-      "Deixei na carteira do laboratório do Bloco A, na terça à tarde."),
+      "Deixei no Bloco A, na terça à tarde."),
     claim(7, 7, "user-beatriz", 12, "pending", null,
       "Calculadora preta com arranhões.",
       "Bloco A, não sei dizer o dia."),
     // devolvidos
     claim(8, 10, "user-beatriz", 190, "accepted", 130,
       "O chaveiro de pelúcia é um gatinho cinza com um olho descosturado.",
-      "Esqueci na sala 5 do Bloco A, em uma aula de manhã."),
+      "Esqueci no Bloco A, em uma aula de manhã."),
     claim(9, 11, "user-rafael", 330, "accepted", 300,
       "O cabo tem uma fita isolante preta perto da ponta do conector.",
-      "Deixei ligado em uma tomada da biblioteca, no fim da tarde."),
+      "Deixei ligado na Biblioteca, no fim da tarde."),
   ];
 
   const returns: ReturnRecord[] = [

@@ -1,8 +1,8 @@
 import { ServiceError, type Claim } from "@/types/domain";
-import { assertAllowed, reviewClaim, submitClaim } from "@/lib/rules";
+import { assertAllowed, canViewClaim, reviewClaim, submitClaim } from "@/lib/rules";
 import { claimSchema } from "@/lib/validation";
 import type { ClaimDecisionResult, ClaimService, ClaimView } from "../contracts";
-import { findItem, findUser, parseInput, requireUser, type MockContext } from "./context";
+import { findItem, findUser, parseInput, requireSession, requireUser, type MockContext } from "./context";
 import type { Db } from "./seed";
 
 function toView(db: Db, claim: Claim): ClaimView {
@@ -13,9 +13,9 @@ export function createClaimService(ctx: MockContext): ClaimService {
   const { store } = ctx;
 
   const decide = (claimId: string, decision: "accept" | "reject") =>
-    ctx.run(`claims.${decision}`, (): ClaimDecisionResult =>
+    ctx.run(`claims.${decision}`, (who): ClaimDecisionResult =>
       store.transaction((db) => {
-        const actor = requireUser(ctx, db, "review_claims");
+        const actor = requireUser(db, who, "review_claims");
         const target = db.claims.find((c) => c.id === claimId);
         if (!target) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
         const item = findItem(db, target.itemId);
@@ -35,10 +35,10 @@ export function createClaimService(ctx: MockContext): ClaimService {
 
   return {
     create: (itemId, input) =>
-      ctx.run("claims.create", () => {
+      ctx.run("claims.create", (who) => {
         const data = parseInput(claimSchema, input);
         return store.transaction((db) => {
-          const actor = requireUser(ctx, db, "claim_item");
+          const actor = requireUser(db, who, "claim_item");
           const item = findItem(db, itemId);
           const { claim, item: nextItem } = submitClaim({
             actor,
@@ -55,9 +55,9 @@ export function createClaimService(ctx: MockContext): ClaimService {
       }),
 
     listMine: () =>
-      ctx.run("claims.listMine", () => {
+      ctx.run("claims.listMine", (who) => {
         const db = store.read();
-        const user = requireUser(ctx, db, "view_own_claims");
+        const user = requireUser(db, who, "view_own_claims");
         return db.claims
           .filter((c) => c.claimantId === user.id)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -65,9 +65,9 @@ export function createClaimService(ctx: MockContext): ClaimService {
       }),
 
     listPending: () =>
-      ctx.run("claims.listPending", () => {
+      ctx.run("claims.listPending", (who) => {
         const db = store.read();
-        requireUser(ctx, db, "review_claims");
+        requireUser(db, who, "review_claims");
         return db.claims
           .filter((c) => c.status === "pending")
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -75,9 +75,9 @@ export function createClaimService(ctx: MockContext): ClaimService {
       }),
 
     listByItem: (itemId) =>
-      ctx.run("claims.listByItem", () => {
+      ctx.run("claims.listByItem", (who) => {
         const db = store.read();
-        requireUser(ctx, db, "review_claims");
+        requireUser(db, who, "review_claims");
         findItem(db, itemId);
         return db.claims
           .filter((c) => c.itemId === itemId)
@@ -86,18 +86,12 @@ export function createClaimService(ctx: MockContext): ClaimService {
       }),
 
     get: (claimId) =>
-      ctx.run("claims.get", () => {
+      ctx.run("claims.get", (who) => {
         const db = store.read();
-        const user = requireUser(ctx, db);
+        const user = requireSession(db, who);
         const claim = db.claims.find((c) => c.id === claimId);
         if (!claim) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
-        if (user.role !== "admin" && claim.claimantId !== user.id) {
-          assertAllowed({
-            allowed: false,
-            code: "FORBIDDEN",
-            message: "Você não tem permissão para ver esta reivindicação.",
-          });
-        }
+        assertAllowed(canViewClaim(user, claim));
         return toView(db, claim);
       }),
 

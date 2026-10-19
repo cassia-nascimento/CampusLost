@@ -99,6 +99,10 @@ export type ServiceErrorCode =
   | "USER_NOT_FOUND"
   | "PHOTO_INVALID"
   | "STORAGE_FULL"
+  /** Reservado para a API REST (sem rede / timeout). O mock nunca o lança. */
+  | "NETWORK"
+  /** Reservado para a API REST (HTTP 409: o recurso mudou desde a leitura). O mock nunca o lança. */
+  | "CONFLICT"
   | "UNEXPECTED";
 
 /** Erro tipado dos serviços. `message` já é texto pt-BR apresentável ao usuário. */

@@ -16,6 +16,13 @@ export function hasAcceptedClaim(claims: readonly Claim[]): boolean {
   return claims.some((c) => c.status === "accepted");
 }
 
+/** Uma reivindicação só é visível à administração e ao próprio reivindicante. */
+export function canViewClaim(actor: User | null | undefined, claim: Claim): Decision {
+  if (actor == null) return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.");
+  if (hasCapability(actor, "review_claims") || claim.claimantId === actor.id) return ALLOW;
+  return deny("FORBIDDEN", "Você não tem permissão para ver esta reivindicação.");
+}
+
 /**
  * O usuário pode reivindicar este item? (RF04 / AC04.1, P8)
  * `itemClaims` são as reivindicações do item (de qualquer usuário; a função filtra).
@@ -33,6 +40,12 @@ export function canClaim(
     return deny("ITEM_RETURNED", "Este item já foi devolvido.");
   }
   const mine = itemClaims.filter((c) => c.claimantId === actor.id);
+  if (mine.some((c) => c.status === "accepted")) {
+    return deny(
+      "DUPLICATE_CLAIM",
+      "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
+    );
+  }
   if (mine.some(isActiveClaim)) {
     return deny("DUPLICATE_CLAIM", "Você já tem uma reivindicação em andamento para este item.");
   }
@@ -42,7 +55,7 @@ export function canClaim(
       "Sua reivindicação para este item foi recusada. Procure a administração.",
     );
   }
-  // Premissa adicional (ver relatório): com reivindicação aceita, o item só aguarda a devolução.
+  // Premissa P14 (SPEC §9): com reivindicação aceita, o item só aguarda a devolução.
   if (hasAcceptedClaim(itemClaims)) {
     return deny(
       "CLAIM_BLOCKED",

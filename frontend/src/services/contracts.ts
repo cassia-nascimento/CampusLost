@@ -11,6 +11,12 @@
  *  - Falhas lançam `ServiceError` (com `code` e mensagem pt-BR). Erros de
  *    validação trazem `fieldErrors`.
  *  - Datas de calendário são `YYYY-MM-DD`; instantes são ISO 8601.
+ *  - O usuário atual é o da sessão no instante da chamada (capturado antes da latência).
+ *
+ * Específicos do protótipo: `Services.demo` (reiniciar demonstração), `AuthService.signInAsDemo` e
+ * `AuthService.listDemoProfiles`. Uma API real pode omiti-los ou implementá-los à parte
+ * (por exemplo, atrás de uma flag de ambiente).
+ * Códigos `NETWORK` e `CONFLICT` de `ServiceError` são reservados para a API; o mock não os lança.
  */
 import type {
   Claim,
@@ -20,7 +26,7 @@ import type {
   User,
   UserRole,
 } from "@/types/domain";
-import type { ItemFilters, PeriodFilter } from "@/lib/rules";
+import type { Decision, ItemFilters, PeriodFilter } from "@/lib/rules";
 import type { ClaimFormValues, ItemFormValues, SignInValues, SignUpValues } from "@/lib/validation";
 
 /* ---------- Visões (dados já "juntados" para a UI) ---------- */
@@ -30,6 +36,22 @@ export type ClaimWithClaimant = Claim & { claimant: User };
 /** Reivindicação com o item (retrato atual) e o reivindicante. */
 export type ClaimView = ClaimWithClaimant & { item: Item };
 
+/**
+ * O que o usuário atual pode fazer neste item, calculado pelo serviço com a lista COMPLETA de
+ * reivindicações (a UI não recebe reivindicações alheias, mas recebe o motivo de cada bloqueio:
+ * `allowed: false` traz `code` e `message` em pt-BR).
+ */
+export interface ItemViewerPermissions {
+  /** Botão "É meu" (RF04). */
+  claim: Decision;
+  /** Editar (administração; item Devolvido é somente leitura). */
+  edit: Decision;
+  /** Excluir (idem). */
+  delete: Decision;
+  /** Registrar devolução (administração, com reivindicação aceita). */
+  registerReturn: Decision;
+}
+
 export interface ItemDetail {
   item: Item;
   createdBy: PublicUser;
@@ -37,8 +59,10 @@ export interface ItemDetail {
   myClaims: Claim[];
   /** Todas as reivindicações do item — preenchido só para a administração, senão `[]`. */
   claims: ClaimWithClaimant[];
-  /** Presente quando o item foi devolvido (somente administração). */
+  /** Presente quando o item foi devolvido (somente quem pode ver devoluções: administração). */
   returnRecord: ReturnRecord | null;
+  /** Permissões do usuário atual sobre este item, com motivo quando negadas. */
+  viewer: ItemViewerPermissions;
 }
 
 export interface ReturnView extends ReturnRecord {
@@ -69,8 +93,9 @@ export interface AuthService {
   signUp(input: SignUpValues): Promise<User>;
   /** Entra pelo e-mail. `USER_NOT_FOUND` se não houver conta (AC01.2). Senha não existe no protótipo. */
   signIn(input: SignInValues): Promise<User>;
-  /** Entra com um dos perfis de demonstração (AC01.3). */
+  /** [Somente protótipo] Entra com um dos perfis de demonstração (AC01.3). */
   signInAsDemo(role: UserRole): Promise<User>;
+  /** [Somente protótipo] Perfis de entrada rápida. */
   listDemoProfiles(): Promise<DemoProfile[]>;
   signOut(): Promise<void>;
 }
@@ -124,6 +149,7 @@ export interface ReturnService {
   list(period?: PeriodFilter): Promise<ReturnView[]>;
 }
 
+/** [Somente protótipo] */
 export interface DemoService {
   /** Restaura os dados de seed (datas relativas a hoje). Mantém a sessão se o usuário ainda existir. */
   reset(): Promise<void>;
@@ -134,6 +160,7 @@ export interface Services {
   items: ItemService;
   claims: ClaimService;
   returns: ReturnService;
+  /** [Somente protótipo] Uma API real pode omitir. */
   demo: DemoService;
   /**
    * Avisa quando os dados mudam (nesta aba ou, no mock, em outra aba), para a UI refazer a leitura

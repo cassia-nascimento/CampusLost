@@ -1,13 +1,19 @@
 import { ServiceError, type User, type UserRole } from "@/types/domain";
 import { normalizeEmail, signInSchema, signUpSchema } from "@/lib/validation";
 import type { AuthService, DemoProfile } from "../contracts";
-import { currentUser, findUser, parseInput, type MockContext } from "./context";
+import { findUser, parseInput, type MockContext } from "./context";
 import { DEMO_PROFILE_IDS, DEMO_PROFILE_LABELS } from "./seed";
 
 export function createAuthService(ctx: MockContext): AuthService {
   const { store } = ctx;
   return {
-    getCurrentUser: () => ctx.run("auth.getCurrentUser", () => currentUser(ctx, store.read()), { instant: true }),
+    // O usuário capturado por `run` já é o da sessão; revalida contra o banco atual.
+    getCurrentUser: () =>
+      ctx.run(
+        "auth.getCurrentUser",
+        (actor) => (actor ? (store.read().users.find((u) => u.id === actor.id) ?? null) : null),
+        { instant: true },
+      ),
 
     signUp: (input) =>
       ctx.run("auth.signUp", () => {

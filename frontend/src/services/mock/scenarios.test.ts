@@ -3,8 +3,9 @@
  * Seed: item-03 (2 pendentes), item-04 (recusada, Disponível), item-05 (aceita, Marina),
  * item-07 (Marina e Beatriz pendentes), item-10/11 (Devolvidos).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
+import { DB_KEY, SESSION_KEY } from "./store";
 import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness } from "./test-utils";
 
 async function as(h: Harness, role: "student" | "teacher" | "admin") {
@@ -246,33 +247,50 @@ describe("RF04 — reivindicação", () => {
     await expectCode(h.services.claims.reject("claim-inexistente"), "NOT_FOUND");
   });
 
-  it("AC04.7/AC04.8: o usuário recusado vê 'Recusada' e não reenvia; Minhas reivindicações refletem a decisão", async () => {
-    const h = createHarness();
-    await as(h, "student");
-    const seen: string[][] = [];
-    const off = h.services.subscribe(() => {
-      void h.services.claims
-        .listMine()
-        .then((list) => seen.push(list.map((c) => `${c.id}:${c.status}`)))
-        .catch(() => undefined); // sessão de administração: sem "minhas reivindicações"
-    });
-    const before = await h.services.claims.listMine();
-    expect(before.map((c) => [c.id, c.status]).sort()).toEqual([
-      ["claim-03", "rejected"],
-      ["claim-04", "accepted"],
-      ["claim-06", "pending"],
-    ]);
-    expect(before.every((c) => c.item.title)).toBe(true);
+  it("AC04.7/AC04.8: o usuário recusado vê 'Recusada' e não reenvia; Minhas reivindicações refletem a decisão tomada em outra aba", async () => {
+    // Simula o evento `storage` do navegador (só ele avisa uma aba do que outra gravou).
+    const handlers: Array<(event: { key: string | null }) => void> = [];
+    vi.stubGlobal("window", { addEventListener: (_type: string, fn: (event: { key: string | null }) => void) => void handlers.push(fn) });
+    try {
+      const studentTab = createHarness();
+      const adminTab = createHarness({ storage: studentTab.storage }); // mesmo banco, sessão própria
+      await as(studentTab, "student");
+      await as(adminTab, "admin");
 
-    await as(h, "admin");
-    await h.services.claims.reject("claim-06");
-    await as(h, "student");
-    const after = await h.services.claims.listMine();
-    expect(after.find((c) => c.id === "claim-06")?.status).toBe("rejected");
-    // item-07 ainda tem a pendente de Beatriz; Marina não pode reenviar
-    await expectCode(h.services.claims.create("item-07", validClaim), "CLAIM_BLOCKED");
-    off();
-    expect(seen.length).toBeGreaterThan(0);
+      const seen: string[] = [];
+      const inflight: Promise<unknown>[] = [];
+      const off = studentTab.services.subscribe(() => {
+        inflight.push(
+          studentTab.services.claims.listMine().then((list) => {
+            seen.push(...list.map((c) => `${c.id}:${c.status}`));
+          }),
+        );
+      });
+
+      const before = await studentTab.services.claims.listMine();
+      expect(before.map((c) => [c.id, c.status]).sort()).toEqual([
+        ["claim-03", "rejected"],
+        ["claim-04", "accepted"],
+        ["claim-06", "pending"],
+      ]);
+      expect(before.every((c) => c.item.title)).toBe(true);
+
+      await adminTab.services.claims.reject("claim-06");
+      handlers.forEach((fn) => fn({ key: DB_KEY })); // o navegador avisa a aba da aluna
+      await Promise.all(inflight);
+      expect(seen).toContain("claim-06:rejected");
+
+      // a sessão é por aba: um evento da chave de sessão não deve disparar nada
+      const count = inflight.length;
+      handlers.forEach((fn) => fn({ key: SESSION_KEY }));
+      expect(inflight.length).toBe(count);
+
+      // item-07 ainda tem a pendente de Beatriz; Marina não pode reenviar
+      await expectCode(studentTab.services.claims.create("item-07", validClaim), "CLAIM_BLOCKED");
+      off();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("claims.get: administração ou o próprio autor; outros não", async () => {
@@ -421,11 +439,156 @@ describe("invariantes da máquina de estados após sequências de operações", 
     expect(detail.item.status).toBe("returned");
   });
 
-  it("reivindicações simultâneas de dois usuários são serializadas (cada leitura vê a anterior)", async () => {
+  it("corrida real: dois accept simultâneos no mesmo item → um sucesso, o outro INVALID_TRANSITION, uma única aceita", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    const results = await Promise.allSettled([
+      h.services.claims.accept("claim-06"),
+      h.services.claims.accept("claim-07"),
+    ]);
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toMatchObject({ code: "INVALID_TRANSITION" });
+    const claims = await h.services.claims.listByItem("item-07");
+    expect(claims.filter((c) => c.status === "accepted")).toHaveLength(1);
+    expect(claims.filter((c) => c.status === "pending")).toHaveLength(0);
+  });
+
+  it("duas reivindicações simultâneas de usuários diferentes em item Disponível → Em reivindicação com duas pendentes", async () => {
+    const studentTab = createHarness();
+    const teacherTab = createHarness({ storage: studentTab.storage });
+    await as(studentTab, "student");
+    await as(teacherTab, "teacher");
+    const results = await Promise.all([
+      studentTab.services.claims.create("item-01", validClaim),
+      teacherTab.services.claims.create("item-01", validClaim),
+    ]);
+    expect(new Set(results.map((c) => c.claimantId))).toEqual(new Set(["user-marina", "user-rafael"]));
+    const adminTab = createHarness({ storage: studentTab.storage });
+    await as(adminTab, "admin");
+    const detail = await adminTab.services.items.get("item-01");
+    expect(detail.item.status).toBe("under_claim");
+    expect(detail.claims.map((c) => c.status)).toEqual(["pending", "pending"]);
+  });
+
+  it("duas reivindicações simultâneas do MESMO usuário → uma criada e a outra DUPLICATE_CLAIM", async () => {
     const h = createHarness();
     await as(h, "student");
-    await Promise.all([h.services.claims.create("item-01", validClaim), h.services.claims.create("item-01", validClaim)].map((p) => p.catch((e) => e)));
+    const results = await Promise.allSettled([
+      h.services.claims.create("item-01", validClaim),
+      h.services.claims.create("item-01", validClaim),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toMatchObject({ code: "DUPLICATE_CLAIM" });
     await as(h, "admin");
     expect((await h.services.claims.listByItem("item-01")).filter((c) => c.claimantId === "user-marina")).toHaveLength(1);
+  });
+});
+
+describe("ItemDetail.viewer (B1)", () => {
+  it("professor no item com reivindicação aceita de terceiro: claim bloqueado com CLAIM_BLOCKED, sem vazar reivindicações alheias", async () => {
+    const h = createHarness();
+    await as(h, "teacher"); // Rafael
+    const d = await h.services.items.get("item-05"); // aceita: Marina
+    expect(d.viewer.claim).toMatchObject({ allowed: false, code: "CLAIM_BLOCKED" });
+    expect(d.viewer.claim.allowed === false && d.viewer.claim.message).toMatch(/aceita/);
+    expect(d.viewer.edit).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(d.viewer.delete).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(d.viewer.registerReturn).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(d.claims).toEqual([]);
+    expect(d.myClaims).toEqual([]);
+    expect(JSON.stringify(d)).not.toContain("claim-04");
+  });
+
+  it("aluna com reivindicação aceita própria vê a mensagem específica; recusada → CLAIM_BLOCKED; item livre → permitido", async () => {
+    const h = createHarness();
+    await as(h, "student"); // Marina
+    const own = (await h.services.items.get("item-05")).viewer.claim;
+    expect(own).toMatchObject({ allowed: false, code: "DUPLICATE_CLAIM", message: "Sua reivindicação foi aceita. Procure a administração para retirar o item." });
+    expect((await h.services.items.get("item-07")).viewer.claim).toMatchObject({ allowed: false, code: "DUPLICATE_CLAIM" });
+    expect((await h.services.items.get("item-04")).viewer.claim).toMatchObject({ allowed: false, code: "CLAIM_BLOCKED" });
+    expect((await h.services.items.get("item-01")).viewer.claim).toEqual({ allowed: true });
+    expect((await h.services.items.get("item-10")).viewer.claim).toMatchObject({ allowed: false, code: "ITEM_RETURNED" });
+  });
+
+  it("administração: registerReturn coerente com reivindicação aceita; edit/delete bloqueados em Devolvido; claim negado", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    const accepted = (await h.services.items.get("item-05")).viewer;
+    expect(accepted.registerReturn).toEqual({ allowed: true });
+    expect(accepted.edit).toEqual({ allowed: true });
+    expect(accepted.delete).toEqual({ allowed: true });
+    expect(accepted.claim).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect((await h.services.items.get("item-03")).viewer.registerReturn).toMatchObject({ allowed: false, code: "INVALID_TRANSITION" });
+    expect((await h.services.items.get("item-01")).viewer.registerReturn).toMatchObject({ allowed: false, code: "INVALID_TRANSITION" });
+    const returned = await h.services.items.get("item-10");
+    expect(returned.viewer.edit).toMatchObject({ allowed: false, code: "ITEM_RETURNED" });
+    expect(returned.viewer.delete).toMatchObject({ allowed: false, code: "ITEM_RETURNED" });
+    expect(returned.viewer.registerReturn).toMatchObject({ allowed: false, code: "ITEM_RETURNED" });
+    expect(returned.returnRecord?.id).toBe("return-01");
+  });
+
+  it("viewer acompanha a mudança de estado (aceitar → registerReturn permitido)", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    expect((await h.services.items.get("item-03")).viewer.registerReturn.allowed).toBe(false);
+    await h.services.claims.accept("claim-01");
+    expect((await h.services.items.get("item-03")).viewer.registerReturn.allowed).toBe(true);
+  });
+
+  it("usuário comum nunca recebe returnRecord", async () => {
+    const h = createHarness();
+    await as(h, "student");
+    expect((await h.services.items.get("item-10")).returnRecord).toBeNull();
+  });
+});
+
+describe("usuário capturado antes da latência (I2)", () => {
+  /** Mesma "aba" (banco e sessão compartilhados), uma rápida e uma com latência. */
+  function pair() {
+    const fast = createHarness({ latency: 0 });
+    const slow = createHarness({ storage: fast.storage, sessionStorage: fast.sessionStorage, latency: 100 });
+    return { fast, slow };
+  }
+
+  it("a operação usa o usuário da chamada, mesmo que a sessão mude durante a latência", async () => {
+    vi.useFakeTimers();
+    try {
+      const { fast, slow } = pair();
+      await as(fast, "student");
+      const pending = slow.services.items.list(); // captura Marina agora
+      await fast.services.auth.signOut();
+      await vi.advanceTimersByTimeAsync(100);
+      expect((await pending).length).toBeGreaterThan(0);
+      // e uma chamada nova, já sem sessão, falha
+      const after = expectCode(slow.services.items.list(), "UNAUTHENTICATED");
+      await vi.advanceTimersByTimeAsync(100);
+      await after;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("revalida na transação: se o usuário deixou de existir (reinício da demo), UNAUTHENTICATED e nada é gravado", async () => {
+    vi.useFakeTimers();
+    try {
+      const { fast, slow } = pair();
+      await fast.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", role: "student" });
+
+      const attempt = expectCode(slow.services.items.create(validItem), "UNAUTHENTICATED"); // captura Carla
+      await fast.services.demo.reset(); // Carla não existe no seed
+      await vi.advanceTimersByTimeAsync(100);
+      const error = await attempt;
+      expect(error.message).toMatch(/sessão expirou/);
+
+      await fast.services.auth.signInAsDemo("admin");
+      expect((await fast.services.items.list()).some((i) => i.title === validItem.title)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

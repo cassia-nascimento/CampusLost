@@ -7,7 +7,10 @@ export const DB_KEY = `campuslost:proto:v${DB_VERSION}:db`;
 export const SESSION_KEY = `campuslost:proto:v${DB_VERSION}:session`;
 
 export interface StoreOptions {
+  /** Banco (padrão: `localStorage`, compartilhado entre abas). */
   storage?: KeyValueStorage;
+  /** Sessão (padrão: `sessionStorage`: cada aba tem a sua e ela sobrevive a recarregar). */
+  sessionStorage?: KeyValueStorage;
   now?: () => Date;
 }
 
@@ -25,17 +28,27 @@ function isDb(value: unknown): value is Db {
 
 /**
  * Persistência do mock. Cada leitura reflete o armazenamento atual (outras abas
- * incluídas) e cada escrita é uma transação síncrona: lê → altera → grava.
+ * incluídas) e cada escrita é uma "transação" síncrona: lê → altera → grava.
  * Se a gravação falhar (cota), nada é alterado e o erro vira `ServiceError`.
+ *
+ * LIMITAÇÃO CONHECIDA: não há trava entre abas. "Transação" aqui significa apenas
+ * (a) serializada dentro da aba, porque o corpo é síncrono, e (b) revalidada contra o
+ * estado lido no instante da escrita. Duas abas gravando no mesmo instante podem
+ * sobrescrever uma à outra (a última vence). Aceitável para um protótipo de uma pessoa
+ * só; uma API real resolve com transações no servidor (e `CONFLICT`).
+ *
+ * Banco em `localStorage` (compartilhado), sessão em `sessionStorage` (por aba).
  */
 export class MockStore {
   private readonly storage: KeyValueStorage;
+  private readonly sessionStorage: KeyValueStorage;
   private readonly now: () => Date;
   private readonly listeners = new Set<() => void>();
   private storageListenerAttached = false;
 
   constructor(options: StoreOptions = {}) {
-    this.storage = options.storage ?? createDefaultStorage();
+    this.storage = options.storage ?? createDefaultStorage("local");
+    this.sessionStorage = options.sessionStorage ?? createDefaultStorage("session");
     this.now = options.now ?? (() => new Date());
   }
 
@@ -86,7 +99,7 @@ export class MockStore {
 
   getSessionUserId(): string | null {
     try {
-      return this.storage.getItem(SESSION_KEY);
+      return this.sessionStorage.getItem(SESSION_KEY);
     } catch {
       return null;
     }
@@ -94,8 +107,8 @@ export class MockStore {
 
   setSessionUserId(id: string | null): void {
     try {
-      if (id === null) this.storage.removeItem(SESSION_KEY);
-      else this.storage.setItem(SESSION_KEY, id);
+      if (id === null) this.sessionStorage.removeItem(SESSION_KEY);
+      else this.sessionStorage.setItem(SESSION_KEY, id);
     } catch (cause) {
       throw storageError(cause);
     }
@@ -120,12 +133,15 @@ export class MockStore {
     for (const listener of [...this.listeners]) listener();
   }
 
-  /** Alterações feitas por outra aba chegam pelo evento `storage`. */
+  /**
+   * Alterações no banco feitas por outra aba chegam pelo evento `storage`.
+   * A sessão é por aba (`sessionStorage`), então a de outra aba não interessa e é ignorada.
+   */
   private attachStorageListener(): void {
     if (this.storageListenerAttached || typeof window === "undefined") return;
     this.storageListenerAttached = true;
     window.addEventListener("storage", (event) => {
-      if (event.key === null || event.key === DB_KEY || event.key === SESSION_KEY) this.emit();
+      if (event.key === null || event.key === DB_KEY) this.emit();
     });
   }
 }

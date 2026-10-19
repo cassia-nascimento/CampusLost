@@ -14,29 +14,32 @@ export function createMemoryStorage(): KeyValueStorage {
   };
 }
 
-function probeLocalStorage(): Storage | null {
+export type BrowserStorageKind = "local" | "session";
+
+function probeBrowserStorage(kind: BrowserStorageKind): Storage | null {
   try {
     if (typeof window === "undefined") return null;
-    const ls = window.localStorage;
+    const area = kind === "local" ? window.localStorage : window.sessionStorage;
     const probe = "__campuslost_probe__";
-    ls.setItem(probe, "1");
-    ls.removeItem(probe);
-    return ls;
+    area.setItem(probe, "1");
+    area.removeItem(probe);
+    return area;
   } catch {
     return null; // bloqueado, modo privado, SSR...
   }
 }
 
 /**
- * `localStorage` quando disponível; caso contrário memória do processo.
+ * `localStorage` (banco, compartilhado entre abas) ou `sessionStorage` (sessão, por aba;
+ * sobrevive a recarregar) quando disponíveis; caso contrário memória do processo.
  * A escolha é feita a cada acesso (e o sucesso, memorizado), então um módulo
- * carregado no servidor/SSR passa a usar o `localStorage` assim que roda no navegador.
+ * carregado no servidor/SSR passa a usar o armazenamento do navegador assim que roda nele.
  */
-export function createDefaultStorage(): KeyValueStorage {
+export function createDefaultStorage(kind: BrowserStorageKind = "local"): KeyValueStorage {
   const memory = createMemoryStorage();
   let browser: Storage | null = null;
   const pick = (): KeyValueStorage => {
-    browser ??= probeLocalStorage();
+    browser ??= probeBrowserStorage(kind);
     return browser ?? memory;
   };
   return {
