@@ -82,7 +82,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: num
       )}
     >
       <Icon aria-hidden="true" className={cn("mt-2.5 size-5 shrink-0", TONE_CLASSES[toast.tone].fg)} />
-      <div className="min-w-0 flex-1 py-2 text-body text-ink">
+      <div className="user-text min-w-0 flex-1 py-2 text-body text-ink">
         {toast.message}
         {toast.action ? <div className="mt-1 font-semibold">{toast.action}</div> : null}
       </div>

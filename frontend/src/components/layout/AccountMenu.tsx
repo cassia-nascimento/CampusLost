@@ -116,7 +116,7 @@ export function AccountMenu() {
           className="animate-rise absolute top-full right-0 z-40 mt-2 w-64 rounded-lg border border-line bg-surface p-2 shadow-raised"
         >
           <div role="none" className="mb-1 border-b border-line px-3 pt-1 pb-3">
-            <p className="font-semibold break-words text-ink">{user.name}</p>
+            <p className="user-text font-semibold text-ink">{user.name}</p>
             <p className="text-meta text-ink-muted">{ROLE_LABEL[user.role]}</p>
           </div>
           <button

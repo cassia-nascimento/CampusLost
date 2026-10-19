@@ -140,18 +140,18 @@ function ReturnsResults({
           <li key={record.id} className="flex flex-col gap-2 rounded-lg bg-surface p-4 shadow-card">
             <Link
               href={withOrigin(`/itens/${record.item.id}`, RETURNS_PATH)}
-              className="link line-clamp-2 font-sans text-lead font-semibold tracking-normal"
+              className="link user-text touch-target inline-flex items-center self-start font-sans text-lead font-semibold tracking-normal"
             >
-              {record.item.title}
+              <span className="line-clamp-2">{record.item.title}</span>
             </Link>
-            <p className="text-body">
+            <p className="user-text text-body">
               <span className="text-ink-subtle">Entregue a </span>
               {record.returnedTo.name}
             </p>
             <div>
               <ItemStatusBadge status="returned" />
             </div>
-            <p className="text-meta text-ink-subtle">
+            <p className="user-text text-meta text-ink-subtle">
               <time dateTime={record.returnedAt} className="tabular">
                 {formatInstantDate(record.returnedAt)}
               </time>{" "}
@@ -184,13 +184,16 @@ function ReturnsResults({
           <tbody className="divide-y divide-line">
             {returns.map((record) => (
               <tr key={record.id}>
-                <td className="px-4 py-3 break-words">
-                  <Link href={withOrigin(`/itens/${record.item.id}`, RETURNS_PATH)} className="link font-semibold">
+                <td className="user-text px-4 py-1">
+                  <Link
+                    href={withOrigin(`/itens/${record.item.id}`, RETURNS_PATH)}
+                    className="link touch-target inline-flex items-center font-semibold"
+                  >
                     {record.item.title}
                   </Link>
                 </td>
-                <td className="px-4 py-3 break-words">{record.returnedTo.name}</td>
-                <td className="px-4 py-3 break-words">{record.registeredBy.name}</td>
+                <td className="user-text px-4 py-3">{record.returnedTo.name}</td>
+                <td className="user-text px-4 py-3">{record.registeredBy.name}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <time dateTime={record.returnedAt} className="tabular">
                     {formatInstantDate(record.returnedAt)}

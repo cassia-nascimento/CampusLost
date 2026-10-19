@@ -42,7 +42,7 @@ export function Notice({
       className={cn("flex items-start gap-3 rounded-lg border p-4", TONE_CLASSES[tone].surface, className)}
     >
       <Icon aria-hidden="true" className={cn("mt-0.5 size-5 shrink-0", TONE_CLASSES[tone].fg)} />
-      <div className="min-w-0 flex-1 text-meta text-ink sm:text-body">
+      <div className="user-text min-w-0 flex-1 text-meta text-ink sm:text-body">
         {title ? <p className={cn("font-semibold", TONE_CLASSES[tone].fg)}>{title}</p> : null}
         {children ? <div className={title ? "mt-0.5" : undefined}>{children}</div> : null}
         {action ? <div className="mt-3">{action}</div> : null}

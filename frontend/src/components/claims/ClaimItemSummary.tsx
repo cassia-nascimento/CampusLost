@@ -18,12 +18,12 @@ export function ClaimItemSummary({
     <div className="flex gap-3 rounded-lg bg-surface p-3 shadow-card">
       <Photo src={item.photoDataUrl} alt="" aspect="square" sizes="6rem" className="size-24 shrink-0 rounded-md" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h2 className="line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
+        <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
         <div>
           <ItemStatusBadge status={item.status} />
         </div>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-subtle">
-          <span className="inline-flex items-center gap-1">
+          <span className="user-text inline-flex items-center gap-1">
             <MapPin aria-hidden="true" className="size-4 shrink-0" />
             {item.foundLocation}
           </span>
