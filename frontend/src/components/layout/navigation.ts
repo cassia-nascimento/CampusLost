@@ -82,22 +82,28 @@ export type RouteChrome =
   /** Página de detalhe/formulário: botão voltar + título no header (celular); sem BottomNav. */
   | { kind: "detail"; title: string; backHref: string };
 
-const DETAIL_ROUTES: { pattern: RegExp; title: string; back: (match: RegExpMatchArray) => string }[] = [
-  { pattern: /^\/itens\/novo$/, title: "Registrar item", back: () => "/itens" },
+const DETAIL_ROUTES: {
+  pattern: RegExp;
+  title: string;
+  /** `itemsSearch`: query string da última busca de `/itens` (`""` ou `?categoria=…`). */
+  back: (match: RegExpMatchArray, itemsSearch: string) => string;
+}[] = [
+  { pattern: /^\/itens\/novo$/, title: "Registrar item", back: (_, itemsSearch) => `/itens${itemsSearch}` },
   { pattern: /^\/itens\/([^/]+)\/reivindicar$/, title: "Reivindicar item", back: (m) => `/itens/${m[1]}` },
-  { pattern: /^\/itens\/([^/]+)$/, title: "Detalhe do item", back: () => "/itens" },
+  { pattern: /^\/itens\/([^/]+)$/, title: "Detalhe do item", back: (_, itemsSearch) => `/itens${itemsSearch}` },
   { pattern: /^\/admin\/reivindicacoes\/[^/]+$/, title: "Analisar reivindicação", back: () => "/admin" },
   { pattern: /^\/admin\/itens\/([^/]+)\/editar$/, title: "Editar item", back: (m) => `/itens/${m[1]}` },
 ];
 
 /**
- * Cromo do header para o caminho. O voltar vai ao "pai" fixo da rota (previsível, sem depender do histórico).
+ * Cromo do header para o caminho. O voltar vai ao "pai" fixo da rota (previsível, sem depender do histórico,
+ * que poderia sair do app); só a lista de itens reabre com a última busca (`itemsSearch`, ex.: `?categoria=Chaves`).
  * Caminho desconhecido (ex.: 404) usa o cromo de topo.
  */
-export function getRouteChrome(pathname: string): RouteChrome {
+export function getRouteChrome(pathname: string, itemsSearch = ""): RouteChrome {
   for (const route of DETAIL_ROUTES) {
     const match = pathname.match(route.pattern);
-    if (match) return { kind: "detail", title: route.title, backHref: route.back(match) };
+    if (match) return { kind: "detail", title: route.title, backHref: route.back(match, itemsSearch) };
   }
   return { kind: "top" };
 }

@@ -14,7 +14,7 @@ export function createItemSchema(getToday: () => string = () => toLocalDateStrin
     category: z.enum(DEMO_CATEGORIES, { error: "Escolha uma categoria." }),
     foundLocation: z.enum(DEMO_LOCATIONS, { error: "Escolha o local onde foi encontrado." }),
     foundDate: isoDate.refine((d) => !isFutureDate(d, getToday()), {
-      error: "A data não pode ser futura.",
+      error: "A data não pode ser no futuro.",
     }),
     storedAt: boundedText("onde o item está guardado", 3, 120),
   });

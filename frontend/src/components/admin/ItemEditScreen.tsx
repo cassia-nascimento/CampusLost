@@ -12,10 +12,11 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { useServiceQuery } from "@/hooks/use-service-query";
+import { ItemForm } from "@/components/items/ItemForm";
 import { useToast } from "@/hooks/use-toast";
+import type { ItemFormValues } from "@/lib/validation";
 import { services, type ItemDetail, type ItemInput } from "@/services";
 import { isServiceError } from "@/types/domain";
-import { ItemEditForm } from "./ItemEditForm";
 
 /** P18: excluir um item remove também as reivindicações dele; a administração é avisada de quantas. */
 function claimsRemovalNote(count: number): string {
@@ -105,9 +106,28 @@ function EditContent({
       <div className="mb-5">
         <ItemStatusBadge status={item.status} size="lg" />
       </div>
-      <ItemEditForm item={item} onSave={onSave} cancelHref={`/itens/${item.id}`}>
-        {viewer.delete.allowed ? <DeleteSection detail={detail} onDelete={onDelete} /> : null}
-      </ItemEditForm>
+      <ItemForm
+        key={item.id}
+        mode="edit"
+        initialValues={{
+          title: item.title,
+          description: item.description,
+          // O serviço valida categoria e local; aqui só preenchemos o que já está salvo.
+          category: item.category as ItemFormValues["category"],
+          foundLocation: item.foundLocation as ItemFormValues["foundLocation"],
+          foundDate: item.foundDate,
+          storedAt: item.storedAt,
+        }}
+        existingPhotoUrl={item.photoDataUrl ?? null}
+        onSubmit={onSave}
+        cancelHref={`/itens/${item.id}`}
+      >
+        {viewer.delete.allowed ? (
+          <div className="mt-5">
+            <DeleteSection detail={detail} onDelete={onDelete} />
+          </div>
+        ) : null}
+      </ItemForm>
     </>
   );
 }
