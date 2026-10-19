@@ -177,5 +177,6 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P22 | Item pode mostrar ao usuário comum o motivo de não poder reivindicar sem expor reivindicações de terceiros | O serviço devolve `viewer.{claim,edit,delete,registerReturn}` (decisões prontas) em `items.get`; a UI só exibe | decisão técnica (revisão T03-a) |
 | P23 | Painel admin lista uma linha por item em reivindicação, mas o item pode ter várias reivindicações | A linha mostra a reivindicação aceita, se houver; senão a pendente mais antiga | [Premissa] (T08) |
 | P24 | Após registrar um item, o enunciado manda ir ao detalhe; DESIGN §9.5 diz voltar à lista | Vai ao detalhe do item criado (`router.replace`) | [Premissa] (T06) |
+| P25 | DESIGN §9.9 manda voltar ao painel após registrar devolução | Abre `/admin/devolucoes`, onde a devolução recém-registrada já aparece (fecha o fluxo da demo) | [Premissa] (QA, decisão do orquestrador) |
 
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.

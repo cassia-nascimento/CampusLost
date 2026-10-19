@@ -985,3 +985,18 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 6. Apagar os SVGs do scaffold em `public/` e a página `app/page.tsx` do scaffold (fora do meu escopo).
 
 **Não verificado por mim:** renderização no navegador (sem `Bash` de build/execução neste papel); o CSS foi apenas **compilado** com o motor do Tailwind 4.3.3 (sem erros; `text-white`/`bg-blue-500` ausentes como esperado; utilitários `link`, `skeleton`, `touch-target` e tokens geram CSS) e os SVGs foram rasterizados para conferência visual. Contrastes: calculados, não medidos em tela.
+
+
+## 14. Atualizações de implementação (pós-revisão e QA)
+
+Registro do que mudou na implementação em relação ao desenho original; vale sobre o texto das seções anteriores quando divergirem.
+
+- **Frases de status (§3.4):** Disponível "Pode ser reivindicado."; Em reivindicação "Há reivindicação em andamento."; Devolvido "Este item já foi devolvido.". Motivo: as frases antigas contradiziam o estado depois de uma recusa ou de uma aceitação. Na tela de item, a frase é omitida quando a pessoa tem reivindicação própria (o aviso específico já a explica).
+- **Faixa de demonstração (§8.1):** é um `<aside aria-label="Aviso de demonstração">`. Texto: "Demonstração: login simulado; usuários, itens, categorias e locais são fictícios e os dados ficam salvos só neste navegador." Quando o armazenamento do navegador está indisponível, ganha uma segunda linha em `role="status"`: "Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar."
+- **Texto longo sem espaços:** utilidade `user-text` (`overflow-wrap: anywhere`) em `globals.css`, usada em todo texto digitado por usuários; grids de conteúdo usam `grid-cols-1`/`min-w-0` para não esticar além da tela.
+- **Página 404 própria** (`app/not-found.tsx`, pt-BR, com aviso de demonstração e botão "Voltar ao início").
+- **Título da aba:** o detalhe do item e "Acesso restrito" definem o título pelo hook `useDocumentTitle` (o `metadata` do Next sobrescreve o título após a hidratação).
+- **Voltar no celular (§6.12):** de `/itens/[id]` e `/itens/novo` volta à última busca; de itens abertos a partir de Minhas reivindicações, Devoluções, Painel ou análise, volta à tela de origem (parâmetro `?de=` validado por lista de permissão).
+- **Após registrar a devolução (§9.9):** o app abre `/admin/devolucoes` (premissa P25), não o painel, para mostrar a devolução recém-registrada.
+- **Admin no celular (§9.8):** os títulos dos cartões das abas são `h2` abaixo de `md` (`h3` na grade desktop).
+- **Mensagens de erro de formulário (§10):** e-mail, foto e data seguem esta seção; título, descrição, local e papel do cadastro ainda usam o texto do domínio (diferenças pequenas, listadas em PROGRESSO).

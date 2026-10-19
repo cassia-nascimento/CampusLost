@@ -9,14 +9,14 @@ Atualizado pelo orquestrador ao fim de cada onda.
 | 2 — Base de UI, sessão e guardas | Concluída | T04: lint, typecheck, test e **build passando**; verificação visual do agente a 360/1280 px. Limite de foto alinhado em 10 MB (entrada). |
 | 3 — Telas (3 worktrees em paralelo) | Concluída e integrada | A, B e C mergeadas (e3972e6). Verificado pelo orquestrador no resultado integrado: lint limpo, typecheck ok, 209 testes (17 arquivos), build com 13 rotas. |
 | 3b — Ajustes de integração (T10a) | Concluída (1332804) | ItemEditForm unificado ao ItemForm, voltar mobile preservando busca, toast × ActionBar, ItemCard a 360 px. Verificado no integrado: 215 testes, build ok. |
-| 4 — Revisão e QA | Em andamento | Revisão independente (T09a) concluída: 0 bloqueantes, 2 importantes (I1 estado antigo na análise; I2 frases de status), 10 menores. QA no navegador (T09b) em andamento. |
-| 5 — Correções | Em andamento | Rodada 1 (T10b) integrada (758c7cf): I1, I2, M1, M3, M4, M6–M9 e sugestões 1, 4, 7 corrigidos; verificado no integrado: 235 testes, build ok. Rodada 2 após o relatório de QA. |
+| 4 — Revisão e QA | Concluída (1ª passada) | Revisão independente (T09a): 0 bloqueantes, 2 importantes, 10 menores. QA no navegador (T09b, Chromium): aprovado com ressalvas, 0 bloqueia demo/alta, 2 médias, 10 baixas; 5 itens antes "não verificados" verificados (foto por canvas, sync entre abas, erro de carga, reiniciar demo, sem localStorage). Relatório: `qa/RELATORIO-QA.md`. |
+| 5 — Correções | Em andamento | Rodada 1 (T10b) integrada (758c7cf): I1, I2, M1, M3, M4, M6–M9 e sugestões 1, 4, 7 corrigidos; verificado no integrado: 235 testes, build ok. Rodada 2 (T10c, defeitos do QA) integrada (71f8662): D1–D12 corrigidos (D2 já na T10b); verificado no integrado: 239 testes, build ok; scripts do QA reexecutados pelo agente: responsive seed/stress 0 transbordos, axe 91 estados 0 violações, e2e 32/32. Falta regressão final completa (states, search, rules, permissions, storage) e validação do DEMO.md. |
 | 6 — Demonstração | Pendente | |
 
 ## Pendências conhecidas
 - Agentes de `.claude/agents/` ainda não validados como reconhecidos (exige sessão nova no repositório; `/agents`).
 - Redimensionamento real de foto por canvas e evento `storage` entre abas: só testados com stubs; QA deve validar no navegador.
-- Premissas aguardando confirmação da equipe: P8–P10, P14–P24 (ver SPEC §9).
+- Premissas aguardando confirmação da equipe: P8–P10, P14–P25 (ver SPEC §9).
 
 ## Exceções de processo e dívida técnica registradas
 - T10b alterou também `components/ui/{Field,FileInput,status}.ts(x)` (compartilhados), `lib/validation/**` (limites exportados) e `services/index.ts` (reexport morto removido), com permissão excepcional do orquestrador.
