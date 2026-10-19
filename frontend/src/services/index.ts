@@ -9,3 +9,5 @@ import { createMockServices } from "./mock";
 export const services: Services = createMockServices();
 
 export type * from "./contracts";
+/** Aviso de que o conteúdo do protótipo é fictício (a UI não importa `services/mock/*`). */
+export { DEMO_DATA_NOTICE } from "./mock/seed";

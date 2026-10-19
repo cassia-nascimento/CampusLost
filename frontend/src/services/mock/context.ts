@@ -9,8 +9,10 @@ import { MockStore } from "./store";
 import type { KeyValueStorage } from "./storage";
 
 export interface MockServicesOptions {
-  /** Padrão: `localStorage` com fallback em memória. Testes passam um armazenamento em memória. */
+  /** Banco. Padrão: `localStorage` com fallback em memória. Testes passam um armazenamento em memória. */
   storage?: KeyValueStorage;
+  /** Sessão (por aba). Padrão: `sessionStorage` com fallback em memória. */
+  sessionStorage?: KeyValueStorage;
   /** Relógio injetável (seed e datas dos registros). */
   now?: () => Date;
   /** Milissegundos fixos ou `{ min, max }`. Padrão 300–600 ms; use `0` nos testes. */
@@ -32,8 +34,16 @@ export interface MockContext {
   now(): Date;
   newId(prefix: string): string;
   photo: PhotoProcessor;
-  /** Aplica latência, falha injetada e converte erros inesperados em `ServiceError`. */
-  run<T>(operation: string, fn: () => T | Promise<T>, opts?: { instant?: boolean }): Promise<T>;
+  /**
+   * Captura o usuário da sessão NO INSTANTE DA CHAMADA (antes da latência), aplica latência e
+   * falha injetada, passa o usuário capturado a `fn` e converte erros inesperados em `ServiceError`.
+   * Quem muda dados deve revalidar o usuário na transação com `requireUser`.
+   */
+  run<T>(
+    operation: string,
+    fn: (actor: User | null) => T | Promise<T>,
+    opts?: { instant?: boolean },
+  ): Promise<T>;
 }
 
 function defaultGenerateId(prefix: string): string {
@@ -46,7 +56,7 @@ function defaultGenerateId(prefix: string): string {
 
 export function createContext(options: MockServicesOptions = {}): MockContext {
   const now = options.now ?? (() => new Date());
-  const store = new MockStore({ storage: options.storage, now });
+  const store = new MockStore({ storage: options.storage, sessionStorage: options.sessionStorage, now });
   const delay = createDelay(options.latency, options.random);
   const generateId = options.generateId ?? defaultGenerateId;
 
@@ -57,10 +67,11 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
     photo: options.photoProcessor ?? processPhotoInBrowser,
     async run(operation, fn, opts) {
       try {
+        const actor = currentUser(store.getSessionUserId(), store.read());
         if (!opts?.instant) await delay();
         const injected = options.failureInjector?.(operation);
         if (injected) throw injected;
-        return await fn();
+        return await fn(actor);
       } catch (error) {
         if (error instanceof ServiceError) throw error;
         throw new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", {
@@ -73,16 +84,29 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
 
 /* ---------- Helpers de leitura/validação compartilhados ---------- */
 
-export function currentUser(ctx: MockContext, db: Db): User | null {
-  const id = ctx.store.getSessionUserId();
-  return (id && db.users.find((u) => u.id === id)) || null;
+export function currentUser(sessionUserId: string | null, db: Db): User | null {
+  return (sessionUserId && db.users.find((u) => u.id === sessionUserId)) || null;
 }
 
-/** Usuário da sessão ou `UNAUTHENTICATED`; opcionalmente exige uma capacidade. */
-export function requireUser(ctx: MockContext, db: Db, capability?: Capability): User {
-  const user = currentUser(ctx, db);
-  assertAllowed(checkCapability(user, capability ?? "search_items"));
-  return user!;
+/**
+ * Exige sessão (`actor` capturado antes da latência) e REVALIDA contra o banco atual que o
+ * usuário ainda existe (ex.: a demonstração foi reiniciada no meio da operação).
+ * Devolve o usuário atualizado. Não verifica papel.
+ */
+export function requireSession(db: Db, actor: User | null): User {
+  if (actor == null) {
+    throw new ServiceError("UNAUTHENTICATED", "Entre na sua conta para continuar.");
+  }
+  const fresh = db.users.find((u) => u.id === actor.id);
+  if (!fresh) throw new ServiceError("UNAUTHENTICATED", "Sua sessão expirou. Entre novamente.");
+  return fresh;
+}
+
+/** `requireSession` + exige a capacidade (papel) indicada. */
+export function requireUser(db: Db, actor: User | null, capability: Capability): User {
+  const user = requireSession(db, actor);
+  assertAllowed(checkCapability(user, capability));
+  return user;
 }
 
 export function toPublicUser(user: User): PublicUser {

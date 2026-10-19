@@ -27,10 +27,19 @@ describe("store: persistência", () => {
       setItem: (k: string, v: string) => void backing.set(k, v),
       removeItem: (k: string) => void backing.delete(k),
     };
-    vi.stubGlobal("window", { localStorage: fake });
+    const sessionBacking = new Map<string, string>();
+    const fakeSession = {
+      getItem: (k: string) => sessionBacking.get(k) ?? null,
+      setItem: (k: string, v: string) => void sessionBacking.set(k, v),
+      removeItem: (k: string) => void sessionBacking.delete(k),
+    };
+    vi.stubGlobal("window", { localStorage: fake, sessionStorage: fakeSession });
     try {
       createDefaultStorage().setItem("a", "1");
       expect(backing.get("a")).toBe("1");
+      createDefaultStorage("session").setItem("s", "1");
+      expect(sessionBacking.get("s")).toBe("1");
+      expect(backing.has("s")).toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -61,9 +70,16 @@ describe("store: persistência", () => {
     const a = createHarness();
     await a.services.auth.signInAsDemo("student");
     const created = await a.services.items.create(validItem);
-    const b = createHarness({ storage: a.storage });
-    expect((await b.services.auth.getCurrentUser())?.email).toBe("marina@demo.test"); // sessão persiste (AC01.4)
-    expect((await b.services.items.get(created.id)).item.title).toBe(validItem.title);
+    // mesma aba recarregada: mesmo banco e mesma sessão (AC01.4)
+    const reloaded = createHarness({ storage: a.storage, sessionStorage: a.sessionStorage });
+    expect((await reloaded.services.auth.getCurrentUser())?.email).toBe("marina@demo.test");
+    expect((await reloaded.services.items.get(created.id)).item.title).toBe(validItem.title);
+    // outra aba: mesmo banco, sessão própria (I1/P21)
+    const otherTab = createHarness({ storage: a.storage });
+    expect(await otherTab.services.auth.getCurrentUser()).toBeNull();
+    await otherTab.services.auth.signInAsDemo("admin");
+    expect((await a.services.auth.getCurrentUser())?.id).toBe("user-marina");
+    expect((await otherTab.services.items.get(created.id)).item.title).toBe(validItem.title);
   });
 
   it("dados de outra versão ou corrompidos são descartados e o seed volta", () => {
@@ -125,6 +141,7 @@ describe("store: persistência", () => {
     expect(await h.services.auth.getCurrentUser()).not.toBeNull();
     await h.services.demo.reset();
     expect(await h.services.auth.getCurrentUser()).toBeNull();
+    expect(h.sessionStorage.getItem(SESSION_KEY)).toBeNull();
     expect(h.storage.getItem(SESSION_KEY)).toBeNull();
   });
 });
@@ -146,7 +163,23 @@ describe("latência e falhas simuladas", () => {
     expect(done).toBe(false);
     await vi.advanceTimersByTimeAsync(2);
     expect(done).toBe(true);
-    expect(createDelay({ min: 300, max: 600 }, () => 0)).toBeTypeOf("function");
+  });
+
+  it("limite mínimo da faixa padrão (random = 0) é 300 ms e o máximo (random → 1) é 600 ms", async () => {
+    vi.useFakeTimers();
+    let min = false;
+    void createDelay(undefined, () => 0)().then(() => (min = true));
+    await vi.advanceTimersByTimeAsync(299);
+    expect(min).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(min).toBe(true);
+
+    let max = false;
+    void createDelay(undefined, () => 1)().then(() => (max = true));
+    await vi.advanceTimersByTimeAsync(599);
+    expect(max).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(max).toBe(true);
   });
 
   it("serviços respeitam a latência configurada", async () => {
@@ -178,6 +211,59 @@ describe("latência e falhas simuladas", () => {
 });
 
 describe("foto", () => {
+  it("acima do teto de tamanho, mesmo após reduzir a qualidade, lança PHOTO_INVALID (S3)", async () => {
+    const qualities: number[] = [];
+    vi.stubGlobal("document", {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({ fillRect: () => undefined, drawImage: () => undefined, fillStyle: "" }),
+        toDataURL: (_type: string, quality: number) => {
+          qualities.push(quality);
+          return "data:image/jpeg;base64," + "A".repeat(500_000);
+        },
+      }),
+    });
+    vi.stubGlobal("createImageBitmap", async () => ({ width: 4000, height: 3000, close: () => undefined }));
+    try {
+      const h = createHarness({ photoProcessor: undefined });
+      await h.services.auth.signInAsDemo("student");
+      const error = await expectCode(h.services.items.create({ ...validItem, photo: fakeFile() }), "PHOTO_INVALID");
+      expect(error.message).toMatch(/grande demais/);
+      expect(qualities).toEqual([0.8, 0.6, 0.45]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("foto dentro do teto é aceita e redimensionada", async () => {
+    let size = { w: 0, h: 0 };
+    vi.stubGlobal("document", {
+      createElement: () => {
+        const canvas = {
+          width: 0,
+          height: 0,
+          getContext: () => ({ fillRect: () => undefined, drawImage: () => undefined, fillStyle: "" }),
+          toDataURL: () => {
+            size = { w: canvas.width, h: canvas.height };
+            return "data:image/jpeg;base64,OK";
+          },
+        };
+        return canvas;
+      },
+    });
+    vi.stubGlobal("createImageBitmap", async () => ({ width: 4000, height: 2000, close: () => undefined }));
+    try {
+      const h = createHarness({ photoProcessor: undefined });
+      await h.services.auth.signInAsDemo("student");
+      const item = await h.services.items.create({ ...validItem, photo: fakeFile() });
+      expect(item.photoDataUrl).toBe("data:image/jpeg;base64,OK");
+      expect(size).toEqual({ w: 640, h: 320 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("fitWithin reduz mantendo proporção e nunca amplia", () => {
     expect(fitWithin(1280, 640)).toEqual({ width: 640, height: 320 });
     expect(fitWithin(640, 1280)).toEqual({ width: 320, height: 640 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canClaim, canReviewClaim, reviewClaim, submitClaim } from "./claims";
+import { canClaim, canReviewClaim, canViewClaim, reviewClaim, submitClaim } from "./claims";
 import { admin, makeClaim, makeItem, NOW, otherStudent, student, teacher } from "./test-fixtures";
 
 const input = { proofDetails: "Detalhe secreto do objeto.", lostWhereWhen: "Biblioteca, segunda." };
@@ -40,6 +40,15 @@ describe("canClaim (AC04.1, P8)", () => {
     expect(canClaim(student, item, [makeClaim({ status })])).toMatchObject({
       allowed: false,
       code: "DUPLICATE_CLAIM",
+    });
+  });
+
+  it("reivindicação própria já aceita explica que deve procurar a administração", () => {
+    const item = makeItem({ status: "under_claim" });
+    expect(canClaim(student, item, [makeClaim({ status: "accepted" })])).toEqual({
+      allowed: false,
+      code: "DUPLICATE_CLAIM",
+      message: "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
     });
   });
 
@@ -188,5 +197,18 @@ describe("reviewClaim", () => {
     const snapshot = JSON.stringify({ item, claims });
     reviewClaim({ actor: admin, item, itemClaims: claims, claimId: "a", decision: "accept", now: NOW });
     expect(JSON.stringify({ item, claims })).toBe(snapshot);
+  });
+});
+
+describe("canViewClaim (S1)", () => {
+  const claim = makeClaim({ claimantId: student.id });
+  it("administração e o próprio autor veem", () => {
+    expect(canViewClaim(admin, claim)).toEqual({ allowed: true });
+    expect(canViewClaim(student, claim)).toEqual({ allowed: true });
+  });
+  it("outros usuários não veem; visitante é UNAUTHENTICATED", () => {
+    expect(canViewClaim(otherStudent, claim)).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(canViewClaim(teacher, claim)).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(canViewClaim(null, claim)).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
   });
 });

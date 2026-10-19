@@ -7,9 +7,14 @@ import type { MockServicesOptions } from "./context";
 /** 19/10/2026 10:00 (hora local) — "hoje" fixo dos testes. */
 export const TEST_NOW = new Date(2026, 9, 19, 10, 0, 0);
 
+let idCounter = 0;
+
 export interface Harness {
   services: Services;
+  /** Banco (compartilhável entre "abas"). */
   storage: KeyValueStorage;
+  /** Sessão desta "aba". */
+  sessionStorage: KeyValueStorage;
   /** Avança o relógio simulado. */
   advance(ms: number): void;
   clock(): Date;
@@ -18,18 +23,21 @@ export interface Harness {
 export function createHarness(options: MockServicesOptions & { start?: Date } = {}): Harness {
   let current = options.start ?? TEST_NOW;
   const storage = options.storage ?? createMemoryStorage();
-  let counter = 0;
+  const sessionStorage = options.sessionStorage ?? createMemoryStorage();
   const services = createMockServices({
     latency: 0,
     storage,
+    sessionStorage,
     now: () => current,
-    generateId: (prefix) => `${prefix}-t${++counter}`,
+    // contador global: várias "abas" no mesmo teste nunca geram ids repetidos
+    generateId: (prefix) => `${prefix}-t${++idCounter}`,
     photoProcessor: async (file) => `data:image/jpeg;base64,FAKE-${file.name}`,
     ...options,
   });
   return {
     services,
     storage,
+    sessionStorage,
     advance: (ms) => void (current = new Date(current.getTime() + ms)),
     clock: () => current,
   };

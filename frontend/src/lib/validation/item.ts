@@ -37,12 +37,24 @@ function periodRefinement<T extends { from?: string; to?: string }>(v: T, ctx: z
 /** Filtros da busca (RF03). Valores vazios (`""`) são ignorados. */
 export const itemFiltersSchema = z
   .object({
-    category: z.preprocess(emptyToUndefined, z.enum(DEMO_CATEGORIES).optional()),
-    location: z.preprocess(emptyToUndefined, z.enum(DEMO_LOCATIONS).optional()),
+    category: z.preprocess(
+      emptyToUndefined,
+      z.enum(DEMO_CATEGORIES, { error: "Categoria inválida." }).optional(),
+    ),
+    location: z.preprocess(
+      emptyToUndefined,
+      z.enum(DEMO_LOCATIONS, { error: "Local inválido." }).optional(),
+    ),
     from: optionalDate,
     to: optionalDate,
-    status: z.preprocess(emptyToUndefined, z.enum(["available", "under_claim"]).optional()),
-    sort: z.preprocess(emptyToUndefined, z.enum(["registered", "found"]).optional()),
+    status: z.preprocess(
+      emptyToUndefined,
+      z.enum(["available", "under_claim"], { error: "Situação inválida." }).optional(),
+    ),
+    sort: z.preprocess(
+      emptyToUndefined,
+      z.enum(["registered", "found"], { error: "Ordenação inválida." }).optional(),
+    ),
   })
   .superRefine(periodRefinement);
 export type ItemFiltersValues = z.infer<typeof itemFiltersSchema>;

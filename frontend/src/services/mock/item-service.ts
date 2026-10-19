@@ -1,9 +1,10 @@
 import type { Item } from "@/types/domain";
 import {
+  assertAllowed,
+  canClaim,
   canDeleteItem,
   canEditItem,
-  canRegisterItem,
-  assertAllowed,
+  canRegisterReturn,
   hasCapability,
   searchItems,
   toLocalDateString,
@@ -11,10 +12,10 @@ import {
 import { createItemSchema, itemFiltersSchema } from "@/lib/validation";
 import type { ItemDetail, ItemInput, ItemService } from "../contracts";
 import {
-  currentUser,
   findItem,
   findUser,
   parseInput,
+  requireSession,
   requireUser,
   toPublicUser,
   type MockContext,
@@ -33,42 +34,51 @@ export function createItemService(ctx: MockContext): ItemService {
 
   return {
     list: (filters) =>
-      ctx.run("items.list", () => {
+      ctx.run("items.list", (actor) => {
         const db = store.read();
-        requireUser(ctx, db, "search_items");
+        requireUser(db, actor, "search_items");
         const parsed = parseInput(itemFiltersSchema, filters ?? {});
         return searchItems(db.items, parsed);
       }),
 
     get: (id) =>
-      ctx.run("items.get", (): ItemDetail => {
+      ctx.run("items.get", (actor): ItemDetail => {
         const db = store.read();
-        const user = requireUser(ctx, db, "search_items");
+        const user = requireUser(db, actor, "search_items");
         const item = findItem(db, id);
         const itemClaims = db.claims.filter((c) => c.itemId === id);
-        const admin = hasCapability(user, "review_claims");
+        const canReview = hasCapability(user, "review_claims");
+        const canSeeReturns = hasCapability(user, "view_returns");
         return {
           item,
           createdBy: toPublicUser(findUser(db, item.createdById)),
           myClaims: itemClaims
             .filter((c) => c.claimantId === user.id)
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-          claims: admin
+          claims: canReview
             ? itemClaims
                 .map((c) => ({ ...c, claimant: findUser(db, c.claimantId) }))
                 .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
             : [],
-          returnRecord: admin ? (db.returns.find((r) => r.itemId === id) ?? null) : null,
+          returnRecord: canSeeReturns ? (db.returns.find((r) => r.itemId === id) ?? null) : null,
+          // Calculado aqui com a lista COMPLETA de reivindicações, para a UI explicar o motivo
+          // sem receber reivindicações alheias.
+          viewer: {
+            claim: canClaim(user, item, itemClaims),
+            edit: canEditItem(user, item),
+            delete: canDeleteItem(user, item),
+            registerReturn: canRegisterReturn(user, item, itemClaims),
+          },
         };
       }),
 
     create: (input) =>
-      ctx.run("items.create", async () => {
-        assertAllowed(canRegisterItem(currentUser(ctx, store.read())));
+      ctx.run("items.create", async (actor) => {
+        requireUser(store.read(), actor, "register_item");
         const fields = parseFields(input);
         const photoDataUrl = input.photo ? await ctx.photo(input.photo) : undefined;
         return store.transaction((db) => {
-          const user = requireUser(ctx, db, "register_item");
+          const user = requireUser(db, actor, "register_item");
           const item: Item = {
             id: ctx.newId("item"),
             ...fields,
@@ -83,34 +93,37 @@ export function createItemService(ctx: MockContext): ItemService {
       }),
 
     update: (id, input) =>
-      ctx.run("items.update", async () => {
+      ctx.run("items.update", async (actor) => {
         const before = store.read();
-        requireUser(ctx, before);
-        assertAllowed(canEditItem(currentUser(ctx, before), findItem(before, id)));
+        const preUser = requireSession(before, actor);
+        assertAllowed(canEditItem(preUser, findItem(before, id)));
         const fields = parseFields(input);
         const photoDataUrl = input.photo ? await ctx.photo(input.photo) : undefined;
         return store.transaction((db) => {
+          const user = requireSession(db, actor);
           const current = findItem(db, id);
-          assertAllowed(canEditItem(currentUser(ctx, db), current));
+          assertAllowed(canEditItem(user, current));
           const { photoDataUrl: previousPhoto, ...rest } = current;
-          const nextPhoto =
-            input.photo === null ? undefined : (photoDataUrl ?? previousPhoto);
-          const updated: Item = { ...rest, ...fields, ...(nextPhoto ? { photoDataUrl: nextPhoto } : {}) };
+          const nextPhoto = input.photo === null ? undefined : (photoDataUrl ?? previousPhoto);
+          const updated: Item = {
+            ...rest,
+            ...fields,
+            ...(nextPhoto ? { photoDataUrl: nextPhoto } : {}),
+          };
           db.items[db.items.findIndex((i) => i.id === id)] = updated;
           return updated;
         });
       }),
 
     delete: (id) =>
-      ctx.run("items.delete", () => {
+      ctx.run("items.delete", (actor) => {
         store.transaction((db) => {
-          requireUser(ctx, db);
+          const user = requireSession(db, actor);
           const item = findItem(db, id);
-          assertAllowed(canDeleteItem(currentUser(ctx, db), item));
+          assertAllowed(canDeleteItem(user, item));
           db.items = db.items.filter((i) => i.id !== id);
           db.claims = db.claims.filter((c) => c.itemId !== id);
         });
       }),
   };
 }
-
