@@ -26,12 +26,14 @@ const ICONS: Record<ToastTone, LucideIcon> = {
 export const TOAST_DURATION_MS = 6000;
 
 /**
- * Posição: base do celular acima do BottomNav (quando a página o tem) e canto inferior direito a partir de `md`.
- * O BottomNav marca-se com `data-bottomnav`; o seletor `body:has(...)` evita acoplar o provider ao layout.
+ * Posição: base do celular acima do BottomNav ou da ActionBar (quando a página tem uma delas) e canto inferior
+ * direito a partir de `md`. O BottomNav marca-se com `data-bottomnav`; a ActionBar com `data-actionbar` e publica
+ * a altura em `--actionbar-h`. O seletor `body:has(...)` evita acoplar o provider ao layout.
  */
 const VIEWPORT_CLASSES =
   "pointer-events-none fixed inset-x-0 bottom-4 z-60 flex flex-col items-center px-gutter pb-safe " +
   "max-md:[body:has([data-bottomnav])_&]:bottom-[calc(var(--bottomnav-h)+0.75rem)] " +
+  "max-md:[body:has([data-actionbar])_&]:bottom-[calc(var(--actionbar-h,0px)+0.75rem)] " +
   "md:inset-x-auto md:right-4 md:items-end md:px-0";
 
 /**

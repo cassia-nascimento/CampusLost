@@ -25,7 +25,7 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
     expect(r.success).toBe(false);
     const errors = toFieldErrors(r.error!);
     expect(errors.name).toBe("Informe seu nome.");
-    expect(errors.email).toBe("Informe um e-mail válido.");
+    expect(errors.email).toBe("Esse e-mail não parece válido. Use o formato nome@exemplo.com.");
     expect(errors.role).toBe("Escolha se você é aluno ou professor.");
   });
 
@@ -33,13 +33,13 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
     const errors = toFieldErrors(signUpSchema.safeParse({}).error!);
     expect(errors).toEqual({
       name: "Informe seu nome.",
-      email: "Informe o e-mail.",
+      email: "Informe seu e-mail.",
       role: "Escolha se você é aluno ou professor.",
     });
   });
 
   it("e-mail vazio no login", () => {
-    expect(toFieldErrors(signInSchema.safeParse({ email: "  " }).error!)).toEqual({ email: "Informe o e-mail." });
+    expect(toFieldErrors(signInSchema.safeParse({ email: "  " }).error!)).toEqual({ email: "Informe seu e-mail." });
   });
 });
 
@@ -60,7 +60,7 @@ describe("item (AC02.1, AC02.2)", () => {
 
   it("rejeita data futura", () => {
     const r = schema.safeParse({ ...valid, foundDate: "2026-10-20" });
-    expect(toFieldErrors(r.error!)).toEqual({ foundDate: "A data não pode ser futura." });
+    expect(toFieldErrors(r.error!)).toEqual({ foundDate: "A data não pode ser no futuro." });
   });
 
   it("rejeita data inexistente ou em formato errado", () => {
@@ -99,7 +99,7 @@ describe("item (AC02.1, AC02.2)", () => {
     expect(validatePhotoFile({ type: "image/png", size: PHOTO_MAX_BYTES })).toBeNull();
     expect(validatePhotoFile({ type: "image/gif", size: 1000 })).toMatch(/Formato/);
     expect(validatePhotoFile({ type: "application/pdf", size: 1000 })).toMatch(/Formato/);
-    expect(validatePhotoFile({ type: "image/jpeg", size: PHOTO_MAX_BYTES + 1 })).toMatch(/máximo/);
+    expect(validatePhotoFile({ type: "image/jpeg", size: PHOTO_MAX_BYTES + 1 })).toBe("A foto passa de 10 MB. Escolha uma menor.");
     expect(validatePhotoFile({ type: "image/jpeg", size: 0 })).toMatch(/vazio/);
   });
 });

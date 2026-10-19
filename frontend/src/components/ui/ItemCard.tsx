@@ -16,16 +16,16 @@ export interface ItemCardProps {
 
 /**
  * Cartão de item (DESIGN §6.5): um único link para `/itens/[id]`.
- * Horizontal no celular (foto 96 px); vertical em grade a partir de `sm`.
+ * Horizontal no celular (foto 96 px; a linha "Sua reivindicação" ocupa a largura toda embaixo); vertical em grade a partir de `sm`.
  */
 export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
   return (
     <Link
       href={`/itens/${item.id}`}
       className={cn(
-        "flex min-h-30 gap-3 rounded-lg bg-surface p-3 shadow-card transition-shadow",
+        "flex min-h-30 flex-wrap gap-3 rounded-lg bg-surface p-3 shadow-card transition-shadow",
         "hover:shadow-raised active:bg-paper",
-        "sm:h-full sm:flex-col sm:gap-0 sm:overflow-hidden sm:p-0",
+        "sm:h-full sm:flex-col sm:flex-nowrap sm:gap-0 sm:overflow-hidden sm:p-0",
         className,
       )}
     >
@@ -53,13 +53,15 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
             </time>
           </span>
         </p>
-        {myClaimStatus ? (
-          <p className="mt-auto flex flex-wrap items-center gap-2 text-meta text-ink-muted">
-            Sua reivindicação:
-            <ClaimStatusBadge status={myClaimStatus} />
-          </p>
-        ) : null}
       </div>
+      {myClaimStatus ? (
+        // Fora da coluna de texto: no celular ocupa a largura toda do cartão (embaixo da foto), onde "Sua
+        // reivindicação:" + selo cabem numa linha só; na coluna de 196 px (360 px) eles quebravam em duas.
+        <p className="flex basis-full flex-wrap items-center gap-x-2 gap-y-1 text-meta text-ink-muted sm:basis-auto sm:-mt-2 sm:px-4 sm:pb-4">
+          <span className="whitespace-nowrap">Sua reivindicação:</span>
+          <ClaimStatusBadge status={myClaimStatus} />
+        </p>
+      ) : null}
     </Link>
   );
 }
