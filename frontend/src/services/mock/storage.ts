@@ -3,6 +3,11 @@ export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
+  /**
+   * `false` quando o conteúdo se perde ao recarregar a página (memória do processo). Opcional: um
+   * armazenamento que não informa é tratado como durável.
+   */
+  isDurable?(): boolean;
 }
 
 export function createMemoryStorage(): KeyValueStorage {
@@ -11,6 +16,7 @@ export function createMemoryStorage(): KeyValueStorage {
     getItem: (key) => map.get(key) ?? null,
     setItem: (key, value) => void map.set(key, value),
     removeItem: (key) => void map.delete(key),
+    isDurable: () => false,
   };
 }
 
@@ -46,5 +52,6 @@ export function createDefaultStorage(kind: BrowserStorageKind = "local"): KeyVal
     getItem: (key) => pick().getItem(key),
     setItem: (key, value) => pick().setItem(key, value),
     removeItem: (key) => pick().removeItem(key),
+    isDurable: () => pick() !== memory,
   };
 }

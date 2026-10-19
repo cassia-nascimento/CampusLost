@@ -39,7 +39,7 @@ export function ClaimCard({ claim }: { claim: ClaimView }) {
       <div className="flex gap-3">
         <Photo src={item.photoDataUrl} alt="" aspect="square" sizes="4rem" className="size-16 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1">
-          <h2 className="line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
+          <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <ClaimStatusBadge status={claim.status} />
             {item.status === "returned" ? (

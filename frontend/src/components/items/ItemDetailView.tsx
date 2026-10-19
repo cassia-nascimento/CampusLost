@@ -12,6 +12,7 @@ import { Photo } from "@/components/ui/Photo";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ITEM_STATUS_META } from "@/components/ui/status";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
@@ -77,7 +78,7 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
 
   return (
     <Container size="page">
-      <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-10">
         <div className="lg:col-span-5">
           <Photo
             src={item.photoDataUrl}
@@ -91,7 +92,7 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
 
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
           <header className="flex flex-col gap-3">
-            <h1>{item.title}</h1>
+            <h1 className="user-text">{item.title}</h1>
             <div>
               <ItemStatusBadge status={item.status} size="lg" />
             </div>
@@ -114,7 +115,7 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
             <h2 id="description-heading" className="text-h3">
               Descrição
             </h2>
-            <p className="mt-2 text-body whitespace-pre-line">{item.description}</p>
+            <p className="user-text mt-2 text-body whitespace-pre-line">{item.description}</p>
           </section>
 
           {editAction || (desktop && claimAction) ? (
@@ -141,6 +142,10 @@ export function ItemDetailView() {
   const { id } = useParams<{ id: string }>();
   const { user } = useSession();
   const detail = useServiceQuery(() => services.items.get(id), [id, user?.id ?? null]);
+
+  // O `metadata` da rota é estático ("Detalhe do item"); o título do item só existe depois da leitura (client-only).
+  const notFound = detail.status === "error" && detail.error?.code === "NOT_FOUND";
+  useDocumentTitle(detail.status === "success" && detail.data ? detail.data.item.title : notFound ? "Item não encontrado" : null);
 
   if (detail.status === "loading") return <DetailSkeleton />;
 

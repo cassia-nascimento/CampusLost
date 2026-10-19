@@ -149,10 +149,21 @@ export interface ReturnService {
   list(period?: PeriodFilter): Promise<ReturnView[]>;
 }
 
+/**
+ * Os dados da demonstração sobrevivem a recarregar a página (`durable`) ou se perdem ao recarregar
+ * (`volatile`: o navegador não oferece onde guardá-los).
+ */
+export type DemoPersistence = "durable" | "volatile";
+
 /** [Somente protótipo] */
 export interface DemoService {
   /** Restaura os dados de seed (datas relativas a hoje). Mantém a sessão se o usuário ainda existir. */
   reset(): Promise<void>;
+  /**
+   * Se os dados desta demonstração serão guardados ou se serão perdidos ao recarregar (a UI avisa no
+   * segundo caso). Síncrono e sem custo: só consulta o que a implementação já sabe.
+   */
+  persistence(): DemoPersistence;
 }
 
 export interface Services {

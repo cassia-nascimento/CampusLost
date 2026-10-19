@@ -86,6 +86,11 @@ export class MockStore {
     return result;
   }
 
+  /** `volatile` quando o banco não tem onde ficar além da memória (os dados somem ao recarregar). */
+  persistence(): "durable" | "volatile" {
+    return this.storage.isDurable?.() === false ? "volatile" : "durable";
+  }
+
   /** Restaura o seed. Mantém a sessão apenas se o usuário existir no seed. */
   reset(): void {
     const seeded = buildSeed(this.now());
@@ -149,7 +154,7 @@ export class MockStore {
 function storageError(cause: unknown): ServiceError {
   return new ServiceError(
     "STORAGE_FULL",
-    "Não foi possível salvar: o armazenamento do navegador está cheio ou indisponível. Tente uma foto menor ou use \"Reiniciar demonstração\".",
+    "Não foi possível salvar: o armazenamento do navegador está cheio ou indisponível. Se o envio tiver foto, tente sem ela; ou use \"Reiniciar demonstração\" no menu da conta para liberar espaço (isso apaga os dados criados aqui).",
     { cause },
   );
 }
