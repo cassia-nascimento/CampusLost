@@ -2,10 +2,11 @@
 
 import { Calendar, MapPin, Tag, Warehouse } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { Container } from "@/components/layout/Container";
 import { DefinitionList } from "@/components/layout/DefinitionList";
+import { withOrigin } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
@@ -20,12 +21,24 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import { canReviewClaim, reviewClaim } from "@/lib/rules";
-import { services, type ClaimView, type ItemDetail } from "@/services";
+import { services, type ClaimDecisionResult, type ClaimView, type ItemDetail } from "@/services";
 import { ROLE_LABEL, isServiceError, type ItemStatus, type User } from "@/types/domain";
+import { applyDecision, type ReviewState } from "./apply-decision";
 
 type Dialog = "accept" | "reject" | "return" | null;
 
-async function loadReview(claimId: string) {
+/**
+ * Lê a reivindicação e o item. Na primeira leitura o `itemId` só se conhece depois de ler a reivindicação;
+ * nas seguintes (`itemIdHint`) as duas leituras vão em paralelo e, se o palpite não bater, refaz em sequência.
+ */
+async function loadReview(claimId: string, itemIdHint?: string): Promise<ReviewState> {
+  if (itemIdHint) {
+    const [claim, detail] = await Promise.allSettled([services.claims.get(claimId), services.items.get(itemIdHint)]);
+    if (claim.status === "rejected") throw claim.reason;
+    if (detail.status === "fulfilled" && detail.value.item.id === claim.value.itemId) {
+      return { claim: claim.value, detail: detail.value };
+    }
+  }
   const claim = await services.claims.get(claimId);
   const detail = await services.items.get(claim.itemId);
   return { claim, detail };
@@ -62,7 +75,25 @@ function acceptedMessage(autoRejected: number): string {
 
 /** `/admin/reivindicacoes/[id]`: compara o item publicado com a resposta da pessoa (RF04, AC04.4–04.6, AC05.1–05.2). */
 export function ClaimReview({ claimId }: { claimId: string }) {
-  const query = useServiceQuery(() => loadReview(claimId), [claimId]);
+  const { user } = useSession();
+  const itemIdRef = useRef<string | undefined>(undefined);
+  const query = useServiceQuery(() => loadReview(claimId, itemIdRef.current), [claimId]);
+  const latest = query.data;
+  const latestRef = useRef<ReviewState | undefined>(undefined);
+  useEffect(() => {
+    latestRef.current = latest;
+    if (latest) itemIdRef.current = latest.claim.itemId;
+  }, [latest]);
+
+  // Resultado da decisão aplicado já, para a tela não mostrar o estado antigo enquanto a releitura não chega.
+  // Vale só para a leitura em que foi decidido (`base`): quando chega uma nova, ela é a oficial e assume.
+  const [applied, setApplied] = useState<{ base: ReviewState; view: ReviewState } | null>(null);
+  const shown = latest && applied?.base === latest ? applied.view : latest;
+
+  function handleDecided(result: ClaimDecisionResult) {
+    const base = latestRef.current;
+    if (base) setApplied({ base, view: applyDecision(user, base, result) });
+  }
 
   return (
     <Container size="admin">
@@ -82,8 +113,8 @@ export function ClaimReview({ claimId }: { claimId: string }) {
           {query.error?.message}
         </ErrorState>
       ) : null}
-      {query.status === "success" && query.data ? (
-        <ReviewContent claim={query.data.claim} detail={query.data.detail} refetch={query.refetch} />
+      {query.status === "success" && shown ? (
+        <ReviewContent claim={shown.claim} detail={shown.detail} refetch={query.refetch} onDecided={handleDecided} />
       ) : null}
     </Container>
   );
@@ -93,16 +124,20 @@ function ReviewContent({
   claim,
   detail,
   refetch,
+  onDecided,
 }: {
   claim: ClaimView;
   detail: ItemDetail;
   refetch: () => void;
+  onDecided: (result: ClaimDecisionResult) => void;
 }) {
   const { user } = useSession();
   const router = useRouter();
   const toast = useToast();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
+  // Depois de registrar a devolução a tela navega: some com as ações para não haver um segundo clique.
+  const [leaving, setLeaving] = useState(false);
 
   const { item } = detail;
   const reviewable = canReviewClaim(user, item, claim);
@@ -129,9 +164,11 @@ function ReviewContent({
     try {
       if (dialog === "accept") {
         const result = await services.claims.accept(claim.id);
+        onDecided(result);
         toast.success(acceptedMessage(result.autoRejectedIds.length));
       } else if (dialog === "reject") {
         const result = await services.claims.reject(claim.id);
+        onDecided(result);
         toast.success(
           result.item.status === "available"
             ? "Reivindicação recusada. O item voltou a ficar Disponível."
@@ -139,8 +176,9 @@ function ReviewContent({
         );
       } else {
         await services.returns.register(item.id);
+        setLeaving(true);
         toast.success("Devolução registrada. O item saiu da busca.");
-        router.push("/admin/devolucoes");
+        router.replace("/admin/devolucoes");
       }
       setDialog(null);
     } catch (error) {
@@ -191,7 +229,7 @@ function ReviewContent({
             <p className="mt-0.5 text-body break-words whitespace-pre-wrap">{item.description}</p>
           </div>
           <div className="-ml-4 flex flex-wrap gap-1">
-            <LinkButton href={`/itens/${item.id}`} variant="ghost">
+            <LinkButton href={withOrigin(`/itens/${item.id}`, `/admin/reivindicacoes/${claim.id}`)} variant="ghost">
               Ver item
             </LinkButton>
             {detail.viewer.edit.allowed ? (
@@ -225,7 +263,7 @@ function ReviewContent({
         />
       </div>
 
-      {claim.status === "pending" && reviewable.allowed ? (
+      {!leaving && claim.status === "pending" && reviewable.allowed ? (
         <ActionBar>
           <Button size="lg" width="mobile-full" variant="secondary" onClick={() => setDialog("reject")}>
             Recusar
@@ -235,7 +273,7 @@ function ReviewContent({
           </Button>
         </ActionBar>
       ) : null}
-      {claim.status === "accepted" && detail.viewer.registerReturn.allowed ? (
+      {!leaving && claim.status === "accepted" && detail.viewer.registerReturn.allowed ? (
         <ActionBar>
           <Button size="lg" width="mobile-full" onClick={() => setDialog("return")}>
             Registrar devolução

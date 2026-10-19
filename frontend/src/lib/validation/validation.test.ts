@@ -9,6 +9,11 @@ import {
   toFieldErrors,
   validatePhotoFile,
   PHOTO_MAX_BYTES,
+  CLAIM_PROOF_MAX,
+  CLAIM_WHERE_WHEN_MAX,
+  ITEM_DESCRIPTION_MAX,
+  ITEM_STORED_AT_MAX,
+  ITEM_TITLE_MAX,
 } from "./index";
 
 const messages = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
@@ -154,5 +159,28 @@ describe("filtros", () => {
 
   it("não aceita status Devolvido na busca", () => {
     expect(itemFiltersSchema.safeParse({ status: "returned" }).success).toBe(false);
+  });
+});
+
+describe("limites exportados (usados nos maxLength dos formulários)", () => {
+  it("coincidem com o que os schemas aceitam e recusam", () => {
+    const schema = createItemSchema(() => "2026-10-19");
+    const valid = {
+      title: "Casaco azul",
+      description: "Casaco azul-marinho com capuz.",
+      category: "Roupas",
+      foundLocation: "Cantina",
+      foundDate: "2026-10-19",
+      storedAt: "Portaria",
+    };
+    expect([ITEM_TITLE_MAX, ITEM_DESCRIPTION_MAX, ITEM_STORED_AT_MAX]).toEqual([80, 500, 120]);
+    expect(schema.safeParse({ ...valid, title: "t".repeat(ITEM_TITLE_MAX) }).success).toBe(true);
+    expect(schema.safeParse({ ...valid, title: "t".repeat(ITEM_TITLE_MAX + 1) }).success).toBe(false);
+    expect(schema.safeParse({ ...valid, description: "d".repeat(ITEM_DESCRIPTION_MAX) }).success).toBe(true);
+    expect(schema.safeParse({ ...valid, storedAt: "s".repeat(ITEM_STORED_AT_MAX) }).success).toBe(true);
+    expect(schema.safeParse({ ...valid, storedAt: "s".repeat(ITEM_STORED_AT_MAX + 1) }).success).toBe(false);
+    expect([CLAIM_PROOF_MAX, CLAIM_WHERE_WHEN_MAX]).toEqual([500, 300]);
+    expect(claimSchema.safeParse({ proofDetails: "x".repeat(CLAIM_PROOF_MAX), lostWhereWhen: "y".repeat(CLAIM_WHERE_WHEN_MAX) }).success).toBe(true);
+    expect(claimSchema.safeParse({ proofDetails: "x".repeat(CLAIM_PROOF_MAX), lostWhereWhen: "y".repeat(CLAIM_WHERE_WHEN_MAX + 1) }).success).toBe(false);
   });
 });

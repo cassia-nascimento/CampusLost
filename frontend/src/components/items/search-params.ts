@@ -43,6 +43,9 @@ function pickDate(value: string | null): string {
   return value !== null && isValidIsoDate(value) ? value : "";
 }
 
+/** Tempo sem digitar nas datas antes de aplicar o filtro (digitar o ano gera valores intermediários). */
+export const DATE_FILTER_DEBOUNCE_MS = 450;
+
 /** Mensagem de erro do período (data final antes da inicial) ou `null`. Reusa a regra do schema de validação. */
 export function periodError(values: Pick<FilterValues, "from" | "to">): string | null {
   const result = periodSchema.safeParse({ from: values.from, to: values.to });

@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 interface FieldContextValue {
   id: string;
+  /** `id` do `<label>`: controles cujo nome acessível é rótulo + outro texto (FileInput) o referenciam. */
+  labelId: string;
   describedBy: string | undefined;
   invalid: boolean;
 }
@@ -21,6 +23,11 @@ export function useFieldControl(own: { id?: string; "aria-describedby"?: string 
     "aria-describedby": describedBy,
     "aria-invalid": field?.invalid ? true : undefined,
   } as const;
+}
+
+/** `id` do rótulo do `Field` atual (ou `undefined` fora de um `Field`), para `aria-labelledby`. */
+export function useFieldLabelId(): string | undefined {
+  return useContext(FieldContext)?.labelId;
 }
 
 export interface FieldProps {
@@ -39,14 +46,15 @@ export interface FieldProps {
 /** Rótulo + ajuda + controle + erro, com `label for` e `aria-describedby` ligados (DESIGN §6.3). */
 export function Field({ label, optional, hint, error, children, className }: FieldProps) {
   const id = useId();
+  const labelId = `${id}-label`;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   return (
-    <FieldContext value={{ id, describedBy, invalid: Boolean(error) }}>
+    <FieldContext value={{ id, labelId, describedBy, invalid: Boolean(error) }}>
       <div className={cn("flex flex-col gap-1.5", className)}>
-        <label htmlFor={id} className="text-meta font-semibold text-ink">
+        <label id={labelId} htmlFor={id} className="text-meta font-semibold text-ink">
           {label}
           {optional ? <span className="font-normal text-ink-subtle"> (opcional)</span> : null}
         </label>

@@ -1,46 +1,30 @@
-import { CircleCheck } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ClaimStatusBadge, ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { formatInstantDate } from "@/lib/format";
+import { withOrigin } from "@/components/layout/navigation";
 import type { ClaimView } from "@/services";
+import { getClaimMessages } from "./claim-messages";
 
-/** O que a pessoa deve fazer a seguir, por status da reivindicação (DESIGN §10). */
+/** O que a pessoa deve fazer a seguir, por status da reivindicação e do item (DESIGN §10; textos em `claim-messages`). */
 function NextStep({ claim }: { claim: ClaimView }) {
   const { item } = claim;
+  const { nextStep } = getClaimMessages({
+    claimStatus: claim.status,
+    itemStatus: item.status,
+    storedAt: item.storedAt,
+  });
 
-  if (claim.status === "pending") {
-    return <p className="text-body text-ink-muted">Aguardando análise da administração.</p>;
-  }
-
-  if (claim.status === "accepted") {
-    if (item.status === "returned") {
-      return (
-        <p className="text-body text-ink-muted">
-          Sua reivindicação foi aceita e a administração registrou a devolução deste item.
-        </p>
-      );
-    }
+  if (nextStep.highlight) {
     return (
-      <div className="rounded-md bg-success-bg p-3 text-body text-ink">
-        <p className="flex items-center gap-2 font-semibold text-success-fg">
-          <CircleCheck aria-hidden="true" className="size-5 shrink-0" />
-          Aceita!
-        </p>
-        <p className="mt-1">
-          Procure a administração para retirar o item. Guardado em: <strong className="font-semibold">{item.storedAt}</strong>.
-        </p>
-      </div>
+      <Notice tone="success" title={nextStep.highlight}>
+        {nextStep.text}
+      </Notice>
     );
   }
-
-  return (
-    <p className="text-body text-ink-muted">
-      A administração recusou esta reivindicação. Você não pode reenviar. Se acha que foi engano, procure a
-      administração.
-    </p>
-  );
+  return <p className="text-body text-ink-muted">{nextStep.text}</p>;
 }
 
 /**
@@ -75,7 +59,7 @@ export function ClaimCard({ claim }: { claim: ClaimView }) {
       </div>
       <NextStep claim={claim} />
       <div>
-        <LinkButton href={`/itens/${item.id}`} variant="secondary" width="mobile-full">
+        <LinkButton href={withOrigin(`/itens/${item.id}`, "/minhas-reivindicacoes")} variant="secondary" width="mobile-full">
           Ver item
         </LinkButton>
       </div>

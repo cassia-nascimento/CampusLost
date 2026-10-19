@@ -3,6 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { forgetItemsSearch } from "@/components/items/last-search";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { useToast } from "@/hooks/use-toast";
 import { services } from "@/services";
@@ -18,6 +19,7 @@ export function ResetDemoButton() {
     setBusy(true);
     try {
       await services.demo.reset();
+      forgetItemsSearch();
       setOpen(false);
       toast.success("Demonstração reiniciada.");
     } catch (error) {
