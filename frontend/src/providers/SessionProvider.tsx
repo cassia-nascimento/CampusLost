@@ -28,28 +28,29 @@ export const SessionContext = createContext<SessionValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
-  // Só a última leitura vale: respostas antigas, atrasadas, são descartadas.
+  // Contador de leituras da sessão: invalida respostas em voo quando o estado muda por outro caminho.
   const latestRead = useRef(0);
 
-  const refresh = useCallback(async () => {
-    const read = ++latestRead.current;
-    try {
-      const current = await services.auth.getCurrentUser();
-      if (read !== latestRead.current) return;
-      setUser(current);
-    } catch {
-      if (read !== latestRead.current) return;
-      setUser(null); // sem leitura confiável, trata como visitante
-    }
-    setStatus("ready");
-  }, []);
-
   useEffect(() => {
-    // Dispara a leitura inicial (resolvida em microtarefa) e assina mudanças.
-    const unsubscribe = services.subscribe(() => void refresh());
-    void refresh();
-    return unsubscribe;
-  }, [refresh]);
+    // Lê a sessão atual; só a última leitura vale (respostas antigas, atrasadas, são descartadas).
+    function refresh() {
+      const read = ++latestRead.current;
+      services.auth.getCurrentUser().then(
+        (current) => {
+          if (read !== latestRead.current) return;
+          setUser(current);
+          setStatus("ready");
+        },
+        () => {
+          if (read !== latestRead.current) return;
+          setUser(null); // sem leitura confiável, trata como visitante
+          setStatus("ready");
+        },
+      );
+    }
+    refresh();
+    return services.subscribe(refresh);
+  }, []);
 
   const adopt = useCallback((next: User) => {
     latestRead.current++; // invalida leituras em voo, que podem trazer o estado anterior

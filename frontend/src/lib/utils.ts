@@ -6,7 +6,7 @@ import { extendTailwindMerge } from "tailwind-merge";
  * (globals.css) precisam ser declarados aqui; senão `text-body` seria tratado como cor
  * e removido ao lado de `text-ink`, e `shadow-card` conflitaria com cores de sombra.
  */
-const twMerge = extendTailwindMerge({
+const twMerge = extendTailwindMerge<"touch-target">({
   extend: {
     theme: {
       text: ["meta", "body", "lead", "h3", "h2", "h1", "display"],
@@ -16,9 +16,6 @@ const twMerge = extendTailwindMerge({
     classGroups: {
       "touch-target": [{ "touch-target": ["", "lg"] }],
       animate: [{ animate: ["rise", "fade"] }],
-    },
-    conflictingClassGroups: {
-      "touch-target": [],
     },
   },
 });
