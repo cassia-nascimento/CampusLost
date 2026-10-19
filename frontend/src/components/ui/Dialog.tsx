@@ -107,7 +107,7 @@ export function Dialog({
             {title}
           </h2>
           {description ? (
-            <div id={descriptionId} className="mt-2 text-body text-ink-muted">
+            <div id={descriptionId} className="user-text mt-2 text-body text-ink-muted">
               {description}
             </div>
           ) : null}

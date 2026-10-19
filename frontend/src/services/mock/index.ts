@@ -17,7 +17,10 @@ export function createMockServices(options: MockServicesOptions = {}): Services 
     items: createItemService(ctx),
     claims: createClaimService(ctx),
     returns: createReturnService(ctx),
-    demo: { reset: () => ctx.run("demo.reset", () => ctx.store.reset()) },
+    demo: {
+      reset: () => ctx.run("demo.reset", () => ctx.store.reset()),
+      persistence: () => ctx.store.persistence(),
+    },
     subscribe: (listener) => ctx.store.subscribe(listener),
   };
 }

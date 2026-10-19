@@ -63,12 +63,16 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const wide = useMinWidth("64rem");
   const [tab, setTab] = useState("pending");
 
-  const pendingList = <PendingList claims={data.pending} />;
-  const claimedList = <ClaimedList rows={data.claimed} />;
+  // Ordem dos títulos: h1 > h2 > h3. Na grade (desktop) as seções têm h2 e os cartões h3; nas abas (celular)
+  // não há h2 de seção, então os títulos dos cartões sobem para h2 (como em `/itens` e "Minhas reivindicações").
+  const cardHeading = wide ? "h3" : "h2";
+  const pendingList = <PendingList claims={data.pending} heading={cardHeading} />;
+  const claimedList = <ClaimedList rows={data.claimed} heading={cardHeading} />;
 
   return (
     <>
-      <ul className="grid grid-cols-[auto_1fr_auto] gap-3 sm:grid-cols-3">
+      {/* Abaixo de 360 px (ex.: 320) o espaçamento encolhe: a soma das larguras mínimas dos rótulos não cabe com 12 px de vão. */}
+      <ul className="grid grid-cols-[auto_1fr_auto] gap-2 min-[360px]:gap-3 sm:grid-cols-3">
         <Stat label="Pendentes" value={data.pending.length} />
         <Stat label="Em reivindicação" value={data.claimed.length} />
         <Stat label="Devoluções" value={data.returnsCount} href="/admin/devolucoes" />
@@ -123,7 +127,7 @@ function Stat({ label, value, href }: { label: string; value: number; href?: str
       <span className="text-meta text-ink-muted">{label}</span>
     </>
   );
-  const classes = "flex h-full flex-col gap-1 rounded-lg bg-surface p-2.5 shadow-card sm:p-4";
+  const classes = "flex h-full flex-col gap-1 rounded-lg bg-surface p-2 shadow-card min-[360px]:p-2.5 sm:p-4";
   return (
     <li>
       {href ? (
@@ -150,7 +154,9 @@ function SectionHeading({ id, hint, children }: { id: string; hint: string; chil
 
 const CARD = "flex flex-col gap-3 rounded-lg bg-surface p-4 shadow-card";
 
-function PendingList({ claims }: { claims: ClaimView[] }) {
+type CardHeading = "h2" | "h3";
+
+function PendingList({ claims, heading: Heading }: { claims: ClaimView[]; heading: CardHeading }) {
   if (claims.length === 0) {
     return (
       <div className="rounded-lg bg-surface shadow-card">
@@ -173,8 +179,8 @@ function PendingList({ claims }: { claims: ClaimView[] }) {
               className="size-16 shrink-0 rounded-md"
             />
             <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-2 font-sans text-lead font-semibold tracking-normal">{claim.item.title}</h3>
-              <p className="mt-0.5 text-meta text-ink-muted">
+              <Heading className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{claim.item.title}</Heading>
+              <p className="user-text mt-0.5 text-meta text-ink-muted">
                 {claim.claimant.name} · {ROLE_LABEL[claim.claimant.role]}
               </p>
               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-subtle">
@@ -200,7 +206,7 @@ function PendingList({ claims }: { claims: ClaimView[] }) {
   );
 }
 
-function ClaimedList({ rows }: { rows: ClaimedItemSummary[] }) {
+function ClaimedList({ rows, heading: Heading }: { rows: ClaimedItemSummary[]; heading: CardHeading }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg bg-surface shadow-card">
@@ -223,11 +229,11 @@ function ClaimedList({ rows }: { rows: ClaimedItemSummary[] }) {
               className="size-16 shrink-0 rounded-md"
             />
             <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h3>
+              <Heading className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</Heading>
               {accepted ? (
                 <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-muted">
                   <ClaimStatusBadge status="accepted" />
-                  <span>Para {accepted.claimant.name} · aguardando devolução</span>
+                  <span className="user-text">Para {accepted.claimant.name} · aguardando devolução</span>
                 </p>
               ) : (
                 <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-muted">

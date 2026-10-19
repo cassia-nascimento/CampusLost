@@ -352,6 +352,14 @@
   }
 }
 
+/* Texto digitado por pessoas (título, descrição, nome, e-mail, respostas): palavras sem espaços quebram em
+   qualquer ponto e nunca geram rolagem horizontal. `overflow-wrap: anywhere` (e não `break-word`) também
+   reduz a largura mínima intrínseca, que é o que impede um item de grid/flex de esticar a página.
+   Em grades use `grid-cols-1` (faixa `minmax(0, 1fr)`); em filhos de flex, `min-w-0`. */
+@utility user-text {
+  overflow-wrap: anywhere;
+}
+
 /* Números alinhados (datas, contagens) */
 @utility tabular {
   font-variant-numeric: tabular-nums;

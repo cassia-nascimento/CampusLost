@@ -53,7 +53,7 @@ export function ItemClaimsPanel({ claims, registerReturn }: ItemClaimsPanelProps
               className="flex flex-col gap-3 rounded-lg bg-surface p-4 shadow-card sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
-                <p className="text-body font-semibold">{claim.claimant.name}</p>
+                <p className="user-text text-body font-semibold">{claim.claimant.name}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <ClaimStatusBadge status={claim.status} />
                   <span className="text-meta text-ink-subtle">Enviada em {formatInstantDate(claim.createdAt)}</span>
