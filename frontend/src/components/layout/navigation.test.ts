@@ -79,4 +79,13 @@ describe("cromo por rota", () => {
     expect(showsBottomNav("/itens/novo")).toBe(false);
     expect(showsBottomNav("/itens/i1")).toBe(false);
   });
+
+  it("voltar do detalhe e do registro reabre a última busca; as demais rotas ignoram", () => {
+    const search = "?categoria=Chaves&de=2026-10-01";
+    expect(getRouteChrome("/itens/i1", search)).toMatchObject({ backHref: `/itens${search}` });
+    expect(getRouteChrome("/itens/novo", search)).toMatchObject({ backHref: `/itens${search}` });
+    expect(getRouteChrome("/itens/i1/reivindicar", search)).toMatchObject({ backHref: "/itens/i1" });
+    expect(getRouteChrome("/admin/itens/i1/editar", search)).toMatchObject({ backHref: "/itens/i1" });
+    expect(getRouteChrome("/itens/i1", "")).toMatchObject({ backHref: "/itens" });
+  });
 });

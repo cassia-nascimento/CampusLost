@@ -2,12 +2,12 @@ import { z } from "zod";
 import { SIGNUP_ROLES } from "@/types/domain";
 import { boundedText, requiredString } from "./common";
 
-const email = requiredString("Informe o e-mail.")
+const email = requiredString("Informe seu e-mail.")
   .trim()
   .toLowerCase()
-  .min(1, "Informe o e-mail.")
+  .min(1, "Informe seu e-mail.")
   .max(120, "Use no máximo 120 caracteres.")
-  .pipe(z.email({ error: "Informe um e-mail válido." }));
+  .pipe(z.email({ error: "Esse e-mail não parece válido. Use o formato nome@exemplo.com." }));
 
 export const signUpSchema = z.object({
   name: boundedText("seu nome", 2, 80),
