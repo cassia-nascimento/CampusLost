@@ -1,3 +1,4 @@
+import { withOrigin } from "@/components/layout/navigation";
 import { LinkButton } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { ClaimStatusBadge } from "@/components/ui/StatusBadge";
@@ -11,6 +12,9 @@ export interface ItemClaimsPanelProps {
   /** `detail.viewer.registerReturn`: decide se o aviso de "falta registrar a devolução" aparece. */
   registerReturn: Decision;
 }
+
+/** Link para a análise levando o item como origem: o voltar da análise retorna a este item (não ao painel). */
+const reviewHref = (claim: ClaimWithClaimant) => withOrigin(`/admin/reivindicacoes/${claim.id}`, `/itens/${claim.itemId}`);
 
 /**
  * Reivindicações do item para a administração (DESIGN §9.4). A análise (aceitar/recusar) e o registro da
@@ -30,7 +34,7 @@ export function ItemClaimsPanel({ claims, registerReturn }: ItemClaimsPanelProps
           tone="success"
           title="Pronto para devolução"
           action={
-            <LinkButton href={`/admin/reivindicacoes/${accepted.id}`} variant="secondary">
+            <LinkButton href={reviewHref(accepted)} variant="secondary">
               Registrar devolução
             </LinkButton>
           }
@@ -56,7 +60,7 @@ export function ItemClaimsPanel({ claims, registerReturn }: ItemClaimsPanelProps
                 </div>
               </div>
               <LinkButton
-                href={`/admin/reivindicacoes/${claim.id}`}
+                href={reviewHref(claim)}
                 variant="secondary"
                 aria-label={`${claim.status === "pending" ? "Analisar" : "Ver"} reivindicação de ${claim.claimant.name}`}
               >

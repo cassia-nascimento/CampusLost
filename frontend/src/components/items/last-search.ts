@@ -41,6 +41,11 @@ export function rememberItemsSearch(search: string): void {
   listeners.forEach((listener) => listener());
 }
 
+/** Esquece a última busca (ao sair da conta ou reiniciar a demonstração: a próxima sessão começa sem filtros). */
+export function forgetItemsSearch(): void {
+  rememberItemsSearch("");
+}
+
 /** Query string da última busca (`?categoria=…` ou `""`). No servidor e na hidratação é sempre `""`. */
 export function useRememberedItemsSearch(): string {
   return useSyncExternalStore(subscribe, readSearch, () => "");

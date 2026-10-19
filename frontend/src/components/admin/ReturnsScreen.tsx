@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Container } from "@/components/layout/Container";
+import { withOrigin } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,49 +13,72 @@ import { Input } from "@/components/ui/Input";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { useServiceQuery } from "@/hooks/use-service-query";
+import { DATE_FILTER_DEBOUNCE_MS, periodError as getPeriodError } from "@/components/items/search-params";
 import { formatCount, formatInstantDate } from "@/lib/format";
-import { periodSchema } from "@/lib/validation";
 import { services, type ReturnView } from "@/services";
+
+const RETURNS_PATH = "/admin/devolucoes";
+const NO_PERIOD = { from: "", to: "" };
 
 /**
  * `/admin/devolucoes`: listagem simples de devoluções (RF05, AC05.3, P2/P9).
  * O período filtra pela data da devolução; não há exportação (decisão registrada na SPEC §1).
  */
 export function ReturnsScreen() {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // `draft` é o que está nos campos; `period` é o que filtra a lista. Digitar uma data gera valores
+  // intermediários, então o período só é aplicado depois de uma pausa (mesmo tempo da busca de itens) e
+  // nunca invertido (data final antes da inicial: mostra o erro e não busca).
+  const [draft, setDraft] = useState(NO_PERIOD);
+  const [period, setPeriod] = useState(NO_PERIOD);
+  const periodError = getPeriodError(draft) ?? undefined;
+  const filtered = Boolean(period.from || period.to);
 
-  const period = periodSchema.safeParse({ from, to });
-  const periodError = period.success ? undefined : period.error.issues[0]?.message;
-  const filtered = Boolean(from || to);
+  useEffect(() => {
+    if (periodError) return;
+    const timer = setTimeout(() => setPeriod(draft), DATE_FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [draft, periodError]);
 
   const query = useServiceQuery(
-    () => services.returns.list(period.success ? { from: from || undefined, to: to || undefined } : {}),
-    [from, to],
+    () => services.returns.list({ from: period.from || undefined, to: period.to || undefined }),
+    [period.from, period.to],
   );
 
   function clear() {
-    setFrom("");
-    setTo("");
+    setDraft(NO_PERIOD);
+    setPeriod(NO_PERIOD);
   }
 
   return (
     <Container size="admin">
       <PageHeader title="Devoluções" description="Itens já entregues aos donos, da mais recente para a mais antiga." />
 
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end">
         <div className="grid grid-cols-2 gap-3 md:w-96">
           <Field label="Devolvido de">
-            <Input type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} />
+            <Input
+              type="date"
+              value={draft.from}
+              max={draft.to || undefined}
+              onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
+            />
           </Field>
           <Field label="até" error={periodError}>
-            <Input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} />
+            <Input
+              type="date"
+              value={draft.to}
+              min={draft.from || undefined}
+              onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
+            />
           </Field>
         </div>
-        {filtered ? (
-          <Button variant="ghost" onClick={clear} className="md:mt-[1.625rem] self-start">
-            Limpar período
-          </Button>
+        {draft.from || draft.to ? (
+          // `md:pb-1.5`: o `Field` deixa um vão (gap) antes da linha de erro, mesmo vazia; o botão alinha à base do campo.
+          <div className="md:pb-1.5">
+            <Button variant="ghost" size="lg" onClick={clear}>
+              Limpar período
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -115,7 +139,7 @@ function ReturnsResults({
         {returns.map((record) => (
           <li key={record.id} className="flex flex-col gap-2 rounded-lg bg-surface p-4 shadow-card">
             <Link
-              href={`/itens/${record.item.id}`}
+              href={withOrigin(`/itens/${record.item.id}`, RETURNS_PATH)}
               className="link line-clamp-2 font-sans text-lead font-semibold tracking-normal"
             >
               {record.item.title}
@@ -161,7 +185,7 @@ function ReturnsResults({
             {returns.map((record) => (
               <tr key={record.id}>
                 <td className="px-4 py-3 break-words">
-                  <Link href={`/itens/${record.item.id}`} className="link font-semibold">
+                  <Link href={withOrigin(`/itens/${record.item.id}`, RETURNS_PATH)} className="link font-semibold">
                     {record.item.title}
                   </Link>
                 </td>

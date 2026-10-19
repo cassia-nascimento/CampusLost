@@ -10,6 +10,7 @@ import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { services, type ItemDetail } from "@/services";
+import { getClaimMessages } from "./claim-messages";
 import { ClaimForm } from "./ClaimForm";
 import { ClaimItemSummary, ClaimItemSummarySkeleton } from "./ClaimItemSummary";
 
@@ -72,10 +73,17 @@ function ClaimContent({
   onSent: () => void;
   onBlocked: () => void;
 }) {
-  const { item, viewer } = detail;
+  const { item, viewer, myClaims } = detail;
   const decision = viewer.claim;
 
   if (!decision.allowed) {
+    // Quem já tem reivindicação pendente/aceita lê o texto do DESIGN §10 (`claim-messages`); nos demais
+    // bloqueios vale a mensagem que o serviço devolveu (`viewer.claim.message`).
+    const mine = decision.code === "DUPLICATE_CLAIM" ? myClaims[0] : undefined;
+    const blockedText =
+      (mine
+        ? getClaimMessages({ claimStatus: mine.status, itemStatus: item.status, storedAt: item.storedAt }).blocked
+        : null) ?? decision.message;
     return (
       <>
         <ClaimItemSummary item={item} />
@@ -95,7 +103,7 @@ function ClaimContent({
             </div>
           }
         >
-          {decision.message}
+          {blockedText}
         </EmptyState>
       </>
     );

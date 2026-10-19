@@ -12,14 +12,14 @@ import { Photo } from "@/components/ui/Photo";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ITEM_STATUS_META } from "@/components/ui/status";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
+import { useMinWidth } from "@/hooks/use-min-width";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { formatDate, formatRelativeDate } from "@/lib/format";
-import { isAdmin } from "@/lib/rules";
+import { hasCapability } from "@/lib/rules";
 import { services, type ItemDetail } from "@/services";
 import { ItemClaimsPanel } from "./ItemClaimsPanel";
 import { ItemViewerNotices } from "./ItemViewerNotices";
-import { useMinWidth } from "./use-min-width";
 
 function DetailSkeleton() {
   return (
@@ -55,11 +55,13 @@ function FoundDate({ date }: { date: string }) {
 }
 
 function ItemDetailBody({ detail }: { detail: ItemDetail }) {
-  const { item, createdBy, viewer, claims } = detail;
+  const { item, createdBy, viewer, claims, myClaims } = detail;
   const { user } = useSession();
   const desktop = useMinWidth("48rem");
-  const showClaims = isAdmin(user);
+  const showClaims = hasCapability(user, "review_claims");
   const returned = item.status === "returned";
+  // Quem tem reivindicação própria já lê a situação dela no aviso abaixo; a frase do status ficaria redundante.
+  const statusNote = returned || myClaims.length > 0 ? null : ITEM_STATUS_META[item.status].note;
 
   // Ações vêm só de `viewer.*` (decididas pelo serviço com as regras de lib/rules).
   const claimAction = viewer.claim.allowed ? (
@@ -93,7 +95,7 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
             <div>
               <ItemStatusBadge status={item.status} size="lg" />
             </div>
-            {returned ? null : <p className="text-body text-ink-muted">{ITEM_STATUS_META[item.status].note}</p>}
+            {statusNote ? <p className="text-body text-ink-muted">{statusNote}</p> : null}
           </header>
 
           <ItemViewerNotices detail={detail} />

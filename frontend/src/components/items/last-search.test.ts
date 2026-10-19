@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readSearch, rememberItemsSearch } from "./last-search";
+import { forgetItemsSearch, readSearch, rememberItemsSearch } from "./last-search";
 
 function stubStorage(store: Map<string, string>) {
   vi.stubGlobal("sessionStorage", {
@@ -26,6 +26,13 @@ describe("última busca de /itens", () => {
   it("busca vazia apaga o que estava guardado", () => {
     rememberItemsSearch("?local=Portaria");
     rememberItemsSearch("");
+    expect(readSearch()).toBe("");
+    expect(store.size).toBe(0);
+  });
+
+  it("esquecer (sair da conta, reiniciar a demonstração) apaga a busca guardada", () => {
+    rememberItemsSearch("?categoria=Chaves");
+    forgetItemsSearch();
     expect(readSearch()).toBe("");
     expect(store.size).toBe(0);
   });

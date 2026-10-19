@@ -4,7 +4,9 @@ import {
   getBottomNavItems,
   getHeaderNavItems,
   getRouteChrome,
+  parseOrigin,
   showsBottomNav,
+  withOrigin,
 } from "./navigation";
 
 describe("itens de navegação por perfil", () => {
@@ -87,5 +89,70 @@ describe("cromo por rota", () => {
     expect(getRouteChrome("/itens/i1/reivindicar", search)).toMatchObject({ backHref: "/itens/i1" });
     expect(getRouteChrome("/admin/itens/i1/editar", search)).toMatchObject({ backHref: "/itens/i1" });
     expect(getRouteChrome("/itens/i1", "")).toMatchObject({ backHref: "/itens" });
+  });
+});
+
+describe("página de origem (?de=) no voltar", () => {
+  it("withOrigin codifica o caminho e parseOrigin o devolve", () => {
+    const href = withOrigin("/itens/i1", "/minhas-reivindicacoes");
+    expect(href).toBe("/itens/i1?de=%2Fminhas-reivindicacoes");
+    const raw = new URL(href, "http://x").searchParams.get("de");
+    expect(parseOrigin(raw)).toBe("/minhas-reivindicacoes");
+  });
+
+  it("parseOrigin só aceita caminhos do app permitidos", () => {
+    for (const ok of ["/minhas-reivindicacoes", "/admin/devolucoes", "/admin/reivindicacoes/claim-01", "/itens/item-04"]) {
+      expect(parseOrigin(ok)).toBe(ok);
+    }
+    for (const bad of [
+      "https://evil.test",
+      "//evil.test",
+      "/\\evil.test",
+      "javascript:alert(1)",
+      "/admin",
+      "/admin/itens/i1/editar",
+      "/itens/novo",
+      "/itens/i1/reivindicar",
+      "/itens/i1/../x",
+      "/minhas-reivindicacoes?x=1",
+      "/minhas-reivindicacoes/",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(parseOrigin(bad)).toBeNull();
+    }
+  });
+
+  it("detalhe do item: Minhas reivindicações / Devoluções / Análise → voltar à origem", () => {
+    const search = "?categoria=Chaves";
+    expect(getRouteChrome("/itens/i1", search, "/minhas-reivindicacoes")).toMatchObject({
+      backHref: "/minhas-reivindicacoes",
+    });
+    expect(getRouteChrome("/itens/i1", search, "/admin/devolucoes")).toMatchObject({ backHref: "/admin/devolucoes" });
+    expect(getRouteChrome("/itens/i1", "", "/admin/reivindicacoes/c1")).toMatchObject({
+      backHref: "/admin/reivindicacoes/c1",
+    });
+  });
+
+  it("detalhe do item sem origem (ou com origem inválida) reabre a última busca", () => {
+    const search = "?local=Portaria";
+    expect(getRouteChrome("/itens/i1", search)).toMatchObject({ backHref: `/itens${search}` });
+    expect(getRouteChrome("/itens/i1", search, null)).toMatchObject({ backHref: `/itens${search}` });
+    expect(getRouteChrome("/itens/i1", search, "https://evil.test")).toMatchObject({ backHref: `/itens${search}` });
+    expect(getRouteChrome("/itens/i1", search, "/itens/outro")).toMatchObject({ backHref: `/itens${search}` });
+  });
+
+  it("análise: vinda do item, voltar ao item; sem origem, ao painel", () => {
+    expect(getRouteChrome("/admin/reivindicacoes/c1", "", "/itens/i1")).toMatchObject({ backHref: "/itens/i1" });
+    expect(getRouteChrome("/admin/reivindicacoes/c1")).toMatchObject({ backHref: "/admin" });
+    expect(getRouteChrome("/admin/reivindicacoes/c1", "", "/admin/devolucoes")).toMatchObject({ backHref: "/admin" });
+    expect(getRouteChrome("/admin/reivindicacoes/c1", "", "//evil.test")).toMatchObject({ backHref: "/admin" });
+  });
+
+  it("registrar, reivindicar e editar ignoram a origem", () => {
+    expect(getRouteChrome("/itens/novo", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens" });
+    expect(getRouteChrome("/itens/i1/reivindicar", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens/i1" });
+    expect(getRouteChrome("/admin/itens/i1/editar", "", "/admin/devolucoes")).toMatchObject({ backHref: "/itens/i1" });
   });
 });

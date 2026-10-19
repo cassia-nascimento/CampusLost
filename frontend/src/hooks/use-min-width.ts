@@ -3,7 +3,8 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * `true` quando a janela tem pelo menos `minWidth` (ex.: `"48rem"` = breakpoint `md`). `false` no servidor.
+ * `true` quando a janela tem pelo menos `minWidth`, sempre em `rem` como os breakpoints do Tailwind
+ * (`"48rem"` = `md`, `"64rem"` = `lg`). `false` no servidor e na hidratação (mobile-first).
  * Use só quando a estrutura do DOM muda (CSS não basta), como a barra de ação fixa do celular que vira
  * botão em linha no desktop.
  */
