@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
@@ -16,6 +16,7 @@ import { isAdmin } from "@/lib/rules";
 import { services } from "@/services";
 import type { ClaimStatus } from "@/types/domain";
 import { FilterBar } from "./FilterBar";
+import { rememberItemsSearch } from "./last-search";
 import { EMPTY_FILTERS, filtersToSearch, getActiveChips, parseFilterParams, toItemFilters } from "./search-params";
 
 const SKELETON_COUNT = 4;
@@ -33,6 +34,11 @@ export function ItemSearch() {
   const search = searchParams.toString();
   const filters = useMemo(() => parseFilterParams(new URLSearchParams(search)), [search]);
   const hasFilters = getActiveChips(filters).length > 0;
+
+  // Guarda a busca para o "voltar" do header mobile reabrir a lista com estes filtros (detalhe, registrar).
+  useEffect(() => {
+    rememberItemsSearch(filtersToSearch(filters));
+  }, [filters]);
 
   // `replace`: mudar filtro não empilha histórico; voltar do detalhe retorna a esta mesma URL.
   function applyFilters(next: typeof filters) {

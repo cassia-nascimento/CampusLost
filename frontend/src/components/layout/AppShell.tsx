@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useRememberedItemsSearch } from "@/components/items/last-search";
 import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
@@ -17,7 +18,8 @@ import { getRouteChrome, showsBottomNav } from "./navigation";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useSession();
-  const chrome = getRouteChrome(pathname);
+  const itemsSearch = useRememberedItemsSearch();
+  const chrome = getRouteChrome(pathname, itemsSearch);
   const bottomNav = user !== null && showsBottomNav(pathname);
 
   return (
