@@ -1,0 +1,410 @@
+"use client";
+
+import { Calendar, MapPin, Tag, Warehouse } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
+import { ActionBar } from "@/components/layout/ActionBar";
+import { Container } from "@/components/layout/Container";
+import { DefinitionList } from "@/components/layout/DefinitionList";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Button, LinkButton } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/Dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Notice } from "@/components/ui/Notice";
+import { Photo } from "@/components/ui/Photo";
+import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
+import { ClaimStatusBadge, ItemStatusBadge } from "@/components/ui/StatusBadge";
+import { useServiceQuery } from "@/hooks/use-service-query";
+import { useSession } from "@/hooks/use-session";
+import { useToast } from "@/hooks/use-toast";
+import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
+import { canReviewClaim, reviewClaim } from "@/lib/rules";
+import { services, type ClaimView, type ItemDetail } from "@/services";
+import { ROLE_LABEL, isServiceError, type ItemStatus, type User } from "@/types/domain";
+
+type Dialog = "accept" | "reject" | "return" | null;
+
+async function loadReview(claimId: string) {
+  const claim = await services.claims.get(claimId);
+  const detail = await services.items.get(claim.itemId);
+  return { claim, detail };
+}
+
+/**
+ * Simula a decisão com a própria regra de domínio (`reviewClaim`, função pura) só para avisar o efeito
+ * no diálogo. Quem decide de verdade é o serviço; `null` se a regra negaria.
+ */
+function previewDecision(user: User, claim: ClaimView, detail: ItemDetail, decision: "accept" | "reject") {
+  try {
+    return reviewClaim({
+      actor: user,
+      item: detail.item,
+      itemClaims: detail.claims,
+      claimId: claim.id,
+      decision,
+      now: new Date(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Mensagem do toast ao aceitar, com quantas reivindicações foram recusadas automaticamente. */
+function acceptedMessage(autoRejected: number): string {
+  if (autoRejected === 0) return "Reivindicação aceita.";
+  const rest =
+    autoRejected === 1
+      ? "1 outra reivindicação foi recusada automaticamente."
+      : `${autoRejected} outras reivindicações foram recusadas automaticamente.`;
+  return `Reivindicação aceita. ${rest}`;
+}
+
+/** `/admin/reivindicacoes/[id]`: compara o item publicado com a resposta da pessoa (RF04, AC04.4–04.6, AC05.1–05.2). */
+export function ClaimReview({ claimId }: { claimId: string }) {
+  const query = useServiceQuery(() => loadReview(claimId), [claimId]);
+
+  return (
+    <Container size="admin">
+      <PageHeader title="Analisar reivindicação" />
+      {query.status === "loading" ? <ReviewSkeleton /> : null}
+      {query.status === "error" && query.error?.code === "NOT_FOUND" ? (
+        <EmptyState
+          variant="restricted"
+          title="Reivindicação não encontrada"
+          action={<LinkButton href="/admin">Voltar ao painel</LinkButton>}
+        >
+          Ela pode ter sido removida junto com o item.
+        </EmptyState>
+      ) : null}
+      {query.status === "error" && query.error?.code !== "NOT_FOUND" ? (
+        <ErrorState title="Não conseguimos carregar a reivindicação" onRetry={query.refetch}>
+          {query.error?.message}
+        </ErrorState>
+      ) : null}
+      {query.status === "success" && query.data ? (
+        <ReviewContent claim={query.data.claim} detail={query.data.detail} refetch={query.refetch} />
+      ) : null}
+    </Container>
+  );
+}
+
+function ReviewContent({
+  claim,
+  detail,
+  refetch,
+}: {
+  claim: ClaimView;
+  detail: ItemDetail;
+  refetch: () => void;
+}) {
+  const { user } = useSession();
+  const router = useRouter();
+  const toast = useToast();
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [busy, setBusy] = useState(false);
+
+  const { item } = detail;
+  const reviewable = canReviewClaim(user, item, claim);
+  const acceptPreview = user && reviewable.allowed ? previewDecision(user, claim, detail, "accept") : null;
+  const rejectPreview = user && reviewable.allowed ? previewDecision(user, claim, detail, "reject") : null;
+  const othersPending = acceptPreview?.autoRejectedIds.length ?? 0;
+  const rejectFreesItem = rejectPreview?.item.status === "available";
+
+  /** Outra aba/pessoa pode ter decidido antes: explica, fecha o diálogo e relê o estado atual. */
+  function handleFailure(error: unknown) {
+    setDialog(null);
+    if (!isServiceError(error)) {
+      toast.error("Não foi possível concluir a ação. Tente de novo em instantes.");
+      return;
+    }
+    const stale = error.code === "INVALID_TRANSITION" || error.code === "ITEM_RETURNED" || error.code === "NOT_FOUND";
+    toast.error(stale ? `${error.message} Atualizamos a tela com o estado atual.` : error.message);
+    if (stale) refetch();
+  }
+
+  async function confirm() {
+    if (!dialog) return;
+    setBusy(true);
+    try {
+      if (dialog === "accept") {
+        const result = await services.claims.accept(claim.id);
+        toast.success(acceptedMessage(result.autoRejectedIds.length));
+      } else if (dialog === "reject") {
+        const result = await services.claims.reject(claim.id);
+        toast.success(
+          result.item.status === "available"
+            ? "Reivindicação recusada. O item voltou a ficar Disponível."
+            : "Reivindicação recusada.",
+        );
+      } else {
+        await services.returns.register(item.id);
+        toast.success("Devolução registrada. O item saiu da busca.");
+        router.push("/admin/devolucoes");
+      }
+      setDialog(null);
+    } catch (error) {
+      handleFailure(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <ClaimStatusBadge status={claim.status} size="lg" />
+        <p className="text-body text-ink-muted">
+          Enviada em <time dateTime={claim.createdAt}>{formatDateTime(claim.createdAt)}</time>
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+        <Panel title="O que foi publicado">
+          {item.photoDataUrl ? (
+            <>
+              <Photo
+                src={item.photoDataUrl}
+                alt={`Foto de ${item.title}`}
+                aspect="landscape"
+                sizes="(min-width: 48rem) 40vw, 100vw"
+                className="w-full rounded-md"
+              />
+              <ItemHeading title={item.title} status={item.status} />
+            </>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Photo src={null} alt="" aspect="square" className="size-20 shrink-0 rounded-md" />
+              <ItemHeading title={item.title} status={item.status} />
+            </div>
+          )}
+          <DefinitionList
+            items={[
+              { label: "Categoria", value: item.category, icon: Tag },
+              { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
+              { label: "Data", value: formatDate(item.foundDate), icon: Calendar },
+              { label: "Guardado em", value: item.storedAt, icon: Warehouse },
+            ]}
+          />
+          <div>
+            <p className="text-meta text-ink-subtle">Descrição pública</p>
+            <p className="mt-0.5 text-body break-words whitespace-pre-wrap">{item.description}</p>
+          </div>
+          <div className="-ml-4 flex flex-wrap gap-1">
+            <LinkButton href={`/itens/${item.id}`} variant="ghost">
+              Ver item
+            </LinkButton>
+            {detail.viewer.edit.allowed ? (
+              <LinkButton href={`/admin/itens/${item.id}/editar`} variant="ghost">
+                Editar item
+              </LinkButton>
+            ) : null}
+          </div>
+        </Panel>
+
+        <Panel title="O que a pessoa respondeu">
+          <div>
+            <p className="text-lead font-semibold">{claim.claimant.name}</p>
+            <p className="mt-0.5 text-meta break-all text-ink-muted">{claim.claimant.email}</p>
+            <p className="mt-0.5 text-meta text-ink-subtle">
+              Papel informado no cadastro: {ROLE_LABEL[claim.claimant.role]}
+            </p>
+          </div>
+          <Answer label="Detalhes que só o dono saberia">{claim.proofDetails}</Answer>
+          <Answer label="Onde e quando perdeu">{claim.lostWhereWhen}</Answer>
+        </Panel>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-4">
+        <DecisionNotice
+          claim={claim}
+          detail={detail}
+          reviewableMessage={reviewable.allowed ? null : reviewable.message}
+          othersPending={othersPending}
+          rejectFreesItem={rejectFreesItem}
+        />
+      </div>
+
+      {claim.status === "pending" && reviewable.allowed ? (
+        <ActionBar>
+          <Button size="lg" width="mobile-full" variant="secondary" onClick={() => setDialog("reject")}>
+            Recusar
+          </Button>
+          <Button size="lg" width="mobile-full" onClick={() => setDialog("accept")}>
+            Aceitar
+          </Button>
+        </ActionBar>
+      ) : null}
+      {claim.status === "accepted" && detail.viewer.registerReturn.allowed ? (
+        <ActionBar>
+          <Button size="lg" width="mobile-full" onClick={() => setDialog("return")}>
+            Registrar devolução
+          </Button>
+        </ActionBar>
+      ) : null}
+
+      <ConfirmDialog
+        open={dialog === "accept"}
+        onClose={() => setDialog(null)}
+        title="Aceitar esta reivindicação?"
+        description={
+          <>
+            {othersPending > 0
+              ? `${othersPending === 1 ? "A outra reivindicação pendente deste item será recusada" : `As outras ${othersPending} reivindicações pendentes deste item serão recusadas`} automaticamente. `
+              : null}
+            O item continua Em reivindicação até você registrar a devolução.
+          </>
+        }
+        confirmLabel="Aceitar reivindicação"
+        confirmingLabel="Aceitando…"
+        busy={busy}
+        onConfirm={() => void confirm()}
+      />
+      <ConfirmDialog
+        destructive
+        open={dialog === "reject"}
+        onClose={() => setDialog(null)}
+        title="Recusar esta reivindicação?"
+        description={
+          <>
+            {claim.claimant.name} não poderá reenviar para este item.
+            {rejectFreesItem ? " O item voltará a ficar Disponível." : null}
+          </>
+        }
+        confirmLabel="Recusar reivindicação"
+        confirmingLabel="Recusando…"
+        busy={busy}
+        onConfirm={() => void confirm()}
+      />
+      <ConfirmDialog
+        open={dialog === "return"}
+        onClose={() => setDialog(null)}
+        title="Registrar a devolução?"
+        description={
+          <>
+            <span className="block">
+              Item: <strong>{item.title}</strong>.
+            </span>
+            <span className="block">
+              Entregue a: <strong>{claim.claimant.name}</strong>.
+            </span>
+            <span className="mt-2 block">Esta ação não pode ser desfeita.</span>
+          </>
+        }
+        confirmLabel="Registrar devolução"
+        confirmingLabel="Registrando…"
+        busy={busy}
+        onConfirm={() => void confirm()}
+      />
+    </>
+  );
+}
+
+/** Aviso abaixo da comparação: efeito da decisão, ou a decisão já tomada / o motivo de não haver ação. */
+function DecisionNotice({
+  claim,
+  detail,
+  reviewableMessage,
+  othersPending,
+  rejectFreesItem,
+}: {
+  claim: ClaimView;
+  detail: ItemDetail;
+  reviewableMessage: string | null;
+  othersPending: number;
+  rejectFreesItem: boolean;
+}) {
+  const decidedOn = claim.reviewedAt ? ` em ${formatInstantDate(claim.reviewedAt)}` : "";
+
+  if (claim.status === "rejected") {
+    return (
+      <Notice tone="neutral" title={`Reivindicação recusada${decidedOn}`}>
+        {claim.claimant.name} não pode reenviar para este item.
+      </Notice>
+    );
+  }
+
+  if (claim.status === "accepted") {
+    if (detail.returnRecord) {
+      return (
+        <Notice tone="neutral" title="Item devolvido">
+          Este item já foi devolvido em {formatInstantDate(detail.returnRecord.returnedAt)} a {claim.claimant.name}.
+        </Notice>
+      );
+    }
+    return (
+      <Notice tone="success" title={`Reivindicação aceita${decidedOn}`}>
+        {detail.viewer.registerReturn.allowed
+          ? `O item continua Em reivindicação até você registrar a devolução a ${claim.claimant.name}.`
+          : detail.viewer.registerReturn.message}
+      </Notice>
+    );
+  }
+
+  // Pendente.
+  if (reviewableMessage) {
+    return (
+      <Notice tone="neutral" title="Não é possível analisar agora">
+        {reviewableMessage}
+      </Notice>
+    );
+  }
+  if (othersPending > 0) {
+    return (
+      <Notice tone="info">
+        {othersPending === 1
+          ? "Há outra reivindicação pendente neste item: se você aceitar, ela será recusada automaticamente."
+          : `Há outras ${othersPending} reivindicações pendentes neste item: se você aceitar, elas serão recusadas automaticamente.`}
+      </Notice>
+    );
+  }
+  if (rejectFreesItem) {
+    return (
+      <Notice tone="info">
+        Esta é a única reivindicação ativa deste item: se você recusar, ele volta a ficar Disponível.
+      </Notice>
+    );
+  }
+  return null;
+}
+
+function ItemHeading({ title, status }: { title: string; status: ItemStatus }) {
+  return (
+    <div className="min-w-0">
+      <h3 className="font-sans text-lead font-semibold tracking-normal break-words">{title}</h3>
+      <div className="mt-2">
+        <ItemStatusBadge status={status} />
+      </div>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-5 rounded-lg bg-surface p-4 shadow-card md:p-5">
+      <h2 className="text-meta font-semibold tracking-wide text-ink-subtle uppercase">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Answer({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="text-meta text-ink-subtle">{label}</p>
+      <p className="mt-1 rounded-md bg-paper p-3 text-body break-words whitespace-pre-wrap">{children}</p>
+    </div>
+  );
+}
+
+function ReviewSkeleton() {
+  return (
+    <LoadingRegion label="Carregando a reivindicação…">
+      <Skeleton className="mb-6 h-8 w-48 rounded-full" />
+      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+        <Skeleton className="h-96 w-full rounded-lg" />
+        <Skeleton className="h-72 w-full rounded-lg" />
+      </div>
+    </LoadingRegion>
+  );
+}
