@@ -251,3 +251,67 @@ Scripts: `lib.mjs`, `rec.mjs` (utilitários), `genimg.py`, `e2e-flow.mjs`, `perm
 - Decisão do orquestrador sobre I2 (redirecionamento pós-devolução) e D12 (usar `DEMO_DATA_NOTICE`).
 - Não testados: leitor de tela, dispositivos reais, Safari/Firefox, `forced-colors`, corrida de escrita entre abas.
 - Reexecutar `node keyboard.mjs` e `node responsive.mjs stress` depois das correções para confirmar D1–D4.
+
+
+---
+
+## 8. Rodada 2 — regressão pós-correções e validação do roteiro (executada pelo orquestrador)
+
+**Contexto.** A rodada 2 foi planejada para um agente de QA que foi interrompido antes de escrever resultados; as alterações parciais dele **não** foram aproveitadas. Os resultados abaixo foram obtidos pelo orquestrador, rodando os scripts desta pasta contra o build de produção do commit `26c9c8a` (branch `feature/prototipo-frontend`), em Chromium headless, porta 3140. Os scripts rodaram a partir de uma cópia fora do repositório (dependências `playwright-core` e `axe-core` instaladas lá).
+
+### 8.1 O que foi reexecutado e resultado
+
+| Script | Resultado | Observação |
+|---|---|---|
+| `e2e-flow` | 32 OK, 0 FALHA | fluxo completo, 3 perfis, cadastro, aceite/recusa, devolução, exclusão |
+| `permissions` | matriz conforme SPEC §2 (conferida manualmente) | aluno e professor: "Acesso restrito" em todas as rotas `/admin/**`; só a administração vê Painel/Editar/Excluir; administração nunca vê "É meu"; 404 próprio em pt-BR |
+| `search` | 19 OK, 0 FALHA | |
+| `states` | 19 OK, 0 FALHA | |
+| `rules` | 6 OK, 1 FALHA (falso positivo) | `LAT`: envio de reivindicação 2149 ms e login 556 ms. É latência **encadeada** (várias operações de 300–600 ms), já documentada; não é regressão |
+| `storage` | 11 OK, 0 FALHA | sync entre abas sem recarregar (admin e usuária), sessão por aba, reiniciar demo (menu e login), datas do seed, `localStorage` e `sessionStorage` indisponíveis. A primeira execução estourou meu limite de tempo (o navegador foi encerrado pelo `timeout`) e foi refeita sem limite curto |
+| `a11y` (axe) | 91 OK, 0 FALHA | 0 violações em 91 estados |
+| `touch` | 33 OK, 0 FALHA | |
+| `responsive seed` | 115 combinações: 0 transbordos, 0 barras cobrindo conteúdo | 320, 360, 390, 768, 1280 px |
+| `responsive stress` | 115 combinações: 0 transbordos, 0 barras cobrindo conteúdo | entradas longas; confirma D1, D3 e D4 corrigidos |
+| `storage-volatil` | OK | com `localStorage` bloqueado a faixa mostra "Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar." em região `role="status"` (D9) |
+
+Observação: em todas as linhas de `responsive` aparece `alvos<44:1`. É sempre o link oculto "Pular para o conteúdo" (32×24 px, visível só ao receber foco por teclado), não um alvo de toque real.
+
+**Não reexecutados por mim** (verificados apenas pelo agente da correção T10c, a 71f8662): `forms`, `photo`, `misc` (inclui título de aba e 404), `keyboard` (4 FALHA conhecidas, falsos positivos já descritos na rodada 1). Tratar estes resultados como relatados, não como confirmados de forma independente.
+
+### 8.2 Estado dos defeitos da rodada 1
+
+| ID | Estado | Evidência |
+|---|---|---|
+| D1, D3, D4 | **Corrigidos, verificados por mim** | `responsive stress`: 0 transbordos a 320/360/390 px em `/itens`, análise `claim-01` e `/admin` |
+| D5 | Corrigido, verificado por mim | `permissions`: `/rota-inexistente` mostra "Página não encontrada" |
+| D6 | Corrigido, verificado por mim | `a11y`: 0 violações em 91 estados (some `region` e `heading-order`) |
+| D8 | Corrigido, verificado por mim | `touch`: 33 OK |
+| D9 | Corrigido, verificado por mim | `storage-volatil` e `storage` |
+| D12 | Corrigido, verificado por mim | a faixa e o aviso de modo demonstração dizem que usuários, itens, categorias e locais são fictícios |
+| D2, D7, D10, D11 | Corrigidos conforme o agente T10c; **não reconfirmados por mim** | dependem de `forms`, `photo` e `misc` |
+
+### 8.3 Validação do `DEMO.md` (percurso manual por script, 390 px e 1280 px)
+
+O percurso `demo-walk.mjs` (duas abas no mesmo contexto, sessões separadas) completou o ciclo inteiro — reiniciar demo → aluna registra item → professor reivindica → administração analisa e aceita → registra devolução → item aparece em `/admin/devolucoes` e some da busca — sem erro de console nas duas larguras. Divergências entre o rascunho do roteiro e a tela, **já corrigidas no `DEMO.md`**:
+
+- botões de perfil são "Aluno demo", "Professor demo" e "Administração demo" (não "Aluno/Professor/Administração");
+- o painel `/admin` já tem 5 reivindicações pendentes do estado inicial: é preciso achar a linha do item novo ("Enviada hoje") e clicar em **Analisar**;
+- o texto exato dos erros, avisos, diálogos e rótulos de campo (ver seção 3 do roteiro);
+- após enviar a reivindicação o app abre **Minhas reivindicações** (não o detalhe do item);
+- "Reiniciar demonstração" existe na tela de entrada **e** no Menu da conta.
+
+Um falso alarme do próprio script (busca por "Garrafa térmica" casava com o item do seed "Garrafa térmica verde") foi investigado e **não** era defeito: pelo link exato, o item devolvido não aparece na busca.
+
+Verificações manuais adicionais (`residual.mjs`): o "voltar" do celular preserva a origem (`/itens?categoria=Chaves`; de Ver item a partir de Minhas reivindicações volta a `/minhas-reivindicacoes`); a faixa de demonstração ocupa 78 px (3 linhas) a 360 e 390 px, no fluxo da página, sem cobrir nada; **o foco do teclado cai no `BODY` após navegação entre telas** (existe o link "Pular para o conteúdo").
+
+### 8.4 Defeitos e riscos que continuam abertos
+
+- **Foco após navegação client-side fica no `BODY`** (informativo I1 da rodada 1): limitação de acessibilidade real, severidade baixa a média para usuários de teclado e leitor de tela; não corrigida.
+- **Latência encadeada de ~2 s** no envio de reivindicação (simulada): pode parecer travamento numa demonstração ao vivo.
+- Faixa de demonstração com 3 linhas no celular: decisão de texto, não de defeito.
+- Não testados: leitor de tela, dispositivos reais, zoom de 200%, teclado virtual, Safari/Firefox/Edge, `forced-colors`, comparação visual com o Figma.
+
+### 8.5 Veredito
+
+**Aprovado para demonstração, com ressalvas** (0 defeitos que bloqueiam a demo; ressalvas: seção 8.4 e os resultados de `forms`/`photo`/`misc`/`keyboard` não reconfirmados nesta rodada). Os cinco itens que os desenvolvedores haviam declarado "não verificados" seguem verificados em Chromium real.
