@@ -48,6 +48,7 @@ tmp/
 
 # ===== Ferramentas de IA =====
 CLAUDE.md
+!/CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 GEMINI.md
