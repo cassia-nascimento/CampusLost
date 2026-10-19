@@ -184,8 +184,8 @@ Nunca mostrar status só com cor, só com ícone ou só com ponto colorido. Todo
 
 | Status (SPEC) | Rótulo | Tom | Ícone (lucide) | Significado exibido ao lado (StatusNote) |
 |---|---|---|---|---|
-| `available` | Disponível | success | `PackageOpen` | "Ninguém reivindicou este item ainda." |
-| `under_claim` | Em reivindicação | warning | `PackageSearch` | "Alguém já pediu este item e a administração está conferindo." |
+| `available` | Disponível | success | `PackageOpen` | "Pode ser reivindicado." |
+| `under_claim` | Em reivindicação | warning | `PackageSearch` | "Há reivindicação em andamento." |
 | `returned` | Devolvido | neutral | `PackageCheck` | "Este item já foi devolvido ao dono." |
 
 **Status da reivindicação**
@@ -574,7 +574,7 @@ Desktop: PageHeader com `h1` + contagem; FilterBar em linha (Categoria · Local 
 |                                        |
 |  Fone de ouvido preto*                 |   <- h1
 |  {PackageOpen Disponível}              |
-|  Ninguém reivindicou este item ainda.  |
+|  Pode ser reivindicado.  |
 |                                        |
 |  Categoria     Eletrônicos             |
 |  Encontrado em Bloco A                 |
