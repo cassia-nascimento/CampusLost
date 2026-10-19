@@ -10,10 +10,14 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
 import { CatalogNote } from "./CatalogNote";
-import { EMPTY_FILTERS, filtersToSearch, getActiveChips, periodError, type FilterValues } from "./search-params";
-
-/** Tempo sem digitar nas datas antes de aplicar o filtro (digitar o ano gera valores intermediários). */
-const DATE_DEBOUNCE_MS = 450;
+import {
+  DATE_FILTER_DEBOUNCE_MS,
+  EMPTY_FILTERS,
+  filtersToSearch,
+  getActiveChips,
+  periodError,
+  type FilterValues,
+} from "./search-params";
 
 export interface FilterBarProps {
   /** Filtros aplicados agora (vêm da URL). */
@@ -111,7 +115,7 @@ export function FilterBar({ value, onChange, resultLabel }: FilterBarProps) {
     setDraft(next);
     clearTimeout(timer.current);
     if (periodError(next)) return; // mostra o erro e não aplica
-    if (options?.debounce) timer.current = setTimeout(() => onChange(next), DATE_DEBOUNCE_MS);
+    if (options?.debounce) timer.current = setTimeout(() => onChange(next), DATE_FILTER_DEBOUNCE_MS);
     else onChange(next);
   }
 

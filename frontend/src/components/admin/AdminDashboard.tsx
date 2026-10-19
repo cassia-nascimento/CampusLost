@@ -12,13 +12,13 @@ import { Photo } from "@/components/ui/Photo";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ClaimStatusBadge } from "@/components/ui/StatusBadge";
 import { TabPanel, Tabs } from "@/components/ui/Tabs";
+import { useMinWidth } from "@/hooks/use-min-width";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { formatCount, formatRelativeInstant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { services, type ClaimView } from "@/services";
 import { ROLE_LABEL } from "@/types/domain";
 import { summarizeClaimedItems, type ClaimedItemSummary } from "./claimed-items";
-import { useMediaQuery } from "./use-media-query";
 
 interface DashboardData {
   pending: ClaimView[];
@@ -60,7 +60,7 @@ export function AdminDashboard() {
 }
 
 function DashboardContent({ data }: { data: DashboardData }) {
-  const wide = useMediaQuery("(min-width: 1024px)");
+  const wide = useMinWidth("64rem");
   const [tab, setTab] = useState("pending");
 
   const pendingList = <PendingList claims={data.pending} />;

@@ -12,7 +12,7 @@ import { LoadingRegion } from "@/components/ui/Skeleton";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { formatCount } from "@/lib/format";
-import { isAdmin } from "@/lib/rules";
+import { hasCapability } from "@/lib/rules";
 import { services } from "@/services";
 import type { ClaimStatus } from "@/types/domain";
 import { FilterBar } from "./FilterBar";
@@ -48,7 +48,7 @@ export function ItemSearch() {
   const items = useServiceQuery(() => services.items.list(toItemFilters(filters)), [filters]);
 
   // "Sua reivindicação: …" nos cartões (AC04.1). Administração não reivindica; é só enfeite, então falha em silêncio.
-  const wantsClaims = user !== null && !isAdmin(user);
+  const wantsClaims = hasCapability(user, "view_own_claims");
   const myClaims = useServiceQuery(
     () => (wantsClaims ? services.claims.listMine() : Promise.resolve([])),
     [wantsClaims, user?.id ?? null],

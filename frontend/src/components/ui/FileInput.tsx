@@ -3,7 +3,7 @@
 import { ImagePlus } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { Button } from "./Button";
-import { useFieldControl } from "./Field";
+import { useFieldControl, useFieldLabelId } from "./Field";
 import { Photo } from "./Photo";
 
 export interface FileInputProps {
@@ -24,7 +24,9 @@ export interface FileInputProps {
 
 /**
  * Seleção de foto com pré-visualização (DESIGN §6.2). O `<input type="file">` fica oculto e o botão
- * visível o aciona (nome acessível vem do `Field`). O estado do arquivo é interno: use `key` para reiniciar.
+ * visível o aciona. O nome acessível do botão junta o rótulo do `Field` e a própria ação ("Foto (opcional)
+ * Adicionar foto"), para o leitor de tela não anunciar só o rótulo nos dois estados. O estado do arquivo é
+ * interno: use `key` para reiniciar.
  */
 export function FileInput({
   accept,
@@ -36,7 +38,13 @@ export function FileInput({
   removeLabel = "Remover foto",
   previewAlt = "Pré-visualização da foto escolhida",
 }: FileInputProps) {
-  const control = useFieldControl({});
+  const fieldControl = useFieldControl({});
+  const labelId = useFieldLabelId();
+  // O botão com o `id` do campo se referencia a si mesmo: o nome fica "<rótulo> <texto do botão>".
+  const control = {
+    ...fieldControl,
+    "aria-labelledby": labelId && fieldControl.id ? `${labelId} ${fieldControl.id}` : undefined,
+  };
   const inputRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<{ name: string; url: string } | null>(null);
   const [removedExisting, setRemovedExisting] = useState(false);
