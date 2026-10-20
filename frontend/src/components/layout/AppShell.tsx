@@ -7,7 +7,7 @@ import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
-import { DemoBanner, DemoFooter } from "./DemoNotice";
+import { DemoBanner } from "./DemoNotice";
 import { getRouteChrome, ORIGIN_PARAM, showsBottomNav } from "./navigation";
 
 /**
@@ -30,7 +30,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main id="conteudo" tabIndex={-1} className={cn("flex flex-1 flex-col outline-none", bottomNav && "max-md:pb-bottomnav")}>
         {children}
       </main>
-      <DemoFooter />
       {bottomNav && user ? <BottomNav role={user.role} pathname={pathname} /> : null}
     </div>
   );

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DemoBanner, DemoFooter } from "@/components/layout/DemoNotice";
+import { DemoBanner } from "@/components/layout/DemoNotice";
 
 /** Rotas públicas (`/entrar`, `/cadastro`): sem header nem navegação; só o aviso de demonstração. */
 export default function PublicLayout({ children }: { children: ReactNode }) {
@@ -9,7 +9,6 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       <main id="conteudo" tabIndex={-1} className="flex flex-1 flex-col outline-none">
         {children}
       </main>
-      <DemoFooter />
     </div>
   );
 }

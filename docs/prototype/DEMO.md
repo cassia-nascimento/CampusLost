@@ -2,6 +2,7 @@
 
 > **O que é isto:** protótipo navegável **sem backend**. Dados, "login" e regras rodam no navegador (mocks + `localStorage`). Isso **não** é segurança real (RNF01 é apenas simulado e rotulado como tal na interface; a segurança real depende do backend futuro).
 > **Status das regras:** as regras de negócio usadas aqui vêm do documento de decisões como **[Recomendação] pendente**, adotadas como **premissas** do protótipo (SPEC §9). Não são decisões aprovadas pela equipe nem pelo professor.
+> **Validação deste roteiro:** os passos da seção 3 foram percorridos no navegador (Chromium) a 390 px e a 1280 px, e os textos entre aspas abaixo são os que a tela mostrou. Os fluxos da seção 4 estão cobertos pelo script de QA `e2e-flow` (ver `docs/prototype/qa/RELATORIO-QA.md`), não por uma releitura manual passo a passo.
 
 ## 1. Preparar (uma vez)
 
@@ -13,48 +14,53 @@ npm run build && npm run start      # ou: npm run dev   → http://localhost:300
 
 Abra `http://localhost:3000` (a raiz redireciona para `/entrar` ou `/itens`). Para a demonstração na sala, prefira o celular ou a janela do navegador estreita (**360 px**) para mostrar o RNF02, e depois a janela larga.
 
-**Regra de ouro:** a sessão é **por aba** (premissa P21), mas os dados são compartilhados. Use **duas abas** lado a lado: **Aba A** = aluna/professor, **Aba B** = administração. A Aba B atualiza sozinha quando a Aba A age (sincronização por `storage`).
+**Regra de ouro:** a sessão é **por aba** (premissa P21), mas os dados são compartilhados entre as abas do mesmo navegador. Use **duas abas** lado a lado: **Aba A** = aluna/professor, **Aba B** = administração. A Aba A atualiza sozinha quando a Aba B age (sincronização por `storage`).
 
-**Antes de cada apresentação:** na tela de entrada, use **Reiniciar demonstração** (restaura os dados de exemplo e encerra a sessão).
+**Antes de cada apresentação:** entre com qualquer perfil e, no **Menu da conta**, use **Reiniciar demonstração** (pergunta "Reiniciar a demonstração?"; confirme em **Reiniciar**). Isso restaura os dados de exemplo e encerra a sessão. O comando não existe mais na tela `/entrar`.
 
 ## 2. Perfis de demonstração (tela `/entrar`)
 
-| Perfil | Como entrar | Pode |
-|---|---|---|
-| Aluna (Marina Alves) | botão do perfil **Aluno** | registrar item, reivindicar, ver suas reivindicações |
-| Professor (Rafael Lima) | botão do perfil **Professor** | o mesmo que o aluno |
-| Administração | botão do perfil **Administração** | analisar reivindicações, editar/excluir itens, registrar devolução, ver devoluções |
+Na tela de entrada há três botões de um toque, sem senha:
 
-Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhido não é verificado — aviso exibido na tela). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
+| Botão na tela | Quem é | Pode |
+|---|---|---|
+| **Aluno demo** (Marina Alves) | aluna | registrar item, reivindicar, ver suas reivindicações |
+| **Professor demo** (Rafael Lima) | professor | o mesmo que a aluna |
+| **Administração demo** | administração | analisar reivindicações, editar/excluir itens, registrar devolução, ver devoluções |
+
+Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhido não é verificado). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
 
 ## 3. Roteiro principal (≈ 6 min): o ciclo completo
 
-1. **Aba A — Aluna:** entrar como **Aluno**. Em `/itens`, mostrar a lista e combinar filtros (categoria + local + período); a URL guarda a busca. No celular, mostrar o botão **Filtros** (folha inferior).
-2. **Aba A:** **Registrar item** (`/itens/novo`) com título, descrição, categoria, local, data e foto (a foto é reduzida automaticamente no navegador). Mostrar um erro de validação (enviar vazio → foco no primeiro campo com erro). Após salvar, o app abre o detalhe do item novo, com status **Disponível**.
-3. **Aba A — trocar de pessoa:** **Sair** pelo menu da conta e entrar como **Professor**. Abrir o item recém-registrado e clicar **É meu**; responder as duas perguntas de verificação e **Enviar reivindicação**. O item passa a **Em reivindicação**. Em **Minhas reivindicações**, a reivindicação aparece como **Pendente**.
-4. **Aba B — Administração:** entrar como **Administração**. O painel `/admin` lista o item com reivindicação pendente. Abrir **Analisar**, conferir as respostas e **Aceitar**. O selo vira **Aceita** na hora e surge **Registrar devolução**.
-5. **Aba B:** **Registrar devolução** (confirmar no diálogo). O app abre `/admin/devolucoes`, onde a devolução já aparece; mostrar o filtro por período.
-6. **Aba A (Professor):** em **Minhas reivindicações** a situação aparece como **Aceita/Item devolvido** (atualiza sem recarregar). Em `/itens` o item **não aparece mais** (devolvido sai da busca) e, aberto pelo link, é **somente leitura**.
+1. **Aba A — Aluna:** clicar em **Aluno demo**. O app abre `/itens` ("Itens encontrados", 9 itens no estado inicial). No celular, o botão **Filtros** abre uma folha com **Categoria**, **Local**, **Encontrado de** e **Encontrado até**; no desktop os campos ficam em linha. Combinar categoria + local; a URL guarda a busca.
+2. **Aba A:** **Registrar item** (`/itens/novo`). Primeiro clicar em **Registrar item** com o formulário vazio para mostrar os erros ("Informe um título.", "Informe uma descrição.", "Escolha uma categoria.", "Escolha o local onde foi encontrado.", "Informe onde o item está guardado.") e o foco indo ao primeiro campo. Depois preencher **O que foi encontrado?**, **Descrição**, **Categoria**, **Onde foi encontrado?**, **Onde está guardado agora?** (data e foto são opcionais; a foto é reduzida automaticamente no navegador) e salvar. Aparece o aviso "Item registrado. Ele já aparece na busca." e o detalhe do item novo, com o status **Disponível** ("Pode ser reivindicado.").
+3. **Aba A — trocar de pessoa:** **Menu da conta → Sair**, e clicar em **Professor demo**. Abrir o item recém-registrado (pela busca) e clicar **É meu** (tela "Reivindicar item"); responder **Que detalhes só o dono saberia?** e **Onde e quando você perdeu?** e clicar **Enviar reivindicação**. Aparece "Reivindicação enviada. A administração vai analisar." e o app abre **Minhas reivindicações**, onde ela está **Pendente** ("Aguardando análise da administração."). O item agora está **Em reivindicação**.
+4. **Aba B — Administração:** clicar em **Administração demo**. O painel `/admin` mostra contadores (Pendentes, Em reivindicação, Devoluções) e uma lista de reivindicações pendentes **que já inclui outras do estado inicial**: procure a linha do item novo (**Rafael Lima · Professor**, "Enviada hoje") e clique em **Analisar**. Na tela "Analisar reivindicação" conferir as respostas e clicar **Aceitar** → diálogo "Aceitar esta reivindicação?" ("O item continua Em reivindicação até você registrar a devolução.") → **Aceitar reivindicação**. Aparece "Reivindicação aceita." O selo vira **Aceita** e surge o botão **Registrar devolução**.
+5. **Aba B:** **Registrar devolução** → diálogo "Registrar a devolução?" ("Entregue a: Rafael Lima. Esta ação não pode ser desfeita.") → **Registrar devolução**. Aparece "Devolução registrada. O item saiu da busca." e o app abre `/admin/devolucoes`, onde a devolução já está listada (os campos **Devolvido de** / **até** filtram por período).
+6. **Aba A (Professor):** em **Minhas reivindicações**, a reivindicação passa a **Aceita · Item: Devolvido** sem recarregar (a tela anuncia "Status atualizado: Aceita (…)"). O item **não aparece mais** em `/itens`; aberto pelo link, mostra "Item devolvido — Este item já foi devolvido. Ele não aparece mais na busca e fica somente para leitura." e "Sua reivindicação foi aceita e a devolução foi registrada."
 
 ## 4. Fluxos alternativos (escolha 1–2 conforme o tempo)
 
-- **Recusar:** na análise, **Recusar** a **última** reivindicação ativa → o item volta a **Disponível**; a pessoa vê "Reivindicação recusada" e **não pode reenviar** para o mesmo item.
-- **Duas reivindicações no mesmo item:** aceitar uma **recusa automaticamente** a outra.
-- **Editar/excluir (admin):** `/admin/itens/[id]/editar`. Excluir pede confirmação e informa quantas reivindicações serão removidas junto.
-- **Permissões:** com a aluna, tentar abrir `/admin` → **Acesso restrito**. O administrador **não reivindica** itens (premissa P8).
-- **Voltar no celular:** de Minhas reivindicações → item → voltar retorna à lista de origem; da busca com filtros, o voltar preserva os filtros.
+- **Recusar:** na análise, **Recusar** a **última** reivindicação ativa → o item volta a **Disponível**; a pessoa vê a reivindicação como recusada e **não pode reenviar** para o mesmo item.
+- **Duas reivindicações no mesmo item:** aceitar uma **recusa automaticamente** a outra. (No estado inicial, `Chaveiro com três chaves` já tem duas pendentes.)
+- **Editar/excluir (admin):** no detalhe do item, **Editar**; na edição há **Excluir item**, que pede confirmação e informa quantas reivindicações serão removidas junto.
+- **Permissões:** com a aluna ou o professor, abrir `/admin` → **Acesso restrito**. A administração **não vê "É meu"** (não reivindica; premissa P8).
+- **Voltar no celular:** de **Minhas reivindicações** → **Ver item** → voltar retorna a **Minhas reivindicações**; da busca com filtros, o voltar preserva os filtros.
 
 ## 5. Limitações a declarar com honestidade
 
-- Sem backend: não há senha, e-mail, notificação ou segurança real; dados ficam só no navegador (limite de armazenamento; ao atingir, o app avisa e mantém o que foi digitado).
+- Sem backend: não há senha, e-mail, notificação ou segurança real; os dados ficam só no navegador (há limite de armazenamento; ao atingir, o app avisa e mantém o que foi digitado). Se o navegador bloquear o armazenamento (modo privado, por exemplo), aparece um aviso na faixa de demonstração e os dados se perdem ao recarregar.
 - Excluir um item remove **sem aviso** a reivindicação pendente de quem a fez (premissa P18).
 - Categorias e locais são **dados demonstrativos**; a lista real do campus ainda não foi definida.
+- As ações levam de 300 a 600 ms de latência **simulada**; o envio de uma reivindicação encadeia várias operações e leva cerca de 2 s (medido). Avise a plateia para não parecer travamento.
+- Após navegar entre telas, o foco do teclado volta ao início da página (existe o link "Pular para o conteúdo"). É uma limitação de acessibilidade conhecida, não corrigida.
+- A faixa de demonstração ocupa cerca de 78 px (3 linhas) no celular.
 - Premissas **P8–P10 e P14–P25** (SPEC §9) aguardam confirmação da equipe/professor.
 - Verificado em Chromium; Safari, Firefox, leitor de tela e dispositivos reais **não** foram testados (ver `docs/prototype/qa/RELATORIO-QA.md`).
 - Trello e Figma ainda não foram sincronizados com este protótipo.
 
 ## 6. Se algo der errado ao vivo
 
-- Tela estranha ou dados confusos → **Sair** e **Reiniciar demonstração** em `/entrar`.
+- Tela estranha ou dados confusos → **Menu da conta → Reiniciar demonstração** (ou **Sair** e entrar de novo).
 - Aba B não atualizou → recarregar (os dados estão no `localStorage`, nada se perde).
-- Navegador em modo privado/sem armazenamento → o app avisa que os dados não serão guardados; o fluxo funciona, mas perde-se ao recarregar.
+- Navegador em modo privado/sem armazenamento → o app avisa; o fluxo funciona, mas perde-se ao recarregar.
