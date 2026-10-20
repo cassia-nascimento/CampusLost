@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { Brand } from "@/components/layout/Brand";
-import { DEMO_FULL_NOTICE } from "@/components/layout/DemoNotice";
-import { Notice } from "@/components/ui/Notice";
 import { DemoProfiles } from "./DemoProfiles";
 import { RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
-import { ResetDemoButton } from "./ResetDemoButton";
 import { SignInForm } from "./SignInForm";
 
 const STEPS = [
@@ -84,12 +81,7 @@ export function SignInScreen() {
                   Criar conta
                 </Link>
               </p>
-              <ResetDemoButton />
             </div>
-
-            <Notice tone="info" title="Modo demonstração" className="md:hidden">
-              {DEMO_FULL_NOTICE}
-            </Notice>
           </div>
         </div>
       </div>

@@ -36,7 +36,7 @@ Opcionais (só após o fluxo principal estar completo): indicador de pendências
 
 Aluno e professor têm as mesmas permissões; o papel é autodeclarado no cadastro (limitação conhecida, registrada no documento de decisões).
 
-**RNF01 no protótipo:** a proteção é **simulada no cliente** (guarda de rota por perfil). Deve haver aviso visível (rodapé/banner de demonstração) dizendo que autenticação e segurança reais dependem do backend futuro. Senhas **não são armazenadas nem verificadas**.
+**RNF01 no protótipo:** a proteção é **simulada no cliente** (guarda de rota por perfil). **Decisão da usuária (20/10/2026):** o aviso visível de demonstração (banner e rodapé) foi removido da interface; a limitação passa a ser dita na apresentação e na documentação. Só permanece o aviso de armazenamento indisponível no navegador. Senhas **não são armazenadas nem verificadas**.
 
 ## 3. Modelo de domínio (contrato do frontend)
 
@@ -85,7 +85,11 @@ Regras associadas:
 
 Registro da devolução é uma **ação com diálogo de confirmação** na análise/detalhe (não é rota própria). Não criar telas adicionais sem justificativa funcional registrada em `BACKLOG.md`.
 
+<<<<<<< HEAD
 Utilitário de demonstração (justificado): **"Reiniciar demonstração"** (restaura os dados de seed) acessível no menu do usuário e na tela de login.
+=======
+Utilitário de demonstração (justificado): **"Reiniciar demonstração"** (restaura os dados de seed) acessível no menu do usuário (removido da tela de login por decisão da usuária em 20/10/2026).
+>>>>>>> 40889fbe11ac4bae1f425d3e85f3efebf53bc50d
 
 ## 6. Estados de interface obrigatórios
 
@@ -99,7 +103,11 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 - AC01.3 Três perfis de demonstração (aluno, professor, administração) entram com um toque.
 - AC01.4 Sessão persiste ao recarregar; sair encerra a sessão.
 - AC01.5 Rotas privadas redirecionam visitante para `/entrar`; rotas `/admin/**` negam acesso a aluno/professor com tela "Acesso negado".
+<<<<<<< HEAD
 - AC01.6 Aviso de segurança simulada visível.
+=======
+- ~~AC01.6 Aviso de segurança simulada visível.~~ **Removido** por decisão da usuária em 20/10/2026 (banner, rodapé e aviso em `/entrar` retirados).
+>>>>>>> 40889fbe11ac4bae1f425d3e85f3efebf53bc50d
 
 **RF02**
 - AC02.1 Qualquer usuário logado registra item com título, descrição, categoria, local, data (não futura) e "onde está guardado agora".

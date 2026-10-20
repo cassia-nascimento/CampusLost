@@ -1,0 +1,11 @@
+import { launch, newCtx, newPage, BASE, sleep } from './lib.mjs';
+const b = await launch();
+const ctx = await newCtx(b, { viewport: { width: 390, height: 844 } });
+await ctx.addInitScript(() => { const thr = () => { throw new DOMException('blocked', 'SecurityError'); };
+  Object.defineProperty(window, 'localStorage', { get: thr }); });
+const p = await newPage(ctx);
+await p.goto(BASE + '/entrar'); await p.waitForLoadState('networkidle'); await sleep(800);
+const t = await p.locator('aside[aria-label="Aviso de demonstração"]').innerText();
+console.log('faixa com localStorage bloqueado:', t.replace(/\s+/g,' '));
+console.log('role=status presente:', await p.locator('aside [role="status"]').count());
+await b.close();
