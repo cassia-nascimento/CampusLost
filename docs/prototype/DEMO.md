@@ -16,7 +16,7 @@ Abra `http://localhost:3000` (a raiz redireciona para `/entrar` ou `/itens`). Pa
 
 **Regra de ouro:** a sessão é **por aba** (premissa P21), mas os dados são compartilhados entre as abas do mesmo navegador. Use **duas abas** lado a lado: **Aba A** = aluna/professor, **Aba B** = administração. A Aba A atualiza sozinha quando a Aba B age (sincronização por `storage`).
 
-**Antes de cada apresentação:** na tela `/entrar`, use **Reiniciar demonstração** (pergunta "Reiniciar a demonstração?"; confirme em **Reiniciar**). Isso restaura os dados de exemplo. O mesmo comando existe no **Menu da conta**.
+**Antes de cada apresentação:** entre com qualquer perfil e, no **Menu da conta**, use **Reiniciar demonstração** (pergunta "Reiniciar a demonstração?"; confirme em **Reiniciar**). Isso restaura os dados de exemplo e encerra a sessão. O comando não existe mais na tela `/entrar`.
 
 ## 2. Perfis de demonstração (tela `/entrar`)
 
@@ -28,7 +28,7 @@ Na tela de entrada há três botões de um toque, sem senha:
 | **Professor demo** (Rafael Lima) | professor | o mesmo que a aluna |
 | **Administração demo** | administração | analisar reivindicações, editar/excluir itens, registrar devolução, ver devoluções |
 
-Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhido não é verificado — aviso exibido na tela). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
+Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhido não é verificado). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
 
 ## 3. Roteiro principal (≈ 6 min): o ciclo completo
 
@@ -61,6 +61,6 @@ Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhid
 
 ## 6. Se algo der errado ao vivo
 
-- Tela estranha ou dados confusos → **Menu da conta → Sair** (ou o botão da tela de entrada) e **Reiniciar demonstração**.
+- Tela estranha ou dados confusos → **Menu da conta → Reiniciar demonstração** (ou **Sair** e entrar de novo).
 - Aba B não atualizou → recarregar (os dados estão no `localStorage`, nada se perde).
 - Navegador em modo privado/sem armazenamento → o app avisa; o fluxo funciona, mas perde-se ao recarregar.
