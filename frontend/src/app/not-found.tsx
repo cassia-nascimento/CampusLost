@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/layout/Container";
-import { DemoBanner, DemoFooter } from "@/components/layout/DemoNotice";
+import { DemoBanner } from "@/components/layout/DemoNotice";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -27,7 +27,6 @@ export default function NotFound() {
           </EmptyState>
         </Container>
       </main>
-      <DemoFooter />
     </div>
   );
 }
