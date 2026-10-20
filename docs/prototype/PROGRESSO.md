@@ -13,6 +13,9 @@ Atualizado pelo orquestrador ao fim de cada onda.
 | 5 — Correções | Em andamento | Rodada 1 (T10b) integrada (758c7cf): I1, I2, M1, M3, M4, M6–M9 e sugestões 1, 4, 7 corrigidos; verificado no integrado: 235 testes, build ok. Rodada 2 (T10c, defeitos do QA) integrada (71f8662): D1–D12 corrigidos (D2 já na T10b); verificado no integrado: 239 testes, build ok; scripts do QA reexecutados pelo agente: responsive seed/stress 0 transbordos, axe 91 estados 0 violações, e2e 32/32. Regressão final feita pelo orquestrador (`qa/RELATORIO-QA.md` §8): e2e 32/32, a11y 91/91, touch 33/33, storage 11/11, search 19/19, states 19/19, responsividade 230 combinações sem transbordo; `DEMO.md` validado em 390 e 1280 px e corrigido. Não reconfirmados por mim: forms, photo, misc, keyboard. |
 | 6 — Demonstração | Quase concluída | `DEMO.md` e README prontos e validados; falta apenas o relatório final ao usuário (antes de qualquer PR, perguntar). |
 
+## Decisões posteriores
+- 20/10/2026 (usuária): removidos o banner e o rodapé de demonstração, o aviso de modo demonstração em `/entrar` e o botão "Reiniciar demonstração" da tela de entrada (continua no Menu da conta). Permanece só o aviso de armazenamento indisponível. Os registros anteriores (relatório de QA, ondas acima) descrevem o estado antes dessa mudança.
+
 ## Pendências conhecidas
 - Agentes de `.claude/agents/` ainda não validados como reconhecidos (exige sessão nova no repositório; `/agents`).
 - Redimensionamento real de foto por canvas e evento `storage` entre abas: só testados com stubs; QA deve validar no navegador.

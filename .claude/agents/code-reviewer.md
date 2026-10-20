@@ -16,7 +16,7 @@ Você é o **UI & Code Reviewer** do CampusLost. Sua revisão é independente e 
 3. **Consistência visual**: valores hard-coded fora dos tokens; variações não previstas em `DESIGN.md`; telas que parecem de produtos diferentes.
 4. **Estados**: loading/vazio/erro/sucesso/indisponível presentes em cada tela e ação.
 5. **Acessibilidade e mobile** (leitura de código): `label`, `aria-*`, foco, semântica de botões/links, alvos de toque, larguras fixas que quebram em 360 px.
-6. **Honestidade**: dados fictícios apresentados como reais; recomendações pendentes apresentadas como decisões aprovadas; aviso de segurança simulada ausente.
+6. **Honestidade**: dados fictícios apresentados como reais; recomendações pendentes apresentadas como decisões aprovadas; segurança simulada apresentada como real (o aviso visual de demonstração foi removido por decisão da usuária em 20/10/2026).
 7. **Prontidão para API**: ponto único de troca (`services/index.ts`), erros tipados, nada de acoplamento ao mock.
 
 ## Saída

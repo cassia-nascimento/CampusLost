@@ -19,7 +19,7 @@ Quando o orquestrador dividir o trabalho em duas instâncias, cada uma só toca 
 - Dados somente via `import { services } from "@/services"` e hooks em `src/hooks`; **nunca** importe `services/mock/*`. Regras de negócio só chamando `lib/rules`; **não** reimplemente regras em componentes.
 - Formulários com `react-hook-form` + `zod` (`@hookform/resolvers`), mensagens de erro associadas aos campos (`aria-describedby`), foco no primeiro erro, botão com estado de envio. Ícones só `lucide-react`; classes com `clsx` + `tailwind-merge` (`cn`).
 - Toda tela cobre os estados: carregando (skeleton), vazio, sem resultados, erro com "tentar novamente", sucesso (toast) e indisponível por permissão/status (com explicação).
-- Guarda de rota **simulada** por perfil + aviso de segurança simulada (RNF01). Acesso negado tem tela própria.
+- Guarda de rota **simulada** por perfil (RNF01; o aviso visual de demonstração foi removido por decisão da usuária em 20/10/2026). Acesso negado tem tela própria.
 - Código simples e legível: componentes pequenos, sem abstração prematura, sem dependências novas (peça ao orquestrador).
 - Se a SPEC ou o design parecer errado ou incompleto, **não decida sozinho**: registre no relatório.
 

@@ -1,5 +1,7 @@
 # Relatório de QA — CampusLost (protótipo de frontend)
 
+> **Nota (20/10/2026):** este relatório registra o estado em que o QA foi feito. Depois dele, banner, rodapé e aviso de demonstração em `/entrar` e o botão "Reiniciar demonstração" da tela de entrada foram removidos por decisão da usuária; os itens abaixo que os citam (AC01.6, D12 etc.) refletem o estado anterior.
+
 Papel: `qa-a11y`. Data da execução: 19/10/2026. Base: branch `feature/prototipo-frontend` no commit `1332804` (worktree do agente, nenhum arquivo de produto alterado).
 Ambiente: `npm run build && npx next start -p 3110` (Next 16.4.0), Chromium headless 1194 via `playwright-core` 1.64, `axe-core` 4.14. Ferramentas instaladas fora do repositório; os scripts estão em `docs/prototype/qa/scripts/`.
 Premissas de leitura: regras de negócio são **[Recomendação] pendente** e premissas P1–P24 (SPEC §9); este relatório testa o protótipo contra a SPEC, não valida as regras.
@@ -299,7 +301,7 @@ O percurso `demo-walk.mjs` (duas abas no mesmo contexto, sessões separadas) com
 - o painel `/admin` já tem 5 reivindicações pendentes do estado inicial: é preciso achar a linha do item novo ("Enviada hoje") e clicar em **Analisar**;
 - o texto exato dos erros, avisos, diálogos e rótulos de campo (ver seção 3 do roteiro);
 - após enviar a reivindicação o app abre **Minhas reivindicações** (não o detalhe do item);
-- "Reiniciar demonstração" existe na tela de entrada **e** no Menu da conta.
+- "Reiniciar demonstração" existia na tela de entrada **e** no Menu da conta (a partir de 20/10/2026 só no Menu da conta).
 
 Um falso alarme do próprio script (busca por "Garrafa térmica" casava com o item do seed "Garrafa térmica verde") foi investigado e **não** era defeito: pelo link exato, o item devolvido não aparece na busca.
 

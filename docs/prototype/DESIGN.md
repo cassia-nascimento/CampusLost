@@ -440,19 +440,18 @@ Em `/admin/devolucoes` só há o período (De/Até), sempre em linha (duas colun
 ```
 < 768 px                         ≥ 768 px
 +----------------------+         +--------------------------------------------+
-| Banner demonstração  |         | Banner demonstração                        |
 | Header 56 px         |         | Header: marca | nav | [Registrar] (A)      |
 |----------------------|         |--------------------------------------------|
 |                      |         |  conteúdo (max-w-page/admin, px-gutter)    |
 | conteúdo (px 16)     |         |                                            |
-|                      |         |  rodapé: "Modo demonstração" + versão      |
+|                      |         |                                            |
 |                      |         +--------------------------------------------+
 | BottomNav 64 px (*)  |
 +----------------------+
 (*) só em páginas de topo; formulários/detalhe usam ActionBar fixa.
 ```
 
-O **banner de demonstração** (AC01.6/RNF01) é um Notice `info` de largura total acima do header, **não fixo** (rola junto, para não roubar altura): "Demonstração: login simulado e dados salvos só neste navegador." Em todas as páginas, e com texto completo em `/entrar` e no rodapé desktop.
+~~Banner e rodapé de demonstração (AC01.6/RNF01)~~ foram **removidos** por decisão da usuária em 20/10/2026. Permanece apenas uma faixa de aviso de armazenamento indisponível (`role="status"`), exibida somente quando o navegador não guarda os dados.
 
 ### 8.2 360 px (base) — o que se aplica
 
@@ -479,9 +478,6 @@ Legenda: `[ Botão ]` botão · `( campo )` campo · `{ Badge }` status (ícone 
 
 ```
 +----------------------------------------+
-| (i) Demonstração: login simulado e     |
-|     dados salvos só neste navegador.   |
-+----------------------------------------+
 |  [tag] Campus Lost                     |
 |                                        |
 |  Achou ou perdeu algo                  |   <- text-display
@@ -498,7 +494,6 @@ Legenda: `[ Botão ]` botão · `( campo )` campo · `{ Badge }` status (ícone 
 |  [ Administração demo          ->  ]   |
 |                                        |
 |  Não tem conta? Criar conta            |
-|  Reiniciar demonstração                |   <- ghost
 +----------------------------------------+
 ```
 
@@ -507,8 +502,6 @@ Desktop (≥ 1024): duas colunas 50/50. Esquerda: painel `primary` com `logo-mar
 ### 9.2 `/cadastro` — Cadastro (público)
 
 ```
-+----------------------------------------+
-| (i) Demonstração: login simulado ...   |
 +----------------------------------------+
 | <-  Criar conta                        |
 |                                        |
@@ -537,7 +530,6 @@ Desktop: card `max-w-form` centralizado sobre `paper`, ActionBar vira linha no f
 
 ```
 +----------------------------------------+
-| Banner demo                            |
 | [tag] CampusLost                  (M)  |   <- header + menu da conta
 +----------------------------------------+
 |  Itens encontrados                     |   <- h1
@@ -836,8 +828,7 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Onde | Texto |
 |---|---|
 | Nome do app | CampusLost |
-| Banner demonstração | Demonstração: login simulado e dados salvos só neste navegador. |
-| Texto completo (`/entrar`, rodapé) | Este é um protótipo. O login é simulado, nenhuma senha é pedida ou guardada, e os dados ficam apenas neste navegador. A segurança real depende do sistema final. |
+| Aviso de armazenamento (só se indisponível) | Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar. |
 | Nav usuário | Itens · Registrar · Reivindicações (`aria-label` "Minhas reivindicações") |
 | Nav admin | Painel · Itens · Registrar · Devoluções |
 | Menu da conta | {Nome} · {Papel} · Reiniciar demonstração · Sair |
@@ -966,7 +957,7 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 | R4 | A SPEC não diz o que acontece com as **reivindicações** ao excluir um item. | Pode deixar reivindicação órfã ou apagar histórico sem aviso. | Premissa de design: exclusão remove as reivindicações do item e o diálogo avisa a contagem. **Registrar como P14 e alinhar com `mock-engineer`.** |
 | R5 | O filtro de período do **usuário** usa a data em que o item foi *encontrado* (P11), mas a listagem de **devoluções** (admin) não tem data de achado óbvia. | Rótulo ambíguo ("período de quê?"). | Rótulos explícitos: "Encontrado de/até" na busca; "Devolvido de/até" em devoluções (data de `returnedAt`). **Confirmar com o orquestrador** — se preferirem filtrar devoluções pela data do achado, só muda o rótulo. |
 | R6 | Item **Devolvido** some da busca, mas continua acessível por link e em "Minhas reivindicações". | Usuário pode cair numa página sem ação e sem explicação. | Estado `neutral` read-only com a data da devolução (§9.4) e badge "Devolvido" nos cards de reivindicação. |
-| R7 | Banner permanente de demonstração (AC01.6) consome altura (≈ 48 px de 640). | Menos conteúdo visível no mobile. | Banner **não fixo** (rola junto); texto completo só em `/entrar` e rodapé. |
+| R7 | ~~Banner permanente de demonstração~~ | Removido em 20/10/2026 por decisão da usuária. | Sem banner nem rodapé de demonstração. |
 | R8 | Reivindicação aceita não informa **como retirar** (SPEC tem `storedAt`, mas não o exibe explicitamente no fluxo do usuário). | Usuário aceito não sabe o que fazer a seguir. | Mostrar "Guardado em: {local}" no card de "Minhas reivindicações" e no detalhe quando Aceita. |
 | R9 | Papel aluno/professor é autodeclarado (limitação já registrada) e o admin vê o papel na análise. | Informação pode induzir confiança indevida. | Exibir o papel como "informado no cadastro" em texto pequeno na análise (§9.9 mostra "(Aluno)"; **prefixo "informado:"** recomendado em implementação). |
 | R10 | Sheet de filtros sem contagem ao vivo exigiria cálculo duplicado de resultados. | Complexidade sem ganho. | Botão "Aplicar" simples; contagem só depois de aplicar. |
@@ -992,9 +983,9 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 Registro do que mudou na implementação em relação ao desenho original; vale sobre o texto das seções anteriores quando divergirem.
 
 - **Frases de status (§3.4):** Disponível "Pode ser reivindicado."; Em reivindicação "Há reivindicação em andamento."; Devolvido "Este item já foi devolvido.". Motivo: as frases antigas contradiziam o estado depois de uma recusa ou de uma aceitação. Na tela de item, a frase é omitida quando a pessoa tem reivindicação própria (o aviso específico já a explica).
-- **Faixa de demonstração (§8.1):** é um `<aside aria-label="Aviso de demonstração">`. Texto: "Demonstração: login simulado; usuários, itens, categorias e locais são fictícios e os dados ficam salvos só neste navegador." Quando o armazenamento do navegador está indisponível, ganha uma segunda linha em `role="status"`: "Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar."
+- **Aviso de armazenamento (§8.1):** o banner/rodapé de demonstração foi removido (20/10/2026). Quando o armazenamento do navegador está indisponível, uma faixa em `role="status"` mostra: "Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar."
 - **Texto longo sem espaços:** utilidade `user-text` (`overflow-wrap: anywhere`) em `globals.css`, usada em todo texto digitado por usuários; grids de conteúdo usam `grid-cols-1`/`min-w-0` para não esticar além da tela.
-- **Página 404 própria** (`app/not-found.tsx`, pt-BR, com aviso de demonstração e botão "Voltar ao início").
+- **Página 404 própria** (`app/not-found.tsx`, pt-BR, com botão "Voltar ao início").
 - **Título da aba:** o detalhe do item e "Acesso restrito" definem o título pelo hook `useDocumentTitle` (o `metadata` do Next sobrescreve o título após a hidratação).
 - **Voltar no celular (§6.12):** de `/itens/[id]` e `/itens/novo` volta à última busca; de itens abertos a partir de Minhas reivindicações, Devoluções, Painel ou análise, volta à tela de origem (parâmetro `?de=` validado por lista de permissão).
 - **Após registrar a devolução (§9.9):** o app abre `/admin/devolucoes` (premissa P25), não o painel, para mostrar a devolução recém-registrada.
