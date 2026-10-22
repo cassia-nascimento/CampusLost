@@ -12,14 +12,15 @@ import { Notice } from "@/components/ui/Notice";
 import { RadioCard, RadioGroup } from "@/components/ui/RadioCard";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
-import { signUpSchema, type SignUpValues } from "@/lib/validation";
+import { PASSWORD_MAX, PASSWORD_MIN, signUpSchema, type SignUpValues } from "@/lib/validation";
 import { ROLE_LABEL, SIGNUP_ROLES, isServiceError } from "@/types/domain";
+import { PasswordInput } from "./PasswordInput";
 import { withNext } from "./next-param";
 import { useNextPath } from "./use-next-path";
 
 const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
-/** Cadastro de aluno ou professor (RF01 / AC01.1). Sem senha no protótipo. */
+/** Cadastro de aluno ou professor (RF01 / AC01.1). Com senha. */
 export function SignUpForm() {
   const { signUp } = useSession();
   const toast = useToast();
@@ -35,7 +36,7 @@ export function SignUpForm() {
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     mode: "onTouched",
-    defaultValues: { name: "", email: "" },
+    defaultValues: { name: "", email: "", password: "" },
   });
 
   async function onSubmit(values: SignUpValues) {
@@ -90,6 +91,9 @@ export function SignUpForm() {
             {...register("email")}
           />
         </Field>
+        <Field label="Senha" hint={`De ${PASSWORD_MIN} a ${PASSWORD_MAX} caracteres`} error={errors.password?.message}>
+          <PasswordInput autoComplete="new-password" {...register("password")} />
+        </Field>
         <RadioGroup
           legend="Você é"
           hint="O papel é informado por você no cadastro e não é verificado."
@@ -99,7 +103,6 @@ export function SignUpForm() {
             <RadioCard key={role} label={ROLE_LABEL[role]} value={role} {...register("role")} />
           ))}
         </RadioGroup>
-        <p className="text-meta text-ink-muted">Não pedimos senha nesta demonstração.</p>
         <p className="text-body text-ink-muted">
           Já tem conta?{" "}
           <Link href={withNext("/entrar", next)} className="link touch-target inline-flex items-center font-semibold">

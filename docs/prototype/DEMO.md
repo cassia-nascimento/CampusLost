@@ -20,7 +20,7 @@ Abra `http://localhost:3000` (a raiz redireciona para `/entrar` ou `/itens`). Pa
 
 ## 2. Perfis de demonstração (tela `/entrar`)
 
-Na tela de entrada há três botões de um toque, sem senha:
+Na tela de entrada há três botões de um toque, sem digitar senha (as contas também aceitam e-mail e a senha de demonstração `demo12345`, ex.: `marina@demo.test`):
 
 | Botão na tela | Quem é | Pode |
 |---|---|---|
@@ -28,7 +28,7 @@ Na tela de entrada há três botões de um toque, sem senha:
 | **Professor demo** (Rafael Lima) | professor | o mesmo que a aluna |
 | **Administração demo** | administração | analisar reivindicações, editar/excluir itens, registrar devolução, ver devoluções |
 
-Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhido não é verificado). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
+Também é possível **criar conta** em `/cadastro` (com senha de 8 a 72 caracteres; o papel escolhido não é verificado). "Entrar com Google" só funciona com e-mail institucional da UNDB e depois que o Client ID do Google estiver configurado na hospedagem. Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
 
 ## 3. Roteiro principal (≈ 6 min): o ciclo completo
 
@@ -49,7 +49,7 @@ Também é possível **criar conta** em `/cadastro` (sem senha; o papel escolhid
 
 ## 5. Limitações a declarar com honestidade
 
-- Sem backend: não há senha, e-mail, notificação ou segurança real; os dados ficam só no navegador (há limite de armazenamento; ao atingir, o app avisa e mantém o que foi digitado). Se o navegador bloquear o armazenamento (modo privado, por exemplo), aparece um aviso na faixa de demonstração e os dados se perdem ao recarregar.
+- Sem backend: a senha e o login com Google não são segurança real do sistema final, e não há envio de e-mail nem notificação; os dados ficam só no navegador (há limite de armazenamento; ao atingir, o app avisa e mantém o que foi digitado). Se o navegador bloquear o armazenamento (modo privado, por exemplo), aparece um aviso na faixa de demonstração e os dados se perdem ao recarregar.
 - Excluir um item remove **sem aviso** a reivindicação pendente de quem a fez (premissa P18).
 - Categorias e locais são **dados demonstrativos**; a lista real do campus ainda não foi definida.
 - As ações levam de 300 a 600 ms de latência **simulada**; o envio de uma reivindicação encadeia várias operações e leva cerca de 2 s (medido). Avise a plateia para não parecer travamento.

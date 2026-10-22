@@ -95,8 +95,9 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 ## 7. Critérios de aceite (rastreáveis)
 
 **RF01**
-- AC01.1 Cadastro exige nome, e-mail válido e papel (aluno/professor); e-mail já usado mostra erro.
-- AC01.2 Login por e-mail cadastrado cria sessão; e-mail inexistente mostra erro claro.
+- AC01.1 Cadastro exige nome, e-mail válido, senha (8 a 72 caracteres) e papel (aluno/professor); e-mail já usado mostra erro (P29).
+- AC01.2 Login por e-mail e senha cria sessão; e-mail inexistente ou senha errada mostram o mesmo erro, "E-mail ou senha incorretos." (P29).
+- AC01.7 "Entrar com Google": só com e-mail institucional da UNDB (domínio configurável, padrão `undb.edu.br`). Conta nova pergunta o papel (aluno/professor); conta existente entra direto; e-mail de outro domínio é recusado com "Use o e-mail institucional da UNDB." (P30).
 - AC01.3 Três perfis de demonstração (aluno, professor, administração) entram com um toque.
 - AC01.4 Sessão persiste ao recarregar; sair encerra a sessão.
 - AC01.5 Rotas privadas redirecionam visitante para `/entrar`; rotas `/admin/**` negam acesso a aluno/professor com tela "Acesso negado".
@@ -172,7 +173,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P17 | Fila de pendentes da administração | Da mais antiga para a mais nova | [Premissa] (T02) |
 | P18 | Excluir item com reivindicações | Remove também as reivindicações (somem de "Minhas reivindicações") | [Premissa] (T02) |
 | P19 | Destinatário da devolução | A autora/o autor da reivindicação aceita; sem campo livre | [Premissa] (T02) |
-| P20 | Itens do seed e fotos | Seed sem fotos (UI usa placeholder); senhas não existem no protótipo | [Premissa] (T02) |
+| P20 | Itens do seed e fotos | Seed sem fotos (UI usa placeholder; ver P27 para as imagens); senha de demonstração: ver P29 | [Premissa] (T02) |
 
 | P21 | Sessão compartilhada entre abas quebraria a demonstração com duas abas (aluno + administração) | Sessão em `sessionStorage` (por aba, sobrevive a recarregar); dados em `localStorage` compartilhados | [Premissa] (revisão T03-a) |
 | P22 | Item pode mostrar ao usuário comum o motivo de não poder reivindicar sem expor reivindicações de terceiros | O serviço devolve `viewer.{claim,edit,delete,registerReturn}` (decisões prontas) em `items.get`; a UI só exibe | decisão técnica (revisão T03-a) |
@@ -182,5 +183,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P26 | Usuária pediu (22/10/2026) que qualquer pessoa possa ver os itens sem criar conta ou entrar; a recomendação anterior era exigir login (RF03) e alertava que a busca pública expõe fotos e dados | Lista e detalhe públicos para visitantes. Não aparecem ao visitante: "onde está guardado" e qualquer dado de reivindicação. Reivindicar, registrar item e demais telas continuam exigindo login (visitante vai para `/entrar` e volta ao item depois de entrar). Devolvidos continuam ocultos | **Decisão da usuária** (22/10/2026), ainda não confirmada pela equipe nem pelo professor |
 | P27 | Seed sem fotos deixava a lista sem imagem | Os itens do seed ganham imagens ilustrativas originais (SVG em `frontend/public/seed/`), identificáveis como demonstrativas; fotos reais podem substituí-las. Itens criados pelo usuário continuam com foto enviada (data URL) | [Premissa] (substitui parte de P20) |
 | P28 | Depois de entrar ou criar conta a partir do detalhe de um item, a pessoa deveria voltar ao item | `/entrar` e `/cadastro` aceitam `?next=/itens/{id}` (regex própria, somente esse formato; `/itens` com filtros **não** é aceito); sem `next`, vale a página inicial do perfil | [Premissa] (22/10/2026) |
+| P29 | Login por e-mail e senha (a usuária pediu em 22/10/2026) num protótipo sem backend | Senha guardada só como hash PBKDF2-SHA-256 com sal, em registro separado do usuário, no navegador. As 5 contas `@demo.test` usam a senha de demonstração `demo12345`; os perfis de um toque entram sem digitar. Erro único para e-mail inexistente ou senha errada. Isto **não é segurança real**: a proteção de verdade depende do backend | **Decisão da usuária** (login por senha); detalhes [Premissa] |
+| P30 | Login com Google institucional (pedido em 22/10/2026) | Botão do Google Identity Services; o ID token é verificado em uma rota de servidor do Next (`/api/auth/google`) e só e-mails do domínio permitido entram. Domínio padrão `undb.edu.br` é **HIPÓTESE** (alunos e professores podem usar subdomínios; aceitamos o domínio e seus subdomínios) e é configurável por `NEXT_PUBLIC_GOOGLE_ALLOWED_DOMAINS`. Precisa de um Client ID do Google (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`); sem ele o botão não aparece. Conta criada pelo Google não tem senha. Com o FastAPI, a verificação do token passa para o backend | **Decisão da usuária**; domínio e papel pedido no primeiro acesso são [Premissa] |
 
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.

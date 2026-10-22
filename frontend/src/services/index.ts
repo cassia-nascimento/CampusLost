@@ -4,8 +4,9 @@
  * A UI só importa `services` daqui — nunca `services/mock/*`.
  */
 import type { Services } from "./contracts";
+import { getAllowedGoogleDomains } from "@/lib/rules";
 import { createMockServices } from "./mock";
 
-export const services: Services = createMockServices();
+export const services: Services = createMockServices({ allowedGoogleDomains: getAllowedGoogleDomains() });
 
 export type * from "./contracts";

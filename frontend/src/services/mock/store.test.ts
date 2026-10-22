@@ -66,7 +66,7 @@ describe("store: persistência", () => {
     new MockStore({ storage, now: () => TEST_NOW }).read();
     expect(DB_KEY).toBe(`campuslost:proto:v${DB_VERSION}:db`);
     expect(SESSION_KEY).toBe(`campuslost:proto:v${DB_VERSION}:session`);
-    expect(DB_VERSION).toBeGreaterThanOrEqual(2); // v2 trouxe as fotos do seed (P27)
+    expect(DB_VERSION).toBeGreaterThanOrEqual(3); // v2: fotos do seed (P27); v3: senhas/Google (P29/P30)
     expect(JSON.parse(storage.getItem(DB_KEY)!).version).toBe(DB_VERSION);
   });
 
@@ -176,7 +176,7 @@ describe("store: persistência", () => {
 
   it("reiniciar a demonstração encerra a sessão de usuário que não está no seed", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", role: "student" });
+    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", password: "senha-segura-1", role: "student" });
     expect(await h.services.auth.getCurrentUser()).not.toBeNull();
     await h.services.demo.reset();
     expect(await h.services.auth.getCurrentUser()).toBeNull();

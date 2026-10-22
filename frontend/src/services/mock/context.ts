@@ -1,5 +1,5 @@
 import { ServiceError, type PublicUser, type User } from "@/types/domain";
-import { checkCapability, assertAllowed, type Capability } from "@/lib/rules";
+import { checkCapability, assertAllowed, parseAllowedDomains, type Capability } from "@/lib/rules";
 import { toFieldErrors } from "@/lib/validation/common";
 import type { z } from "zod";
 import { createDelay, type LatencyOption } from "./latency";
@@ -20,6 +20,8 @@ export interface MockServicesOptions {
   random?: () => number;
   /** Gerador de ids. Padrão: prefixo + trecho aleatório. */
   generateId?: (prefix: string) => string;
+  /** Domínios aceitos no login com Google (P30). Padrão: `parseAllowedDomains()` (`undb.edu.br`). */
+  allowedGoogleDomains?: readonly string[];
   /** Padrão: redimensiona no navegador (canvas). Testes injetam um falso. */
   photoProcessor?: PhotoProcessor;
   /**
@@ -33,6 +35,7 @@ export interface MockContext {
   store: MockStore;
   now(): Date;
   newId(prefix: string): string;
+  allowedGoogleDomains: readonly string[];
   photo: PhotoProcessor;
   /**
    * Captura o usuário da sessão NO INSTANTE DA CHAMADA (antes da latência), aplica latência e
@@ -64,6 +67,7 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
     store,
     now,
     newId: generateId,
+    allowedGoogleDomains: options.allowedGoogleDomains ?? parseAllowedDomains(),
     photo: options.photoProcessor ?? processPhotoInBrowser,
     async run(operation, fn, opts) {
       try {

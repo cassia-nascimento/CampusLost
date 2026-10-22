@@ -4,6 +4,8 @@ import {
   createItemSchema,
   itemFiltersSchema,
   periodSchema,
+  googleRoleSchema,
+  googleSignUpSchema,
   signInSchema,
   signUpSchema,
   toFieldErrors,
@@ -21,8 +23,8 @@ const messages = (result: { success: boolean; error?: { issues: { message: strin
 
 describe("cadastro e login (AC01.1, AC01.2)", () => {
   it("aceita dados válidos e normaliza e-mail/nome", () => {
-    const r = signUpSchema.parse({ name: "  Ana Souza ", email: "  ANA@Demo.Test ", role: "student" });
-    expect(r).toEqual({ name: "Ana Souza", email: "ana@demo.test", role: "student" });
+    const r = signUpSchema.parse({ name: "  Ana Souza ", email: "  ANA@Demo.Test ", password: " senha 123 ", role: "student" });
+    expect(r).toEqual({ name: "Ana Souza", email: "ana@demo.test", password: " senha 123 ", role: "student" });
   });
 
   it("exige nome, e-mail válido e papel aluno/professor", () => {
@@ -34,17 +36,45 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
     expect(errors.role).toBe("Escolha se você é aluno ou professor.");
   });
 
+  it("senha: obrigatória, 8 a 72 caracteres, sem trim", () => {
+    const base = { name: "Ana", email: "ana@demo.test", role: "student" };
+    const err = (password: unknown) => toFieldErrors(signUpSchema.safeParse({ ...base, password }).error!).password;
+    expect(err(undefined)).toBe("Crie uma senha.");
+    expect(err("")).toBe("Crie uma senha.");
+    expect(err("1234567")).toBe("Use pelo menos 8 caracteres.");
+    expect(err("a".repeat(73))).toBe("Use no máximo 72 caracteres.");
+    expect(signUpSchema.safeParse({ ...base, password: "12345678" }).success).toBe(true);
+    expect(signUpSchema.safeParse({ ...base, password: "a".repeat(72) }).success).toBe(true);
+    expect(signUpSchema.safeParse({ ...base, password: "        " }).success).toBe(true); // espaços contam
+  });
+
   it("campos ausentes têm mensagem de obrigatório em pt-BR", () => {
     const errors = toFieldErrors(signUpSchema.safeParse({}).error!);
     expect(errors).toEqual({
       name: "Informe seu nome.",
       email: "Informe seu e-mail.",
+      password: "Crie uma senha.",
       role: "Escolha se você é aluno ou professor.",
     });
   });
 
-  it("e-mail vazio no login", () => {
-    expect(toFieldErrors(signInSchema.safeParse({ email: "  " }).error!)).toEqual({ email: "Informe seu e-mail." });
+  it("e-mail e senha vazios no login", () => {
+    expect(toFieldErrors(signInSchema.safeParse({ email: "  " }).error!)).toEqual({
+      email: "Informe seu e-mail.",
+      password: "Informe sua senha.",
+    });
+    expect(signInSchema.safeParse({ email: "A@b.co", password: "x" }).data).toEqual({ email: "a@b.co", password: "x" });
+  });
+
+  it("passo de papel e cadastro via Google", () => {
+    expect(toFieldErrors(googleRoleSchema.safeParse({ role: "admin" }).error!)).toEqual({
+      role: "Escolha se você é aluno ou professor.",
+    });
+    expect(googleSignUpSchema.safeParse({ email: "A@undb.edu.br", name: "Ana", role: "teacher" }).data).toEqual({
+      email: "a@undb.edu.br",
+      name: "Ana",
+      role: "teacher",
+    });
   });
 });
 
