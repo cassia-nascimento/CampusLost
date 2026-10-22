@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: mochila preta</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="272" rx="110" ry="12" fill="#CBE4E7"/>
+  <path d="M178 62 Q178 36 200 36 Q222 36 222 62" fill="none" stroke="#46524E" stroke-width="9" stroke-linecap="round"/>
+  <rect x="96" y="124" width="16" height="104" rx="8" fill="#46524E"/>
+  <rect x="288" y="124" width="16" height="104" rx="8" fill="#46524E"/>
+  <path d="M120 100 Q120 56 200 56 Q280 56 280 100 L290 246 Q290 266 270 266 H130 Q110 266 110 246 Z" fill="#1A2321"/>
+  <path d="M140 120 Q200 96 260 120" fill="none" stroke="#7C8580" stroke-width="3" stroke-linecap="round"/>
+  <rect x="136" y="166" width="128" height="82" rx="14" fill="#46524E"/>
+  <path d="M148 182 H252" stroke="#7C8580" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 6"/>
+  <rect x="190" y="176" width="20" height="10" rx="5" fill="#0B5563"/>
+  <rect x="150" y="214" width="34" height="8" rx="4" fill="#0B5563"/>
+</svg>

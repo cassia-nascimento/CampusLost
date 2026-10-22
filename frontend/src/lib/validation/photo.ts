@@ -15,3 +15,12 @@ export function validatePhotoFile(file: { type: string; size: number }): string 
   }
   return null;
 }
+
+/**
+ * Valor aceito em `Item.photoDataUrl` (P27): data URL de imagem OU caminho público ilustrativo
+ * `/seed/<slug>.svg`. Usado só para checar o que já está guardado; a escolha de arquivo usa `validatePhotoFile`.
+ */
+const STORED_PHOTO_PATTERN = /^(data:image\/(jpeg|png|webp);base64,|\/seed\/[a-z0-9-]+\.svg$)/;
+export function isStoredPhotoSrc(value: string): boolean {
+  return STORED_PHOTO_PATTERN.test(value);
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import { Archive, Calendar, Check, FileText, MapPin, Pencil, Tag, UserRound } from "lucide-react";
+import { Archive, Calendar, Check, FileText, LogIn, MapPin, Pencil, Tag, UserRound } from "lucide-react";
 import { useParams } from "next/navigation";
+import { withNext } from "@/components/auth/next-param";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { Container } from "@/components/layout/Container";
 import { DefinitionList } from "@/components/layout/DefinitionList";
@@ -18,6 +19,7 @@ import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { formatDate, formatRelativeDate } from "@/lib/format";
 import { hasCapability } from "@/lib/rules";
+import { isSeedImage, itemPhotoAlt } from "@/lib/utils";
 import { services, type ItemDetail } from "@/services";
 import { ItemClaimsPanel } from "./ItemClaimsPanel";
 import { ItemViewerNotices } from "./ItemViewerNotices";
@@ -64,8 +66,19 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
   // Quem tem reivindicação própria já lê a situação dela no aviso abaixo; a frase do status ficaria redundante.
   const statusNote = returned || myClaims.length > 0 ? null : ITEM_STATUS_META[item.status].note;
 
-  // Ações vêm só de `viewer.*` (decididas pelo serviço com as regras de lib/rules).
-  const claimAction = viewer.claim.allowed ? (
+  // Visitante (P26): decidido pelo que o serviço devolveu (sem autor), não só pela sessão: se a demonstração
+  // for reiniciada em outra aba, a tela não mostra o layout logado com dados de visitante.
+  const visitor = createdBy === null;
+  const nextPath = `/itens/${item.id}`;
+
+  // Ações de quem está logado vêm só de `viewer.*` (decididas pelo serviço com as regras de lib/rules).
+  const claimAction = visitor ? (
+    returned ? null : (
+      <LinkButton href={withNext("/entrar", nextPath)} size="lg" width="mobile-full" icon={LogIn}>
+        Entre para reivindicar
+      </LinkButton>
+    )
+  ) : viewer.claim.allowed ? (
     <LinkButton href={`/itens/${item.id}/reivindicar`} size="lg" width="mobile-full" icon={Check}>
       É meu
     </LinkButton>
@@ -82,12 +95,13 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
         <div className="lg:col-span-5">
           <Photo
             src={item.photoDataUrl}
-            alt="Foto do item"
+            alt={itemPhotoAlt(item.title, item.photoDataUrl)}
             aspect="landscape"
             iconSize="lg"
-            sizes="(min-width: 64rem) 40vw, 100vw"
+            eager
             className="w-full rounded-lg"
           />
+          {isSeedImage(item.photoDataUrl) ? <p className="mt-2 text-meta text-ink-subtle">Imagem ilustrativa</p> : null}
         </div>
 
         <div className="flex min-w-0 flex-col gap-6 lg:col-span-7">
@@ -99,15 +113,15 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
             {statusNote ? <p className="text-body text-ink-muted">{statusNote}</p> : null}
           </header>
 
-          <ItemViewerNotices detail={detail} />
+          <ItemViewerNotices detail={detail} visitor={visitor} />
 
           <DefinitionList
             items={[
               { label: "Categoria", value: item.category, icon: Tag },
               { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
               { label: "Data", value: <FoundDate date={item.foundDate} />, icon: Calendar },
-              { label: "Guardado em", value: item.storedAt, icon: Archive },
-              { label: "Registrado por", value: createdBy.name, icon: UserRound },
+              ...(item.storedAt !== undefined ? [{ label: "Guardado em", value: item.storedAt, icon: Archive }] : []),
+              ...(createdBy ? [{ label: "Registrado por", value: createdBy.name, icon: UserRound }] : []),
             ]}
           />
 
@@ -160,7 +174,9 @@ export function ItemDetailView() {
             title="Item não encontrado"
             action={<LinkButton href="/itens">Ver itens</LinkButton>}
           >
-            Ele pode ter sido excluído.
+            {user
+              ? "Ele pode ter sido excluído."
+              : "Este item não está mais disponível: ele pode ter sido excluído ou já devolvido."}
           </EmptyState>
         </Container>
       );

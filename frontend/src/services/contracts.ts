@@ -52,9 +52,22 @@ export interface ItemViewerPermissions {
   registerReturn: Decision;
 }
 
+/**
+ * Item como o VISITANTE o recebe (P26): sem `storedAt` ("onde está guardado") e sem `createdById`
+ * (quem registrou é dado pessoal e não é público).
+ */
+export type PublicItemView = Omit<Item, "storedAt" | "createdById">;
+
+/**
+ * Item como a UI o recebe: `PublicItemView` mais `storedAt` e `createdById` OPCIONAIS. Visitantes
+ * não os recebem; usuários logados sempre recebem ambos (um `Item` completo é um `ItemView` válido).
+ */
+export type ItemView = PublicItemView & { storedAt?: string; createdById?: string };
+
 export interface ItemDetail {
-  item: Item;
-  createdBy: PublicUser;
+  item: ItemView;
+  /** Quem registrou o item. `null` para visitante (P26); usuário logado sempre recebe. */
+  createdBy: PublicUser | null;
   /** Reivindicações do usuário atual neste item (mais recente primeiro). */
   myClaims: Claim[];
   /** Todas as reivindicações do item — preenchido só para a administração, senão `[]`. */
@@ -102,10 +115,14 @@ export interface AuthService {
 
 export interface ItemService {
   /**
-   * Busca (requer login). Nunca devolve itens Devolvidos; mais recentes primeiro por padrão.
-   * Filtros combinam entre si (AC03.x).
+   * Busca (pública, P26: funciona sem login). Nunca devolve itens Devolvidos; mais recentes primeiro
+   * por padrão. Filtros combinam entre si (AC03.x). Para visitante, `storedAt` e `createdById` vêm ausentes.
    */
-  list(filters?: ItemFilters): Promise<Item[]>;
+  list(filters?: ItemFilters): Promise<ItemView[]>;
+  /**
+   * Detalhe (público, P26). Visitante: sem `storedAt`/`createdById`, `createdBy: null`, `myClaims`/`claims` vazios, sem devolução e
+   * `viewer.*` negado com `UNAUTHENTICATED`; item Devolvido é `NOT_FOUND` para ele.
+   */
   get(id: string): Promise<ItemDetail>;
   /** Qualquer usuário logado. Nasce Disponível. */
   create(input: ItemInput): Promise<Item>;

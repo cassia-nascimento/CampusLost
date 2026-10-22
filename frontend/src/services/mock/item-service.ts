@@ -1,16 +1,18 @@
-import type { Item } from "@/types/domain";
+import { ServiceError, type Item, type PublicUser } from "@/types/domain";
 import {
   assertAllowed,
   canClaim,
   canDeleteItem,
   canEditItem,
   canRegisterReturn,
+  checkCapability,
   hasCapability,
+  isVisibleInSearch,
   searchItems,
   toLocalDateString,
 } from "@/lib/rules";
 import { createItemSchema, itemFiltersSchema } from "@/lib/validation";
-import type { ItemDetail, ItemInput, ItemService } from "../contracts";
+import type { ItemDetail, ItemInput, ItemService, ItemView, PublicItemView } from "../contracts";
 import {
   findItem,
   findUser,
@@ -20,6 +22,14 @@ import {
   toPublicUser,
   type MockContext,
 } from "./context";
+
+/** Visitante não vê "onde está guardado" nem quem registrou o item (P26). */
+function toGuestItem(item: Item): PublicItemView {
+  const { storedAt: _storedAt, createdById: _createdById, ...rest } = item;
+  void _storedAt;
+  void _createdById;
+  return rest;
+}
 
 export function createItemService(ctx: MockContext): ItemService {
   const { store } = ctx;
@@ -34,24 +44,46 @@ export function createItemService(ctx: MockContext): ItemService {
 
   return {
     list: (filters) =>
-      ctx.run("items.list", (actor) => {
+      ctx.run("items.list", (actor): ItemView[] => {
         const db = store.read();
-        requireUser(db, actor, "search_items");
+        // Visitante permitido (P26); sessão apontando para usuário que sumiu (demo reiniciada) falha.
+        const user = actor ? requireUser(db, actor, "search_items") : null;
+        assertAllowed(checkCapability(user, "search_items"));
         const parsed = parseInput(itemFiltersSchema, filters ?? {});
-        return searchItems(db.items, parsed);
+        const found = searchItems(db.items, parsed);
+        return user ? found : found.map(toGuestItem);
       }),
 
     get: (id) =>
       ctx.run("items.get", (actor): ItemDetail => {
         const db = store.read();
-        const user = requireUser(db, actor, "search_items");
+        const user = actor ? requireUser(db, actor, "search_items") : null;
+        assertAllowed(checkCapability(user, "search_items"));
         const item = findItem(db, id);
         const itemClaims = db.claims.filter((c) => c.itemId === id);
+        const createdBy: PublicUser = toPublicUser(findUser(db, item.createdById));
+        if (!user) {
+          // Visitante: devolvido é invisível (mesmo erro de item inexistente) e nada de terceiros.
+          if (!isVisibleInSearch(item)) throw new ServiceError("NOT_FOUND", "Item não encontrado.");
+          return {
+            item: toGuestItem(item),
+            createdBy: null,
+            myClaims: [],
+            claims: [],
+            returnRecord: null,
+            viewer: {
+              claim: canClaim(null, item, itemClaims),
+              edit: canEditItem(null, item),
+              delete: canDeleteItem(null, item),
+              registerReturn: canRegisterReturn(null, item, itemClaims),
+            },
+          };
+        }
         const canReview = hasCapability(user, "review_claims");
         const canSeeReturns = hasCapability(user, "view_returns");
         return {
           item,
-          createdBy: toPublicUser(findUser(db, item.createdById)),
+          createdBy,
           myClaims: itemClaims
             .filter((c) => c.claimantId === user.id)
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),

@@ -1,14 +1,13 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useRememberedItemsSearch } from "@/components/items/last-search";
 import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
 import { DemoBanner } from "./DemoNotice";
-import { getRouteChrome, ORIGIN_PARAM, showsBottomNav } from "./navigation";
+import { showsBottomNav } from "./navigation";
+import { useRouteChrome } from "./use-route-chrome";
 
 /**
  * Estrutura das páginas autenticadas: aviso de demonstração, header, `<main id="conteudo">`
@@ -16,11 +15,8 @@ import { getRouteChrome, ORIGIN_PARAM, showsBottomNav } from "./navigation";
  * As páginas escolhem a largura com `Container`. Lê `useSearchParams`: precisa estar dentro de `<Suspense>`.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const { pathname, chrome } = useRouteChrome();
   const { user } = useSession();
-  const itemsSearch = useRememberedItemsSearch();
-  const origin = useSearchParams().get(ORIGIN_PARAM); // validado por `getRouteChrome`
-  const chrome = getRouteChrome(pathname, itemsSearch, origin);
   const bottomNav = user !== null && showsBottomNav(pathname);
 
   return (

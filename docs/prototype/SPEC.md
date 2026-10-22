@@ -22,18 +22,17 @@ Opcionais (só após o fluxo principal estar completo): indicador de pendências
 
 ## 2. Perfis e permissões
 
-| Capacidade | Aluno | Professor | Administração |
-|---|:-:|:-:|:-:|
-| Cadastrar-se / entrar (RF01) | ✔ | ✔ | só entra (conta de seed) |
-| Registrar item encontrado (RF02) | ✔ | ✔ | ✔ |
-| Buscar e ver itens (RF03) | ✔ | ✔ | ✔ |
-| Ver a lista e o detalhe dos itens sem entrar (visitante, P26) | — | — | — |
-| Reivindicar item (RF04) | ✔ | ✔ | ✘ (premissa) |
-| Ver "Minhas reivindicações" | ✔ | ✔ | ✘ |
-| Analisar (aceitar/recusar) reivindicações | ✘ | ✘ | ✔ |
-| Editar / excluir item | ✘ | ✘ | ✔ |
-| Registrar devolução (RF05) | ✘ | ✘ | ✔ |
-| Ver listagem de devoluções | ✘ | ✘ | ✔ (premissa) |
+| Capacidade | Visitante | Aluno | Professor | Administração |
+|---|:-:|:-:|:-:|:-:|
+| Cadastrar-se / entrar (RF01) | ✔ | ✔ | ✔ | só entra (conta de seed) |
+| Registrar item encontrado (RF02) | ✘ | ✔ | ✔ | ✔ |
+| Buscar e ver itens (RF03) | ✔ (P26) | ✔ | ✔ | ✔ |
+| Reivindicar item (RF04) | ✘ | ✔ | ✔ | ✘ (premissa) |
+| Ver "Minhas reivindicações" | ✘ | ✔ | ✔ | ✘ |
+| Analisar (aceitar/recusar) reivindicações | ✘ | ✘ | ✘ | ✔ |
+| Editar / excluir item | ✘ | ✘ | ✘ | ✔ |
+| Registrar devolução (RF05) | ✘ | ✘ | ✘ | ✔ |
+| Ver listagem de devoluções | ✘ | ✘ | ✘ | ✔ (premissa) |
 
 Aluno e professor têm as mesmas permissões; o papel é autodeclarado no cadastro (limitação conhecida, registrada no documento de decisões).
 
@@ -44,7 +43,7 @@ Aluno e professor têm as mesmas permissões; o papel é autodeclarado no cadast
 Identificadores em inglês no código; rótulos em português na interface.
 
 - **User**: `id`, `name`, `email`, `role: "student" | "teacher" | "admin"`.
-- **Item**: `id`, `title`, `description` (pública), `category`, `foundLocation`, `foundDate` (ISO), `storedAt` (onde está guardado agora), `photoDataUrl?`, `status: "available" | "under_claim" | "returned"`, `createdById`, `createdAt`.
+- **Item**: `id`, `title`, `description` (pública), `category`, `foundLocation`, `foundDate` (ISO), `storedAt` (onde está guardado agora; **não é exposto a visitantes**, P26), `photoDataUrl?` (data URL de foto enviada **ou** caminho `/seed/*.svg` das imagens ilustrativas do seed, P27), `status: "available" | "under_claim" | "returned"`, `createdById`, `createdAt`.
 - **Claim**: `id`, `itemId`, `claimantId`, `proofDetails`, `lostWhereWhen`, `status: "pending" | "accepted" | "rejected"`, `createdAt`, `reviewedAt?`.
 - **ReturnRecord**: `id`, `itemId`, `claimId`, `returnedToId`, `registeredById`, `returnedAt`.
 
@@ -109,7 +108,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 - AC02.3 Item novo nasce Disponível e aparece no topo da busca.
 
 **RF03**
-- AC03.1 Busca exige login.
+- AC03.1 Visitante (sem login) vê a lista e o detalhe dos itens, mas sem "onde está guardado", sem dados de reivindicação e sem quem registrou (P26); itens Devolvidos aparecem como "não encontrado".
 - AC03.2 Itens Devolvidos não aparecem; Em reivindicação aparecem identificados.
 - AC03.3 Filtros de categoria, local e período combinam entre si; "Limpar filtros".
 - AC03.4 Ordenação: mais recentes primeiro.
@@ -182,5 +181,6 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P25 | DESIGN §9.9 manda voltar ao painel após registrar devolução | Abre `/admin/devolucoes`, onde a devolução recém-registrada já aparece (fecha o fluxo da demo) | [Premissa] (QA, decisão do orquestrador) |
 | P26 | Usuária pediu (22/10/2026) que qualquer pessoa possa ver os itens sem criar conta ou entrar; a recomendação anterior era exigir login (RF03) e alertava que a busca pública expõe fotos e dados | Lista e detalhe públicos para visitantes. Não aparecem ao visitante: "onde está guardado" e qualquer dado de reivindicação. Reivindicar, registrar item e demais telas continuam exigindo login (visitante vai para `/entrar` e volta ao item depois de entrar). Devolvidos continuam ocultos | **Decisão da usuária** (22/10/2026), ainda não confirmada pela equipe nem pelo professor |
 | P27 | Seed sem fotos deixava a lista sem imagem | Os itens do seed ganham imagens ilustrativas originais (SVG em `frontend/public/seed/`), identificáveis como demonstrativas; fotos reais podem substituí-las. Itens criados pelo usuário continuam com foto enviada (data URL) | [Premissa] (substitui parte de P20) |
+| P28 | Depois de entrar ou criar conta a partir do detalhe de um item, a pessoa deveria voltar ao item | `/entrar` e `/cadastro` aceitam `?next=/itens/{id}` (regex própria, somente esse formato; `/itens` com filtros **não** é aceito); sem `next`, vale a página inicial do perfil | [Premissa] (22/10/2026) |
 
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { withNext } from "@/components/auth/next-param";
 import { getClaimMessages, returnedItemNotice } from "@/components/claims/claim-messages";
 import { LinkButton } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -32,12 +34,34 @@ function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) 
   );
 }
 
+/** Visitante (P26): explica por que não há "É meu" e o que aparece depois de entrar. */
+function VisitorNotice({ itemId }: { itemId: string }) {
+  return (
+    <Notice
+      tone="info"
+      action={
+        <p>
+          Ainda não tem conta?{" "}
+          <Link
+            href={withNext("/cadastro", `/itens/${itemId}`)}
+            className="link touch-target inline-flex items-center font-semibold"
+          >
+            Criar conta
+          </Link>
+        </p>
+      }
+    >
+      Para reivindicar este item, entre na sua conta. O local onde ele está guardado aparece depois que você entra.
+    </Notice>
+  );
+}
+
 /**
  * Avisos do detalhe (DESIGN §9.4), sempre a partir do que o serviço decidiu (`detail.viewer`) e do estado
  * do item: devolvido (somente leitura), a reivindicação da própria pessoa ou o motivo de não poder
  * reivindicar. Não decide permissão nenhuma — só explica. Os textos da reivindicação vêm de `claim-messages`.
  */
-export function ItemViewerNotices({ detail }: { detail: ItemDetail }) {
+export function ItemViewerNotices({ detail, visitor = false }: { detail: ItemDetail; visitor?: boolean }) {
   const { item, myClaims, viewer, returnRecord } = detail;
   const myClaim = myClaims[0]; // a mais recente
   const returned = item.status === "returned";
@@ -50,7 +74,9 @@ export function ItemViewerNotices({ detail }: { detail: ItemDetail }) {
         </Notice>
       ) : null}
 
-      {myClaim ? (
+      {visitor ? (
+        returned ? null : <VisitorNotice itemId={item.id} />
+      ) : myClaim ? (
         <MyClaimNotice claim={myClaim} detail={detail} />
       ) : !viewer.claim.allowed && !returned ? (
         <Notice tone={viewer.claim.code === "FORBIDDEN" ? "neutral" : "info"}>{viewer.claim.message}</Notice>

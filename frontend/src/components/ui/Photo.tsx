@@ -1,9 +1,8 @@
-import Image from "next/image";
 import { Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PhotoProps {
-  /** URL, data URL ou blob. Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
+  /** Caminho (`/seed/*.svg`), data URL ou blob. Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
   src?: string | null;
   /** Vazio (`""`) quando a foto é decorativa (o título do item já a descreve). */
   alt: string;
@@ -11,12 +10,16 @@ export interface PhotoProps {
   aspect?: "square" | "landscape";
   /** Tamanho do ícone do placeholder. */
   iconSize?: "md" | "lg";
-  sizes?: string;
+  /** Imagem principal da tela (acima da dobra): carrega já, com prioridade. As demais ficam preguiçosas. */
+  eager?: boolean;
   className?: string;
 }
 
-/** Foto do item com placeholder. Fotos são data URLs do protótipo, por isso sem otimização do Next. */
-export function Photo({ src, alt, aspect, iconSize = "md", sizes = "100vw", className }: PhotoProps) {
+/**
+ * Foto do item com placeholder. `<img>` simples: as imagens são ilustrações SVG do seed (`/seed/*.svg`), data
+ * URLs ou blobs do protótipo, que o otimizador do Next não trata (DESIGN §2.5).
+ */
+export function Photo({ src, alt, aspect, iconSize = "md", eager = false, className }: PhotoProps) {
   return (
     <div
       className={cn(
@@ -27,7 +30,15 @@ export function Photo({ src, alt, aspect, iconSize = "md", sizes = "100vw", clas
       )}
     >
       {src ? (
-        <Image src={src} alt={alt} fill unoptimized sizes={sizes} className="object-cover" />
+        // eslint-disable-next-line @next/next/no-img-element -- ver o comentário do componente
+        <img
+          src={src}
+          alt={alt}
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : undefined}
+          decoding="async"
+          className="absolute inset-0 size-full object-cover"
+        />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <Tag

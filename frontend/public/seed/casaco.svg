@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: casaco azul-marinho</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="274" rx="120" ry="12" fill="#CBE4E7"/>
+  <path d="M146 40 Q200 66 254 40 L304 70 L330 236 L286 244 L278 150 L278 266 L122 266 L122 150 L114 244 L70 236 L96 70 Z" fill="#06384A" stroke-linejoin="round"/>
+  <path d="M146 40 L200 112 L254 40 L238 32 Q200 54 162 32 Z" fill="#0B5563"/>
+  <path d="M200 112 V266" stroke="#CBE4E7" stroke-width="3"/>
+  <circle cx="214" cy="150" r="5" fill="#CBE4E7"/>
+  <circle cx="214" cy="190" r="5" fill="#CBE4E7"/>
+  <circle cx="214" cy="230" r="5" fill="#CBE4E7"/>
+  <path d="M138 196 H178 V232 H138 Z" fill="none" stroke="#0B5563" stroke-width="3"/>
+  <path d="M222 196 H262 V232 H222 Z" fill="none" stroke="#0B5563" stroke-width="3"/>
+  <path d="M74 214 L112 222 M326 214 L288 222" stroke="#0B5563" stroke-width="4" stroke-linecap="round"/>
+</svg>

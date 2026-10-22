@@ -1,11 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { Brand } from "@/components/layout/Brand";
-import { RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
+import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { SignUpForm } from "./SignUpForm";
 
-/** `/cadastro` (RF01 / AC01.1): no celular ocupa a tela; a partir de `md` vira um cartão centralizado. */
-export function SignUpScreen() {
+function SignUpContent() {
   return (
     <RedirectIfAuthenticated>
       <div className="mx-auto flex w-full max-w-form flex-1 flex-col px-gutter pt-6 pb-10 md:py-12">
@@ -17,5 +17,14 @@ export function SignUpScreen() {
         </div>
       </div>
     </RedirectIfAuthenticated>
+  );
+}
+
+/** `/cadastro` (RF01 / AC01.1): no celular ocupa a tela; a partir de `md` vira um cartão centralizado. */
+export function SignUpScreen() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <SignUpContent />
+    </Suspense>
   );
 }

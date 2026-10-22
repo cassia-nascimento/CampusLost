@@ -21,9 +21,11 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import { canReviewClaim, reviewClaim } from "@/lib/rules";
+import { itemPhotoAlt } from "@/lib/utils";
 import { services, type ClaimDecisionResult, type ClaimView, type ItemDetail } from "@/services";
 import { ROLE_LABEL, isServiceError, type ItemStatus, type User } from "@/types/domain";
 import { applyDecision, type ReviewState } from "./apply-decision";
+import { toStoredItem } from "./stored-item";
 
 type Dialog = "accept" | "reject" | "return" | null;
 
@@ -52,7 +54,7 @@ function previewDecision(user: User, claim: ClaimView, detail: ItemDetail, decis
   try {
     return reviewClaim({
       actor: user,
-      item: detail.item,
+      item: toStoredItem(detail.item),
       itemClaims: detail.claims,
       claimId: claim.id,
       decision,
@@ -140,7 +142,7 @@ function ReviewContent({
   const [leaving, setLeaving] = useState(false);
 
   const { item } = detail;
-  const reviewable = canReviewClaim(user, item, claim);
+  const reviewable = canReviewClaim(user, toStoredItem(item), claim);
   const acceptPreview = user && reviewable.allowed ? previewDecision(user, claim, detail, "accept") : null;
   const rejectPreview = user && reviewable.allowed ? previewDecision(user, claim, detail, "reject") : null;
   const othersPending = acceptPreview?.autoRejectedIds.length ?? 0;
@@ -203,9 +205,8 @@ function ReviewContent({
             <>
               <Photo
                 src={item.photoDataUrl}
-                alt={`Foto de ${item.title}`}
+                alt={itemPhotoAlt(item.title, item.photoDataUrl)}
                 aspect="landscape"
-                sizes="(min-width: 48rem) 40vw, 100vw"
                 className="w-full rounded-md"
               />
               <ItemHeading title={item.title} status={item.status} />

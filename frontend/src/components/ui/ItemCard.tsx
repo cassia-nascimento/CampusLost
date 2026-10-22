@@ -33,7 +33,6 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
         src={item.photoDataUrl}
         alt=""
         aspect="square"
-        sizes="(min-width: 64rem) 30vw, (min-width: 40rem) 45vw, 6rem"
         className="size-24 shrink-0 rounded-md sm:h-auto sm:w-full sm:aspect-[4/3] sm:rounded-none"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:p-4">

@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Página não encontrada" };
 
 /**
  * 404 de qualquer rota inexistente (D5). Renderiza dentro do layout raiz (idioma e fontes), mas fora dos
- * grupos `(app)`/`(public)`, então monta a própria estrutura: aviso de demonstração, `main` e rodapé.
- * O destino do botão é `/`, que leva cada perfil à sua página inicial (ou a `/entrar` sem sessão).
+ * grupos de rotas, então monta a própria estrutura: aviso de armazenamento, `main` e rodapé.
+ * O destino do botão é `/`: a landing para o visitante e a página inicial do perfil para quem tem sessão.
  */
 export default function NotFound() {
   return (

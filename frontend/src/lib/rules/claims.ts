@@ -32,7 +32,7 @@ export function canClaim(
   item: Item,
   itemClaims: readonly Claim[],
 ): Decision {
-  if (actor == null) return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.");
+  if (actor == null) return deny("UNAUTHENTICATED", "Entre para reivindicar este item.");
   if (!hasCapability(actor, "claim_item")) {
     return deny("FORBIDDEN", "A administração analisa reivindicações, mas não reivindica itens.");
   }

@@ -19,7 +19,11 @@ export interface Db {
   returns: ReturnRecord[];
 }
 
-export const DB_VERSION = 1;
+/**
+ * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). Subir a versão troca a chave do
+ * armazenamento e faz navegadores com o seed antigo receberem o novo (o antigo é removido).
+ */
+export const DB_VERSION = 2;
 
 /** Perfis de entrada rápida (AC01.3). Os demais usuários do seed existem, mas não são atalhos. */
 export const DEMO_PROFILE_IDS: Readonly<Record<UserRole, string>> = {
@@ -62,6 +66,7 @@ export function buildSeed(now: Date): Db {
   const items: Item[] = [
     item(1, 3, 0, {
       title: "Fones de ouvido sem fio",
+      photoDataUrl: "/seed/fones-de-ouvido.svg",
       description: "Fones intra-auriculares brancos, com estojo de carregamento pequeno.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
@@ -71,6 +76,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(2, 26, 1, {
       title: "Carteira de estudante",
+      photoDataUrl: "/seed/carteira-de-estudante.svg",
       description: "Carteira de estudante dentro de uma capinha transparente, encontrada no chão.",
       category: "Documentos",
       foundLocation: "Portaria",
@@ -80,6 +86,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(3, 50, 2, {
       title: "Chaveiro com três chaves",
+      photoDataUrl: "/seed/chaveiro.svg",
       description: "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.",
       category: "Chaves",
       foundLocation: "Bloco A",
@@ -89,6 +96,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(7, 74, 3, {
       title: "Calculadora científica",
+      photoDataUrl: "/seed/calculadora.svg",
       description: "Calculadora científica preta com capa deslizante e arranhões na tampa.",
       category: "Eletrônicos",
       foundLocation: "Bloco A",
@@ -98,6 +106,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(4, 98, 4, {
       title: "Casaco azul-marinho",
+      photoDataUrl: "/seed/casaco.svg",
       description: "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.",
       category: "Roupas",
       foundLocation: "Cantina",
@@ -107,6 +116,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(5, 122, 5, {
       title: "Notebook cinza",
+      photoDataUrl: "/seed/notebook.svg",
       description: "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
@@ -116,6 +126,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(6, 146, 6, {
       title: "Garrafa térmica verde",
+      photoDataUrl: "/seed/garrafa-termica.svg",
       description: "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.",
       category: "Outros",
       foundLocation: "Cantina",
@@ -125,6 +136,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(8, 194, 8, {
       title: "Guarda-chuva preto",
+      photoDataUrl: "/seed/guarda-chuva.svg",
       description: "Guarda-chuva preto automático com cabo curvo de madeira.",
       category: "Outros",
       foundLocation: "Portaria",
@@ -134,6 +146,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(10, 218, 9, {
       title: "Mochila preta",
+      photoDataUrl: "/seed/mochila.svg",
       description: "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.",
       category: "Outros",
       foundLocation: "Bloco A",
@@ -143,6 +156,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(9, 266, 11, {
       title: "Óculos de grau",
+      photoDataUrl: "/seed/oculos.svg",
       description: "Óculos de grau com armação preta retangular, dentro de um estojo cinza.",
       category: "Outros",
       foundLocation: "Cantina",
@@ -152,6 +166,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(11, 362, 15, {
       title: "Carregador USB-C",
+      photoDataUrl: "/seed/carregador.svg",
       description: "Carregador de parede branco com cabo USB-C de 1 metro enrolado.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",

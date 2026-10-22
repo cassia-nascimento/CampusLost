@@ -3,6 +3,7 @@ import { reviewClaim } from "@/lib/rules";
 import { admin, makeClaim, makeItem, NOW, otherStudent, student } from "@/lib/rules/test-fixtures";
 import type { ClaimDecisionResult, ClaimView, ItemDetail } from "@/services";
 import { applyDecision, type ReviewState } from "./apply-decision";
+import { toStoredItem } from "./stored-item";
 
 const item = makeItem({ status: "under_claim" });
 const mine = makeClaim({ id: "c1", itemId: item.id, claimantId: student.id });
@@ -30,7 +31,7 @@ function stateOf(claims: ReturnType<typeof makeClaim>[], reviewing: string): Rev
 function decide(state: ReviewState, decision: "accept" | "reject"): ClaimDecisionResult {
   const result = reviewClaim({
     actor: admin,
-    item: state.detail.item,
+    item: toStoredItem(state.detail.item),
     itemClaims: state.detail.claims,
     claimId: state.claim.id,
     decision,

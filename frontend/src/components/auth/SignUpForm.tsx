@@ -14,6 +14,8 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { signUpSchema, type SignUpValues } from "@/lib/validation";
 import { ROLE_LABEL, SIGNUP_ROLES, isServiceError } from "@/types/domain";
+import { withNext } from "./next-param";
+import { useNextPath } from "./use-next-path";
 
 const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
@@ -21,6 +23,7 @@ const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 export function SignUpForm() {
   const { signUp } = useSession();
   const toast = useToast();
+  const next = useNextPath();
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const {
@@ -99,7 +102,7 @@ export function SignUpForm() {
         <p className="text-meta text-ink-muted">Não pedimos senha nesta demonstração.</p>
         <p className="text-body text-ink-muted">
           Já tem conta?{" "}
-          <Link href="/entrar" className="link touch-target inline-flex items-center font-semibold">
+          <Link href={withNext("/entrar", next)} className="link touch-target inline-flex items-center font-semibold">
             Entrar
           </Link>
         </p>
