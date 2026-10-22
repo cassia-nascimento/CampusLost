@@ -4,6 +4,7 @@ import { createDelay } from "./latency";
 import { fitWithin } from "./photo";
 import { createDefaultStorage, createMemoryStorage, type KeyValueStorage } from "./storage";
 import { DB_KEY, MockStore, SESSION_KEY } from "./store";
+import { buildSeed, DB_VERSION } from "./seed";
 import { createHarness, expectCode, fakeFile, validItem, TEST_NOW } from "./test-utils";
 
 describe("store: persistência", () => {
@@ -63,8 +64,45 @@ describe("store: persistência", () => {
   it("usa a chave versionada e grava o seed na primeira leitura", () => {
     const storage = createMemoryStorage();
     new MockStore({ storage, now: () => TEST_NOW }).read();
-    expect(DB_KEY).toMatch(/v1/);
-    expect(JSON.parse(storage.getItem(DB_KEY)!).version).toBe(1);
+    expect(DB_KEY).toBe(`campuslost:proto:v${DB_VERSION}:db`);
+    expect(SESSION_KEY).toBe(`campuslost:proto:v${DB_VERSION}:session`);
+    expect(DB_VERSION).toBeGreaterThanOrEqual(2); // v2 trouxe as fotos do seed (P27)
+    expect(JSON.parse(storage.getItem(DB_KEY)!).version).toBe(DB_VERSION);
+  });
+
+  it("seed antigo (v1, sem fotos) é descartado: o navegador recebe o seed novo com fotos", () => {
+    const storage = createMemoryStorage();
+    const oldDb = { ...buildSeed(TEST_NOW), version: 1 };
+    oldDb.items = oldDb.items.map(({ photoDataUrl: _p, ...rest }) => (void _p, rest));
+    storage.setItem("campuslost:proto:v1:db", JSON.stringify(oldDb));
+    const db = new MockStore({ storage, now: () => TEST_NOW }).read();
+    expect(db.version).toBe(DB_VERSION);
+    expect(db.items.every((i) => i.photoDataUrl)).toBe(true);
+    expect(storage.getItem("campuslost:proto:v1:db")).toBeNull();
+    // mesmo dado antigo gravado sob a chave nova (versão interna divergente) também é descartado
+    storage.setItem(DB_KEY, JSON.stringify(oldDb));
+    expect(new MockStore({ storage, now: () => TEST_NOW }).read().items.every((i) => i.photoDataUrl)).toBe(true);
+  });
+
+  it("ao carregar, descarta photoDataUrl de formato inválido e mantém os válidos", () => {
+    const storage = createMemoryStorage();
+    const db = buildSeed(TEST_NOW);
+    db.items[0].photoDataUrl = "javascript:alert(1)";
+    db.items[1].photoDataUrl = "data:image/jpeg;base64,OK";
+    storage.setItem(DB_KEY, JSON.stringify(db));
+    const read = new MockStore({ storage, now: () => TEST_NOW }).read();
+    expect("photoDataUrl" in read.items[0]).toBe(false);
+    expect(read.items[1].photoDataUrl).toBe("data:image/jpeg;base64,OK");
+    expect(read.items[2].photoDataUrl).toBe(db.items[2].photoDataUrl);
+  });
+
+  it("a sessão usa a chave da versão atual (sessão antiga não vaza para o banco novo)", () => {
+    const sessionStorage = createMemoryStorage();
+    sessionStorage.setItem("campuslost:proto:v1:session", "user-marina");
+    const store = new MockStore({ storage: createMemoryStorage(), sessionStorage, now: () => TEST_NOW });
+    expect(store.getSessionUserId()).toBeNull();
+    store.setSessionUserId("user-rafael");
+    expect(sessionStorage.getItem(SESSION_KEY)).toBe("user-rafael");
   });
 
   it("estado persiste entre instâncias que compartilham o armazenamento", async () => {

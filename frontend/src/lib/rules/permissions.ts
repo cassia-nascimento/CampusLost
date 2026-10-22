@@ -30,10 +30,14 @@ export const PERMISSIONS: Readonly<Record<Capability, readonly UserRole[]>> = {
   view_returns: ADMIN,
 };
 
+/** Capacidades abertas a visitantes (sem sessão): ver a lista e o detalhe dos itens (P26). */
+export const GUEST_CAPABILITIES: readonly Capability[] = ["search_items"];
+
 type Actor = Pick<User, "role"> | null | undefined;
 
 export function hasCapability(actor: Actor, capability: Capability): boolean {
-  return actor != null && PERMISSIONS[capability].includes(actor.role);
+  if (actor == null) return GUEST_CAPABILITIES.includes(capability);
+  return PERMISSIONS[capability].includes(actor.role);
 }
 
 export function isAdmin(actor: Actor): boolean {
@@ -48,6 +52,7 @@ export function canAccessAdminArea(actor: Actor): boolean {
 /** Verificação genérica com motivo (logado? papel permitido?). */
 export function checkCapability(actor: Actor, capability: Capability): Decision {
   if (actor == null) {
+    if (hasCapability(actor, capability)) return ALLOW;
     return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.");
   }
   if (!hasCapability(actor, capability)) {

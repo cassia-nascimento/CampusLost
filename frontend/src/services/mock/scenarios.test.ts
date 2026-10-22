@@ -62,8 +62,7 @@ describe("RF01 — autenticação simulada", () => {
     await as(h, "student");
     await h.services.auth.signOut();
     expect(await h.services.auth.getCurrentUser()).toBeNull();
-    await expectCode(h.services.items.list(), "UNAUTHENTICATED"); // AC03.1
-    await expectCode(h.services.items.get("item-01"), "UNAUTHENTICATED");
+    expect((await h.services.items.list()).length).toBeGreaterThan(0); // visitante vê a lista (P26)
     await expectCode(h.services.items.create(validItem), "UNAUTHENTICATED");
     await expectCode(h.services.claims.listMine(), "UNAUTHENTICATED");
     await expectCode(h.services.claims.create("item-01", validClaim), "UNAUTHENTICATED");
@@ -406,6 +405,16 @@ describe("AC06.1 — editar e excluir", () => {
     expect((await h.services.items.update("item-01", { ...validItem, photo: null })).photoDataUrl).toBeUndefined();
   });
 
+  it("foto ilustrativa do seed (/seed/*.svg) é mantida ao editar sem trocar a foto (P27)", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    const before = (await h.services.items.get("item-01")).item.photoDataUrl;
+    expect(before).toBe("/seed/fones-de-ouvido.svg");
+    expect((await h.services.items.update("item-01", { ...validItem, title: "Fones novos" })).photoDataUrl).toBe(before);
+    expect((await h.services.items.get("item-01")).item.photoDataUrl).toBe(before);
+    expect((await h.services.items.update("item-01", { ...validItem, photo: null })).photoDataUrl).toBeUndefined();
+  });
+
   it("item Devolvido não é editável nem excluível", async () => {
     const h = createHarness();
     await as(h, "admin");
@@ -565,7 +574,7 @@ describe("usuário capturado antes da latência (I2)", () => {
       await vi.advanceTimersByTimeAsync(100);
       expect((await pending).length).toBeGreaterThan(0);
       // e uma chamada nova, já sem sessão, falha
-      const after = expectCode(slow.services.items.list(), "UNAUTHENTICATED");
+      const after = expectCode(slow.services.claims.listMine(), "UNAUTHENTICATED");
       await vi.advanceTimersByTimeAsync(100);
       await after;
     } finally {
@@ -590,5 +599,78 @@ describe("usuário capturado antes da latência (I2)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("P26 — visitante (sem sessão) vê lista e detalhe", () => {
+  it("lista sem login: sem devolvidos, sem storedAt, mesmos filtros e ordenação do logado", async () => {
+    const h = createHarness();
+    const guest = await h.services.items.list();
+    expect(guest.length).toBe(9);
+    expect(guest.some((i) => i.status === "returned")).toBe(false);
+    expect(guest.every((i) => !("storedAt" in i))).toBe(true);
+    expect(guest.every((i) => i.photoDataUrl)).toBe(true);
+    expect(guest.every((i) => !("createdById" in i) && !("createdBy" in i))).toBe(true);
+    const guestItem03 = guest.find((i) => i.id === "item-03");
+    expect(guestItem03).toBeDefined();
+    expect(JSON.stringify(guestItem03)).not.toMatch(/Lucas|user-lucas|createdBy/);
+    expect(JSON.stringify(guest)).not.toMatch(/user-lucas|Lucas Prado/);
+    const filters = { category: "Eletrônicos" as const, sort: "found" as const };
+    const guestFiltered = await h.services.items.list(filters);
+    await as(h, "student");
+    const member = await h.services.items.list(filters);
+    expect(guestFiltered.map((i) => i.id)).toEqual(member.map((i) => i.id));
+    expect(member.every((i) => i.storedAt)).toBe(true);
+    await h.services.auth.signOut();
+    await expectCode(h.services.items.list({ from: "2026-10-19", to: "2026-10-01" }), "VALIDATION");
+  });
+
+  it("detalhe sem login: sem storedAt, sem dados de reivindicação, viewer negado com UNAUTHENTICATED", async () => {
+    const h = createHarness();
+    const detail = await h.services.items.get("item-03"); // tem 2 reivindicações pendentes
+    expect(detail.item.title).toBe("Chaveiro com três chaves");
+    expect("storedAt" in detail.item).toBe(false);
+    expect("createdById" in detail.item).toBe(false);
+    expect(detail.createdBy).toBeNull();
+    expect(JSON.stringify(detail)).not.toMatch(/Lucas|user-lucas/);
+    expect(JSON.stringify(detail)).not.toMatch(/Portaria"|beatriz|rafael@|proofDetails|lostWhereWhen|esmalte/);
+    expect(detail.myClaims).toEqual([]);
+    expect(detail.claims).toEqual([]);
+    expect(detail.returnRecord).toBeNull();
+    for (const key of ["claim", "edit", "delete", "registerReturn"] as const) {
+      expect(detail.viewer[key]).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
+    }
+    expect(detail.viewer.claim).toMatchObject({ message: "Entre para reivindicar este item." });
+    // logado continua vendo storedAt
+    await as(h, "admin");
+    const adminDetail = await h.services.items.get("item-03");
+    expect(adminDetail.item.storedAt).toBe("Portaria");
+    expect(adminDetail.item.createdById).toBe("user-lucas");
+    expect(adminDetail.createdBy).toEqual({ id: "user-lucas", name: "Lucas Prado", role: "student" });
+    expect((await h.services.items.list()).find((i) => i.id === "item-03")?.createdById).toBe("user-lucas");
+  });
+
+  it("devolvido ou inexistente: mesmo NOT_FOUND para o visitante; logado ainda vê o devolvido", async () => {
+    const h = createHarness();
+    const missing = await expectCode(h.services.items.get("item-999"), "NOT_FOUND");
+    const returned = await expectCode(h.services.items.get("item-10"), "NOT_FOUND");
+    expect(returned.message).toBe(missing.message);
+    await as(h, "student");
+    expect((await h.services.items.get("item-10")).item.status).toBe("returned");
+  });
+
+  it("visitante não reivindica, registra, edita, exclui, aprova nem registra devolução", async () => {
+    const h = createHarness();
+    await expectCode(h.services.claims.create("item-01", validClaim), "UNAUTHENTICATED");
+    await expectCode(h.services.items.create(validItem), "UNAUTHENTICATED");
+    await expectCode(h.services.items.update("item-01", validItem), "UNAUTHENTICATED");
+    await expectCode(h.services.items.delete("item-01"), "UNAUTHENTICATED");
+    await expectCode(h.services.claims.listMine(), "UNAUTHENTICATED");
+    await expectCode(h.services.claims.listPending(), "UNAUTHENTICATED");
+    await expectCode(h.services.claims.accept("claim-01"), "UNAUTHENTICATED");
+    await expectCode(h.services.returns.register("item-05"), "UNAUTHENTICATED");
+    await expectCode(h.services.returns.list(), "UNAUTHENTICATED");
+    // nada foi alterado
+    expect((await h.services.items.list()).find((i) => i.id === "item-01")?.status).toBe("available");
   });
 });

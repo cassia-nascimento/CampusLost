@@ -55,6 +55,10 @@ export interface Item {
   foundDate: string;
   /** Onde o item está guardado agora. */
   storedAt: string;
+  /**
+   * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário) OU um
+   * caminho público `/seed/<slug>.svg` (imagens ilustrativas do seed, P27). O nome do campo é histórico.
+   */
   photoDataUrl?: string;
   status: ItemStatus;
   createdById: string;

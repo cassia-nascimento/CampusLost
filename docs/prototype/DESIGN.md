@@ -1,6 +1,6 @@
 # CampusLost — Direção visual e design system
 
-> Tarefa T01 · dono: `ux-designer` · escrito em 19/10/2026.
+> Tarefa T01 · dono: `ux-designer` · escrito em 19/10/2026 · landing/visitante e ilustrações do seed acrescentados em 22/10/2026 (§2.5, §6.12, §9.13–9.15).
 > Implementação dos tokens: `frontend/src/app/globals.css`. Ativos: `frontend/public/brand/`.
 > Regras de negócio, telas e critérios de aceite vêm de `SPEC.md` (aqui citados como AC##.#). Este documento **não** altera a SPEC; onde ela deixa lacuna de usabilidade, a lacuna está em §12.
 
@@ -63,6 +63,8 @@ Direto, cordial, sem jargão ("você", verbos no imperativo nos botões). Frases
 ### 2.5 Fotografia
 
 Foto do item: `object-fit: cover`, proporção 1:1 no card horizontal (96 px), 4:3 no card vertical e no detalhe. Sem foto: bloco `sunken` com ícone `Tag` (24–40 px, `ink-subtle`) recortado em `tag-shape`.
+
+**Imagens ilustrativas do seed (P27).** Os 11 itens demonstrativos usam ilustrações vetoriais originais em `frontend/public/seed/*.svg` (4:3, `viewBox="0 0 400 300"`, fundo `primary-soft`, só cores dos tokens, sem texto, marcas ou pessoas). São **ilustrações, não fotos dos objetos**: `fones-de-ouvido`, `carteira-de-estudante`, `chaveiro`, `calculadora`, `casaco`, `notebook`, `garrafa-termica`, `guarda-chuva`, `mochila`, `oculos`, `carregador`. Regras de uso: (a) no card, `alt=""` (o título já descreve); (b) no detalhe, `alt="Imagem ilustrativa: {título}"` para imagem do seed (foto enviada por usuário: `alt="Foto de {título}"`, sem legenda) e, abaixo da imagem, legenda `text-meta` `ink-subtle` "Imagem ilustrativa" (só para itens do seed; item criado por usuário com foto enviada não leva legenda); (c) `object-fit: cover`, `object-position: center`: em 4:3 (card vertical e detalhe) nada é cortado; no card horizontal 1:1 (96 px) o recorte mantém a faixa central de 300 px de largura, o que corta apenas as pontas de objetos largos (óculos, carregador, notebook) — aceitável, o reconhecimento vem do título e do desenho central; (d) usar `<img>` simples (SVG não precisa de `next/image`). Fotos reais podem substituí-las sem mudar layout. `frontend/public/brand/hero.svg` (etiqueta com lupa) é decorativa da landing (`alt=""`).
 
 ### 2.6 Tema escuro
 
@@ -401,6 +403,16 @@ Em `/admin/devolucoes` só há o período (De/Até), sempre em linha (duas colun
 - **Páginas de detalhe/formulário (drill-down):** botão voltar `ChevronLeft` 44 px à esquerda + título da página (`text-lead` 600, truncado) em lugar do wordmark.
 - **≥ 768 px:** navegação em texto no header (Itens · Minhas reivindicações para usuário; Painel · Itens · Devoluções para administração) com `aria-current="page"` e indicador inferior de 3 px `primary`; botão `primary` md "Registrar item" à direita antes do menu da conta.
 
+**Header público** (visitante sem sessão, em `/`, `/itens`, `/itens/[id]`; P26). Mesma altura (56 px), fundo e borda do Header logado; **nunca** tem BottomNav (visitante não tem destinos de topo para alternar e a ação principal dele está no conteúdo). Conteúdo:
+
+| Largura | À esquerda | À direita |
+|---|---|---|
+| **360 px** (< 640) | marca 28 px + wordmark (link para `/`), ≈ 141 px | **um** botão `secondary` md "Entrar" (≈ 84 px, 44 px de altura) |
+| `sm` ≥ 640 | idem | "Ver itens" (link de texto 44 px) · "Entrar" `secondary` md · "Criar conta" `primary` md |
+| `md` ≥ 768 | marca + wordmark + nav em texto: "Ver itens" (`aria-current="page"` quando em `/itens`) | "Entrar" `ghost` · "Criar conta" `primary` |
+
+Por que só "Entrar" a 360 px: a área útil é 328 px; marca (141) + "Entrar" (84) + "Criar conta" (≈ 114) + 8 px de folga = 347 px, **não cabe** sem reduzir alvo ou quebrar linha. "Entrar" fica no header porque é a ação de quem já tem conta (a maioria, sendo comunidade acadêmica); **"Criar conta" aparece no corpo** (hero, bloco final da landing, Notice do visitante em `/itens` e no detalhe), sempre ao alcance do polegar. "Ver itens" some do header a 360 px porque a própria landing já tem o CTA principal e em `/itens` o visitante já está lá. Em `/entrar` e `/cadastro` o header continua o de hoje (sem nav). Quando há sessão, vale o Header logado.
+
 **BottomNav** (somente < 768 px, **somente em páginas de topo**: `/itens`, `/minhas-reivindicacoes`, `/admin`, `/admin/devolucoes`): fixa, altura 64 px + `pb-safe`, fundo `surface`, `shadow-bar`, `<nav aria-label="Principal">`. Itens de largura igual (≥ 90 px a 360 px) e 64 px de altura, bem acima do mínimo de 44 px: ícone 24 px + rótulo `text-meta`. Ativo: pílula `primary-soft` atrás do ícone, rótulo `primary` 600, `aria-current="page"`; inativo: `ink-muted`.
 
 | Perfil | Itens (ícone · rótulo) |
@@ -526,7 +538,7 @@ Desktop (≥ 1024): duas colunas 50/50. Esquerda: painel `primary` com `logo-mar
 
 Desktop: card `max-w-form` centralizado sobre `paper`, ActionBar vira linha no fim do card. Papel "Administração" **não** aparece (só por seed).
 
-### 9.3 `/itens` — Busca e listagem (logado)
+### 9.3 `/itens` — Busca e listagem (logado; variante visitante em §9.14)
 
 ```
 +----------------------------------------+
@@ -555,7 +567,7 @@ Desktop: card `max-w-form` centralizado sobre `paper`, ActionBar vira linha no f
 
 Desktop: PageHeader com `h1` + contagem; FilterBar em linha (Categoria · Local · Encontrado de · até · Limpar filtros); grade 3 colunas de cards verticais. **Estados:** skeleton ×4; vazio (sem itens) "Nenhum item registrado ainda" + [Registrar item]; sem resultados + [Limpar filtros]; erro + [Tentar novamente]. Ordem: mais recentes primeiro (AC03.4). Devolvidos não aparecem (AC03.2).
 
-### 9.4 `/itens/[id]` — Detalhe do item
+### 9.4 `/itens/[id]` — Detalhe do item (logado; variante visitante em §9.15)
 
 ```
 +----------------------------------------+
@@ -819,6 +831,179 @@ Filtro por período usa a data da devolução (premissa de design: aqui o "perí
 - **Item não encontrado:** EmptyState `restricted`, ícone `FileText`, "Item não encontrado" / "Ele pode ter sido excluído." [Ver itens].
 - **Diálogo "Reiniciar demonstração":** confirm — ver §10.
 
+### 9.13 `/` — Landing page (pública, P26)
+
+**Objetivo de usabilidade.** Em 5 segundos, quem chega (de pé, pelo celular, talvez por link de um colega) entende o que é, vê que há itens reais para olhar **sem cadastro**, e escolhe: ver itens (CTA principal) ou entrar. Nada de carrossel, vídeo ou animação de entrada além de `animate-fade` curto. Uma única `h1`. Quem já tem sessão é redirecionado para a página inicial do perfil (SPEC §5); enquanto a sessão é resolvida, mostrar só o header com a marca e um `LoaderCircle` central com `sr-only` "Carregando…" (evita piscar a landing para quem está logado).
+
+**Ordem das seções (todas sobre `paper`, ritmo vertical de 48 px entre seções a 360 px, 64 px em `lg`):** Header público → Hero → Como funciona → Itens recentes → Bloco final → Rodapé.
+
+```
+360 px
++----------------------------------------+
+| [tag] CampusLost          [ Entrar ]   |  <- Header público 56 px
++----------------------------------------+
+|                                        |
+|  Achados e perdidos do campus          |  <- eyebrow text-meta 600 primary
+|  Perdeu algo? Veja se já                |  <- h1 (text-h1; text-display só /entrar)
+|  foi encontrado.                       |
+|  Veja os itens achados sem precisar    |  <- text-lead ink-muted, 1 frase
+|  entrar. Para reivindicar, é só criar  |
+|  uma conta.                            |
+|                                        |
+|  [ Ver itens encontrados  -> ]         |  <- primary lg, largura total
+|  [ Entrar                      ]       |  <- secondary lg, largura total
+|                                        |
+|  +----------------------------------+  |
+|  |   hero.svg (4:3, rounded-lg)     |  |  <- decorativa, alt="", abaixo dos botões
+|  +----------------------------------+  |
+|----------------------------------------|
+|  Como funciona                         |  <- h2
+|  +----------------------------------+  |
+|  | (1) Registrar                    |  |  <- cartão surface, número em círculo
+|  | Quem acha cadastra o item com    |  |     primary 32 px + ícone 24 px
+|  | foto e local.                    |  |
+|  +----------------------------------+  |
+|  | (2) Buscar ...                   |  |
+|  | (3) Reivindicar ...              |  |
+|  | (4) Devolver ...                 |  |
+|  +----------------------------------+  |
+|----------------------------------------|
+|  Itens recentes          Ver todos ->  |  <- h2 + link 44 px
+|  +----------------------------------+  |
+|  | ▒▒▒▒▒▒  Fones de ouvido sem fio* |  |  <- ItemCard horizontal x4
+|  | ▒▒▒▒▒▒  {PackageOpen Disponível} |  |
+|  | ▒▒▒▒▒▒  ⌖ Bloco A · há 2 dias    |  |
+|  +----------------------------------+  |
+|  ... (até 4 cards)                     |
+|  [ Ver todos os itens ]                |  <- secondary, largura total
+|----------------------------------------|
+|  +----------------------------------+  |
+|  | Achou algo ou quer reivindicar?  |  |  <- bloco primary-soft, rounded-xl
+|  | Crie sua conta para registrar    |  |
+|  | itens e reivindicar o seu.       |  |
+|  | [ Criar conta ]  [ Entrar ]      |  |  <- primary lg + secondary lg (empilhados)
+|  +----------------------------------+  |
+|----------------------------------------|
+|  CampusLost · Achados e perdidos       |  <- rodapé simples
+|  Ver itens · Entrar · Criar conta      |
+|  Projeto acadêmico · UNDB              |  <- text-meta ink-muted
++----------------------------------------+
+```
+
+```
+Desktop (>= 1024; max-w-page 1152, gutter 32)
++------------------------------------------------------------------------------+
+| [tag] CampusLost   Ver itens                     Entrar   [ Criar conta ]    |
++------------------------------------------------------------------------------+
+|  Achados e perdidos do campus          +-----------------------------+        |
+|  Perdeu algo? Veja se já               |       hero.svg (4:3)        |        |
+|  foi encontrado.      (7/12)           |           (5/12)            |        |
+|  Veja os itens ... [ Ver itens encontrados -> ] [ Entrar ]  |  <- botões em linha, largura auto
++------------------------------------------------------------------------------+
+|  Como funciona                                                               |
+|  [1 Registrar] [2 Buscar] [3 Reivindicar] [4 Devolver]     <- 4 colunas      |
++------------------------------------------------------------------------------+
+|  Itens recentes                                              Ver todos ->    |
+|  [card vert.] [card vert.] [card vert.] [card vert.]       <- 4 colunas lg   |
++------------------------------------------------------------------------------+
+|  [ bloco final: texto à esquerda, botões à direita, uma linha ]              |
++------------------------------------------------------------------------------+
+|  Rodapé: marca · links · "Projeto acadêmico · UNDB"                          |
++------------------------------------------------------------------------------+
+```
+
+Tablet (`sm`–`md`): hero em coluna única centralizada em `max-w-form`, botões em linha; passos em grade 2×2; itens recentes em 2 colunas (card vertical); bloco final em linha.
+
+**Decisões e porquês**
+
+- **Hero:** título em `text-h1` (28 px a 360), não `text-display`: a LP precisa mostrar a faixa "Como funciona" logo na primeira rolagem em tela de 640 px de altura útil. Os dois botões ficam **empilhados e na metade inferior do primeiro quadro** (polegar). A ilustração vem **depois** dos botões em mobile (não empurra o CTA para fora da primeira dobra); em `lg` fica à direita. Fundo da seção: `paper`; a imagem tem fundo próprio `primary-soft`.
+- **Como funciona:** os mesmos 4 passos de `/entrar` (um único módulo de dados compartilhado entre as duas telas; ver pendências). Cada passo: círculo `primary` 32 px com número em `on-primary` (8,42:1) + ícone 24 px `primary` + `h3` + 1 frase. Ícones (lucide, existentes): Registrar `Camera`, Buscar `Search`, Reivindicar `Tag`, Devolver `PackageCheck`. Cartão `surface`, `shadow-card`, `rounded-lg`; **não clicável** (sem hover de link). Lista semântica `<ol>`: leitor de tela anuncia "lista de 4 itens"; o número visível é `aria-hidden`.
+- **Itens recentes:** os **até 4 itens não devolvidos mais recentes** (mesma regra de AC03.2/03.4; sem filtros). ItemCard exatamente como em §6.5 (nenhuma variante nova), sem slot "Sua reivindicação" (visitante). Cada card leva a `/itens/[id]`. "Ver todos" aparece no cabeçalho da seção (link com seta, 44 px) **e** como botão `secondary` largura total ao fim da lista em < 640 px (o alvo do fim da lista é o lugar natural do polegar).
+- **Bloco final:** fundo `primary-soft`, `rounded-xl`, padding 24 px; título `h2`; texto `ink`; botões `primary` "Criar conta" e `secondary` "Entrar". Escolhido `primary-soft` e não um painel `primary` cheio para não precisar de anel de foco claro (`focus-on-dark`) e manter um só par de foco verificado.
+- **Rodapé:** `surface`, borda superior `line`, `text-meta`, links com `touch-target` e sublinhado, `<footer>`; sem redes sociais, sem política inventada, sem logos de terceiros. "Projeto acadêmico · UNDB" é o único crédito (verdadeiro segundo `CLAUDE.md`).
+- **Landmarks:** `header`, `main` (Hero, Como funciona e Itens recentes são `section` com `aria-labelledby` do seu título), `footer`; link "Pular para o conteúdo" como primeiro foco.
+
+**Estados de "Itens recentes"** (a landing nunca fica quebrada por causa dessa faixa)
+
+| Estado | Visual |
+|---|---|
+| Carregando | 4 `ItemCardSkeleton` (6.8), `sr-only` "Carregando itens…"; mínimo 300 ms |
+| Com itens | 1 a 4 cards; com menos de 4, sem preencher com vazios |
+| Vazio | EmptyState compacto `empty` no lugar da grade: "Nenhum item registrado ainda" / "Quando alguém registrar um item encontrado, ele aparece aqui." Sem botão "Registrar" (visitante); o bloco final já oferece criar conta |
+| Erro | ErrorState compacto (sem `min-h`) só dentro da seção: "Não conseguimos carregar os itens" + [Tentar novamente]. Hero, passos e bloco final continuam utilizáveis |
+
+**Contraste dos pares novos** (nenhum token novo; todos já calculados em §3.2): `ink`/`paper` 14,63; `ink-muted`/`paper` 7,41 (texto de apoio do hero); `primary`/`paper` 7,66 (eyebrow, "Ver todos"); `on-primary`/`primary` 8,42 (número do passo e botão primário); `ink`/`primary-soft` 13,90 e `ink-muted`/`primary-soft` 7,05 (bloco final); `primary`/`primary-soft` 7,28 (botão `secondary` sobre `primary-soft` usa fundo `surface`: `primary`/`surface` 8,42); `ink-muted`/`surface` 8,15 (rodapé e descrição dos passos). Anel de foco `focus` sobre `paper`/`surface`/`primary-soft`: 7,66 / 8,42 / 7,28. Conferência manual em 22/10/2026 (mesma fórmula de §3.2) do par `primary`/`paper`: L(paper) ≈ 0,9056, L(primary) ≈ 0,0746, razão ≈ 7,67 (a tabela registra 7,66; diferença de arredondamento). Os demais valores vêm da tabela existente, pois **nenhum par novo foi criado**.
+
+### 9.14 `/itens` — variante visitante (P26)
+
+Mesmo conteúdo, filtros, ordem (mais recentes primeiro), skeleton e estados de §9.3, com estas diferenças:
+
+```
+360 px, visitante
++----------------------------------------+
+| [tag] CampusLost          [ Entrar ]   |  <- Header público (sem BottomNav)
++----------------------------------------+
+|  Itens encontrados                     |
+|  (i) Entre para reivindicar um item    |  <- Notice info, uma vez, sem fechar
+|      ou registrar o que você achou.    |
+|      Entrar · Criar conta              |     (links 44 px)
+|  [≡ Filtros]            12 itens       |
+|  +----------------------------------+  |
+|  | ▒▒▒▒▒▒  Mochila preta*           |  |
+|  | ...                              |  |
+|  ...                                   |
++----------------------------------------+
+```
+
+- **Notice do visitante:** tom `info`, ícone `Info`, abaixo do `h1` e acima dos filtros; uma linha em ≥ 640 px. Explica **por que** não há "Registrar" nem "É meu" (princípio 5) e dá as duas saídas. Não é banner de demonstração.
+- **Sem** BottomNav e sem botão "Registrar item" no header ou na tela. Conteúdo sem `pb-bottomnav` (usa o padding normal + `pb-safe`).
+- Cards sem o slot "Sua reivindicação".
+- FilterBar idêntica (sheet < 768 px; barra em linha ≥ 768 px).
+- **Estados:** carregando = skeleton ×4; vazio (nenhum item no sistema) = EmptyState `empty` "Nenhum item registrado ainda" / "Quando alguém registrar um item encontrado, ele aparece aqui." + [Criar conta] `secondary` (sem "Registrar item"); sem resultados = igual a §9.3 ("Limpar filtros"); erro = ErrorState "Tentar novamente".
+- **Sem "Registrado por":** o visitante não vê quem registrou o item (nem nome nem papel), nem no card nem no detalhe (§9.15). O ItemCard não exibe essa informação em nenhuma variante; vale também para os cards da landing.
+- **Entrar a partir desta tela:** os links "Entrar" / "Criar conta" do Header e do Notice levam a `/entrar` e `/cadastro` **sem** `?next=`. Depois de entrar ou criar a conta, a pessoa vai para a **página inicial do perfil** (P28); **não** volta a `/itens` com os filtros. Motivo: `next` aceita somente `/itens/<id>` (§9.15); aceitar uma URL com query de filtros ampliaria a superfície do parâmetro (redirecionamento aberto) por um ganho pequeno, já que refazer um filtro leva poucos toques. Só o detalhe do item usa `?next=`.
+
+### 9.15 `/itens/[id]` — variante visitante (P26)
+
+```
+360 px, visitante
++----------------------------------------+
+| <-  Detalhe do item                    |  <- header de drill-down (volta à busca)
++----------------------------------------+
+| ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |  <- imagem 4:3
+| Imagem ilustrativa                     |  <- legenda text-meta (só itens do seed)
+|                                        |
+|  Mochila preta*                        |  <- h1
+|  {PackageOpen Disponível}              |
+|  Pode ser reivindicado.                |
+|                                        |
+|  Categoria     Acessórios              |
+|  Encontrado em Bloco A                 |
+|  Data          14/10/2026              |
+|                                        |  <- SEM "Guardado em"
+|  Descrição                             |
+|  ...                                   |
+|                                        |
+|  (i) Para reivindicar este item,       |  <- Notice info
+|      entre na sua conta. O local onde  |
+|      ele está guardado aparece depois  |
+|      que você entra.                   |
++----------------------------------------+
+| [ -> Entre para reivindicar ]          |  <- ActionBar fixa, primary lg
++----------------------------------------+
+```
+
+- **Quando o header é o de drill-down:** igual a §6.12 (voltar `ChevronLeft` + título da página). A rota é pública, então o voltar leva à última busca ou, se a pessoa veio de link externo, a `/itens`.
+- **Ação:** botão `primary` lg "Entre para reivindicar" (ícone `LogIn`) que leva a `/entrar?next=/itens/{id}`; depois do login o app retorna ao detalhe, onde já aparece "É meu". Link secundário de texto no Notice: "Ainda não tem conta? Criar conta" → `/cadastro?next=/itens/{id}`. **Validação de `next` (regra própria, P28; não reutiliza a lista de `?de=`):** só vale `/itens/<id>` com `id` em `[A-Za-z0-9_-]{1,64}`, sem query, sem fragmento e sem subcaminho; `/itens`, `/itens/novo` e qualquer outro valor são descartados e a pessoa vai para a página inicial do perfil.
+- **O que o visitante NÃO vê:** "Guardado em" (linha inteira ausente, não "oculta com ***"); botões Editar/Excluir/É meu; seção de reivindicações. **Motivo explicado em texto** no Notice (princípio 5), em vez de simplesmente omitir.
+- **Sem "Registrado por":** o detalhe do visitante não mostra quem registrou o item (nem nome nem papel). Não há linha, rótulo vazio ou "***": a informação simplesmente não existe nesta variante.
+- **Item Devolvido ou inexistente:** para o visitante os dois casos mostram o **mesmo** estado "Item não encontrado" (EmptyState `restricted`, ícone `FileText`): "Este item não está mais disponível: ele pode ter sido excluído ou já devolvido." + botão "Ver itens" (`/itens`). Motivo: um texto único não deixa o visitante distinguir "devolvido" de "nunca existiu" (evita enumerar ids e expor o histórico de devoluções). Não existe Notice "Item devolvido" para visitante e não há wireframe dele. Logado continua com §9.4 (Notice "devolvido em {data}").
+- **Item Em reivindicação:** mesmo botão "Entre para reivindicar" (a regra de §9.4 permite reivindicar enquanto há outras pendentes).
+- **Não encontrado:** ver "Item Devolvido ou inexistente" acima; o texto de §9.12 ("Ele pode ter sido excluído.") vale só para quem tem sessão.
+- **Imagem:** `alt="Foto de {título}"` para foto enviada; `alt="Imagem ilustrativa: {título}"` + legenda "Imagem ilustrativa" para imagem do seed (§2.5).
+- **Carregando:** skeleton da geometria final (imagem 4:3, 3 barras, lista de 3 linhas); `sr-only` "Carregando item…". **Erro:** ErrorState "Não conseguimos carregar este item" + [Tentar novamente].
+- **Desktop (≥ 1024):** imagem à esquerda, dados à direita, botão e Notice no fim da coluna de dados (não fixos). A imagem de 4:3 a 5/12 de 1152 px ≈ 480 × 360 px.
+
 ## 10. Microcopy-chave (pt-BR)
 
 Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botão, **reticências "…" (um caractere) só em estados em andamento**, datas `dd/mm/aaaa` (relativas só até 7 dias: "hoje", "ontem", "há 3 dias", com `<time datetime>` e título completo), horas `hh:mm`.
@@ -834,6 +1019,33 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Menu da conta | {Nome} · {Papel} · Reiniciar demonstração · Sair |
 | Reiniciar (diálogo) | **Reiniciar a demonstração?** Todos os dados voltam ao estado inicial e você sairá da conta. [Reiniciar] [Cancelar] · toast: Demonstração reiniciada. |
 | Carregando | Carregando itens… · Entrando… · Salvando… · Enviando… · Registrando… |
+
+**Landing e visitante (P26)**
+
+| Contexto | Texto |
+|---|---|
+| Header público | Ver itens · Entrar · Criar conta |
+| Eyebrow | Achados e perdidos do campus |
+| `h1` | Perdeu algo? Veja se já foi encontrado. |
+| Apoio (1 frase) | Veja os itens achados sem precisar entrar. Para reivindicar o seu, é só criar uma conta. |
+| CTAs do hero | **Ver itens encontrados** (principal) · **Entrar** (secundário) |
+| `h2` passos | Como funciona |
+| Passo 1 | **Registrar** — Quem acha um objeto cadastra o item, com foto e o local onde o encontrou. |
+| Passo 2 | **Buscar** — Qualquer pessoa pode ver os itens e filtrar por categoria, local e data. |
+| Passo 3 | **Reivindicar** — Quem perdeu entra na conta, diz que o item é seu e responde a duas perguntas. |
+| Passo 4 | **Devolver** — A administração confere as respostas, aceita e registra a devolução. |
+| `h2` recentes / links | Itens recentes · Ver todos · Ver todos os itens |
+| Bloco final | **Achou algo ou quer reivindicar o seu?** Crie sua conta para registrar itens e reivindicar o que é seu. [Criar conta] [Entrar] |
+| Rodapé | CampusLost · Achados e perdidos do campus · Projeto acadêmico · UNDB |
+| Notice do visitante em `/itens` | Entre para reivindicar um item ou registrar o que você achou. [Entrar] [Criar conta] |
+| Detalhe — botão | Entre para reivindicar |
+| Detalhe — Notice | Para reivindicar este item, entre na sua conta. O local onde ele está guardado aparece depois que você entra. Ainda não tem conta? Criar conta |
+| Legenda de imagem do seed | Imagem ilustrativa |
+| Visitante: item devolvido ou inexistente | **Item não encontrado** — Este item não está mais disponível: ele pode ter sido excluído ou já devolvido. [Ver itens] |
+| Carregando detalhe | Carregando item… |
+| Erro de detalhe | **Não conseguimos carregar este item** — Verifique sua conexão e tente de novo. [Tentar novamente] |
+
+Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§9.1), que continua com o mesmo título e rótulos "Registrar → Buscar → Reivindicar → Devolver"; as descrições são as mesmas nas duas telas (fonte única).
 
 **Entrar / cadastro**
 
@@ -979,6 +1191,9 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 
 
 ## 14. Atualizações de implementação (pós-revisão e QA)
+
+- **Visitante, `next` e alt (22/10/2026, P28):** `?next=` aceita somente `/itens/<id>` (§9.15); entrar a partir de `/itens` leva à página inicial do perfil, sem restaurar filtros (§9.14); devolvido e inexistente mostram o mesmo "Item não encontrado" ao visitante; visitante não vê "Registrado por"; `alt` do detalhe: "Foto de {título}" (enviada) e "Imagem ilustrativa: {título}" (seed).
+- **Landing pública e visitante (22/10/2026, P26/P27):** `/` ganhou landing (§9.13); `/itens` e `/itens/[id]` têm variante visitante (§9.14, §9.15) com Header público (§6.12) e sem BottomNav; imagens ilustrativas do seed em `frontend/public/seed/` (§2.5). Nenhum token novo foi necessário; nenhum aviso de "modo demonstração" existe na interface.
 
 Registro do que mudou na implementação em relação ao desenho original; vale sobre o texto das seções anteriores quando divergirem.
 

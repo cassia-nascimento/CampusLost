@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/Button";
 import { AccountMenu } from "./AccountMenu";
 import { Brand } from "./Brand";
+import { NavLink } from "./NavLink";
 import { getActiveHref, getHeaderNavItems, type RouteChrome } from "./navigation";
 
 /**
@@ -47,17 +48,9 @@ export function AppHeader({ chrome, pathname }: { chrome: RouteChrome; pathname:
                 const isActive = item.href === active;
                 return (
                   <li key={item.href} className="h-full">
-                    <Link
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={cn(
-                        "relative flex h-full items-center px-3 text-body font-semibold hover:text-primary",
-                        isActive ? "text-ink" : "text-ink-muted",
-                        isActive && "after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:bg-primary",
-                      )}
-                    >
+                    <NavLink href={item.href} active={isActive}>
                       {item.fullLabel}
-                    </Link>
+                    </NavLink>
                   </li>
                 );
               })}

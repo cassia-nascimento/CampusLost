@@ -1,17 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { Brand } from "@/components/layout/Brand";
+import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
 import { DemoProfiles } from "./DemoProfiles";
-import { RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
+import { withNext } from "./next-param";
+import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
+import { useNextPath } from "./use-next-path";
 import { SignInForm } from "./SignInForm";
-
-const STEPS = [
-  { title: "Registrar", text: "Quem acha um objeto cadastra o item." },
-  { title: "Buscar", text: "Quem perdeu algo procura pelos filtros." },
-  { title: "Reivindicar", text: "O dono responde o que só ele saberia." },
-  { title: "Devolver", text: "A administração confere e registra a devolução." },
-] as const;
 
 /** Painel de marca da tela de entrada (somente a partir de `lg`, DESIGN §9.1): o ciclo em quatro passos. */
 function BrandPanel() {
@@ -38,7 +35,7 @@ function BrandPanel() {
           Como funciona
         </h2>
         <ol className="mt-5 flex max-w-md flex-col gap-4">
-          {STEPS.map((step, index) => (
+          {HOW_IT_WORKS_STEPS.map((step, index) => (
             <li key={step.title} className="flex items-start gap-4">
               <span
                 aria-hidden="true"
@@ -57,8 +54,8 @@ function BrandPanel() {
   );
 }
 
-/** `/entrar` (RF01, AC01.2/01.3/01.6): login por e-mail, perfis de demonstração, cadastro e reinício da demo. */
-export function SignInScreen() {
+function SignInContent() {
+  const next = useNextPath();
   return (
     <RedirectIfAuthenticated>
       <div className="grid flex-1 lg:grid-cols-2">
@@ -77,7 +74,7 @@ export function SignInScreen() {
             <div className="flex flex-col items-start gap-1">
               <p className="text-body text-ink-muted">
                 Não tem conta?{" "}
-                <Link href="/cadastro" className="link touch-target inline-flex items-center font-semibold">
+                <Link href={withNext("/cadastro", next)} className="link touch-target inline-flex items-center font-semibold">
                   Criar conta
                 </Link>
               </p>
@@ -86,5 +83,14 @@ export function SignInScreen() {
         </div>
       </div>
     </RedirectIfAuthenticated>
+  );
+}
+
+/** `/entrar` (RF01, AC01.2/01.3): login por e-mail, perfis de demonstração e cadastro; volta ao item de `?next=`. */
+export function SignInScreen() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <SignInContent />
+    </Suspense>
   );
 }

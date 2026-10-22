@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { services, type ClaimView } from "@/services";
 import { ROLE_LABEL } from "@/types/domain";
 import { summarizeClaimedItems, type ClaimedItemSummary } from "./claimed-items";
+import { toStoredItem } from "./stored-item";
 
 interface DashboardData {
   pending: ClaimView[];
@@ -36,7 +37,7 @@ async function loadDashboard(): Promise<DashboardData> {
   const claimsByItem = await Promise.all(underClaim.map((item) => services.claims.listByItem(item.id)));
   return {
     pending,
-    claimed: summarizeClaimedItems(underClaim, claimsByItem),
+    claimed: summarizeClaimedItems(underClaim.map(toStoredItem), claimsByItem),
     returnsCount: returns.length,
   };
 }
@@ -175,7 +176,6 @@ function PendingList({ claims, heading: Heading }: { claims: ClaimView[]; headin
               src={claim.item.photoDataUrl}
               alt=""
               aspect="square"
-              sizes="4rem"
               className="size-16 shrink-0 rounded-md"
             />
             <div className="min-w-0 flex-1">
@@ -225,7 +225,6 @@ function ClaimedList({ rows, heading: Heading }: { rows: ClaimedItemSummary[]; h
               src={item.photoDataUrl}
               alt=""
               aspect="square"
-              sizes="4rem"
               className="size-16 shrink-0 rounded-md"
             />
             <div className="min-w-0 flex-1">

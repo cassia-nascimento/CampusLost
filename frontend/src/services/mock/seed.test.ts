@@ -1,7 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
 import { isActiveClaim } from "@/lib/rules";
+import { isStoredPhotoSrc } from "@/lib/validation";
 import { buildSeed, DEMO_DATA_NOTICE } from "./seed";
 import { TEST_NOW } from "./test-utils";
 
@@ -85,5 +88,16 @@ describe("seed", () => {
     expect(db.claims.every((c) => userIds.has(c.claimantId) && itemIds.has(c.itemId))).toBe(true);
     expect(db.returns.every((r) => claimIds.has(r.claimId) && itemIds.has(r.itemId) && userIds.has(r.returnedToId) && userIds.has(r.registeredById))).toBe(true);
     expect(new Set(db.items.map((i) => i.id)).size).toBe(db.items.length);
+  });
+
+  it("todo item do seed tem foto ilustrativa /seed/*.svg e o arquivo existe em public/ (P27)", () => {
+    expect(db.items.length).toBeGreaterThanOrEqual(11);
+    for (const item of db.items) {
+      expect(item.photoDataUrl, item.title).toMatch(/^\/seed\/[a-z0-9-]+\.svg$/);
+      expect(isStoredPhotoSrc(item.photoDataUrl!)).toBe(true);
+      const file = path.join(process.cwd(), "public", item.photoDataUrl!);
+      expect(fs.existsSync(file), `${item.title}: falta ${file}`).toBe(true);
+    }
+    expect(new Set(db.items.map((i) => i.photoDataUrl)).size).toBe(db.items.length);
   });
 });

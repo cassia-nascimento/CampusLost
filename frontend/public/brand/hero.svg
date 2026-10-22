@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: etiqueta de objeto achado com lupa</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="274" rx="130" ry="12" fill="#CBE4E7"/>
+  <path d="M154 106 C154 54 188 34 214 34" fill="none" stroke="#46524E" stroke-width="5" stroke-linecap="round"/>
+  <path d="M138 70 H292 Q312 70 312 90 V248 Q312 268 292 268 H108 Q88 268 88 248 V120 Z" fill="#0B5563"/>
+  <circle cx="142" cy="106" r="9" fill="#E4F1F2"/>
+  <rect x="116" y="170" width="64" height="9" rx="4.5" fill="#CBE4E7"/>
+  <rect x="116" y="190" width="44" height="9" rx="4.5" fill="#CBE4E7"/>
+  <rect x="116" y="210" width="56" height="9" rx="4.5" fill="#CBE4E7"/>
+  <circle cx="236" cy="168" r="46" fill="#FFFFFF" fill-opacity="0.9" stroke="#1A2321" stroke-width="10"/>
+  <path d="M270 202 L318 250" stroke="#1A2321" stroke-width="16" stroke-linecap="round"/>
+  <path d="M212 152 A28 28 0 0 1 234 138" fill="none" stroke="#0B5563" stroke-width="6" stroke-linecap="round"/>
+</svg>

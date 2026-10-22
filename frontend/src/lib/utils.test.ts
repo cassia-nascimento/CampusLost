@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn } from "./utils";
+import { cn, isSeedImage, itemPhotoAlt } from "./utils";
 
 describe("cn", () => {
   it("junta classes e ignora valores falsos", () => {
@@ -34,5 +34,25 @@ describe("cn", () => {
   it("não funde tokens de alvo de toque entre si de forma indevida", () => {
     expect(cn("touch-target", "touch-target-lg")).toBe("touch-target-lg");
     expect(cn("touch-target", "px-4")).toBe("touch-target px-4");
+  });
+});
+
+describe("isSeedImage", () => {
+  it("reconhece só os caminhos das imagens ilustrativas do seed", () => {
+    expect(isSeedImage("/seed/mochila.svg")).toBe(true);
+    expect(isSeedImage("data:image/jpeg;base64,AAAA")).toBe(false);
+    expect(isSeedImage("blob:http://localhost/abc")).toBe(false);
+    expect(isSeedImage("https://exemplo.com/seed/x.svg")).toBe(false);
+    expect(isSeedImage("")).toBe(false);
+    expect(isSeedImage(null)).toBe(false);
+    expect(isSeedImage(undefined)).toBe(false);
+  });
+});
+
+describe("itemPhotoAlt", () => {
+  it("declara a imagem do seed como ilustrativa e descreve as fotos enviadas", () => {
+    expect(itemPhotoAlt("Mochila preta", "/seed/mochila.svg")).toBe("Imagem ilustrativa: Mochila preta");
+    expect(itemPhotoAlt("Mochila preta", "data:image/jpeg;base64,AAAA")).toBe("Foto de Mochila preta");
+    expect(itemPhotoAlt("Mochila preta", undefined)).toBe("Foto de Mochila preta");
   });
 });

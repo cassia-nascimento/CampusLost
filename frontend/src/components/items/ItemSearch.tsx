@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
+import { Notice } from "@/components/ui/Notice";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
@@ -21,6 +23,28 @@ import { EMPTY_FILTERS, filtersToSearch, getActiveChips, parseFilterParams, toIt
 
 const SKELETON_COUNT = 4;
 
+/** Visitante (DESIGN §9.14): explica por que não há "Registrar" nem "É meu" e dá as duas saídas. */
+function VisitorNotice() {
+  return (
+    <Notice
+      tone="info"
+      className="mb-4"
+      action={
+        <p className="flex flex-wrap items-center gap-x-4">
+          <Link href="/entrar" className="link touch-target inline-flex items-center font-semibold">
+            Entrar
+          </Link>
+          <Link href="/cadastro" className="link touch-target inline-flex items-center font-semibold">
+            Criar conta
+          </Link>
+        </p>
+      }
+    >
+      Entre para reivindicar um item ou registrar o que você achou.
+    </Notice>
+  );
+}
+
 /**
  * Tela `/itens` (RF03): busca e listagem com filtros combináveis refletidos na URL.
  * Devolvidos não aparecem; "Em reivindicação" aparece identificado no próprio cartão.
@@ -30,6 +54,7 @@ export function ItemSearch() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useSession();
+  const visitor = user === null; // P26: lista pública, sem "Registrar" nem "Sua reivindicação"
 
   const search = searchParams.toString();
   const filters = useMemo(() => parseFilterParams(new URLSearchParams(search)), [search]);
@@ -45,7 +70,7 @@ export function ItemSearch() {
     router.replace(`${pathname}${filtersToSearch(next)}`, { scroll: false });
   }
 
-  const items = useServiceQuery(() => services.items.list(toItemFilters(filters)), [filters]);
+  const items = useServiceQuery(() => services.items.list(toItemFilters(filters)), [filters, user?.id ?? null]);
 
   // "Sua reivindicação: …" nos cartões (AC04.1). Administração não reivindica; é só enfeite, então falha em silêncio.
   const wantsClaims = hasCapability(user, "view_own_claims");
@@ -67,7 +92,8 @@ export function ItemSearch() {
 
   return (
     <Container size="page">
-      <PageHeader title="Itens encontrados" />
+      <PageHeader title="Itens encontrados" className={visitor ? "mb-4" : undefined} />
+      {visitor ? <VisitorNotice /> : null}
       <FilterBar value={filters} onChange={applyFilters} resultLabel={resultLabel} />
 
       {loading ? (
@@ -99,7 +125,15 @@ export function ItemSearch() {
           <EmptyState
             variant="empty"
             title="Nenhum item registrado ainda"
-            action={<LinkButton href="/itens/novo">Registrar item</LinkButton>}
+            action={
+              visitor ? (
+                <LinkButton href="/cadastro" variant="secondary">
+                  Criar conta
+                </LinkButton>
+              ) : (
+                <LinkButton href="/itens/novo">Registrar item</LinkButton>
+              )
+            }
           >
             Quando alguém registrar um item encontrado, ele aparece aqui.
           </EmptyState>

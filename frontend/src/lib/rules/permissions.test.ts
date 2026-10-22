@@ -29,7 +29,8 @@ describe("permissões por papel (SPEC §2)", () => {
     expect(hasCapability({ role: "student" }, capability)).toBe(student);
     expect(hasCapability({ role: "teacher" }, capability)).toBe(teacher);
     expect(hasCapability({ role: "admin" }, capability)).toBe(admin);
-    expect(hasCapability(null, capability)).toBe(false);
+    // visitante (P26): só ver/buscar itens
+    expect(hasCapability(null, capability)).toBe(capability === "search_items");
   });
 
   it("guarda de /admin: só administração", () => {
@@ -40,7 +41,10 @@ describe("permissões por papel (SPEC §2)", () => {
   });
 
   it("checkCapability distingue visitante de papel insuficiente", () => {
-    expect(checkCapability(null, "search_items")).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
+    expect(checkCapability(null, "search_items")).toEqual({ allowed: true });
+    for (const cap of ["register_item", "claim_item", "view_own_claims", "review_claims", "edit_item", "delete_item", "register_return", "view_returns"] as const) {
+      expect(checkCapability(null, cap)).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
+    }
     expect(checkCapability({ role: "student" }, "review_claims")).toMatchObject({ allowed: false, code: "FORBIDDEN" });
     expect(checkCapability({ role: "admin" }, "review_claims")).toEqual({ allowed: true });
   });

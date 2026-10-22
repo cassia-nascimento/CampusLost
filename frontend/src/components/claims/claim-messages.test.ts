@@ -32,6 +32,12 @@ describe("aceita", () => {
     expect(m.blocked).toMatch(/foi aceita/);
   });
 
+  it("sem o local de guarda (visão sem `storedAt`): o texto não o cita nem deixa 'undefined'", () => {
+    const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim" });
+    expect(m.nextStep.text).toBe("Procure a administração para retirar o item.");
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
+  });
+
   it("item devolvido: sem destaque nem instrução de retirar", () => {
     const m = messages("accepted", "returned");
     expect(m.nextStep.highlight).toBeUndefined();

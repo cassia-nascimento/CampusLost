@@ -24,3 +24,13 @@ const twMerge = extendTailwindMerge<"touch-target">({
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
+
+/** Imagens ilustrativas do seed (P27) ficam em `/seed/*.svg`; fotos enviadas pelo usuário são data URLs. */
+export function isSeedImage(src: string | null | undefined): boolean {
+  return typeof src === "string" && src.startsWith("/seed/");
+}
+
+/** Texto alternativo da foto de um item: as ilustrações do seed se declaram ilustrativas (DESIGN §2.5). */
+export function itemPhotoAlt(title: string, src: string | null | undefined): string {
+  return isSeedImage(src) ? `Imagem ilustrativa: ${title}` : `Foto de ${title}`;
+}

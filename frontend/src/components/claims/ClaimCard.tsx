@@ -37,7 +37,7 @@ export function ClaimCard({ claim }: { claim: ClaimView }) {
   return (
     <article className="flex flex-col gap-4 rounded-lg bg-surface p-4 shadow-card sm:p-5">
       <div className="flex gap-3">
-        <Photo src={item.photoDataUrl} alt="" aspect="square" sizes="4rem" className="size-16 shrink-0 rounded-md" />
+        <Photo src={item.photoDataUrl} alt="" aspect="square" className="size-16 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1">
           <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">

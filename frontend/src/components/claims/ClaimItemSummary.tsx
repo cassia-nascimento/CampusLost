@@ -16,7 +16,7 @@ export function ClaimItemSummary({
 }) {
   return (
     <div className="flex gap-3 rounded-lg bg-surface p-3 shadow-card">
-      <Photo src={item.photoDataUrl} alt="" aspect="square" sizes="6rem" className="size-24 shrink-0 rounded-md" />
+      <Photo src={item.photoDataUrl} alt="" aspect="square" className="size-24 shrink-0 rounded-md" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>
         <div>

@@ -1,10 +1,18 @@
 import { ServiceError } from "@/types/domain";
+import { isStoredPhotoSrc } from "@/lib/validation";
 import { buildSeed, DB_VERSION, type Db } from "./seed";
 import { createDefaultStorage, type KeyValueStorage } from "./storage";
 
+const KEY_PREFIX = "campuslost:proto";
+
 /** Chaves versionadas: mudar o formato exige subir `DB_VERSION` (dados antigos são descartados). */
-export const DB_KEY = `campuslost:proto:v${DB_VERSION}:db`;
-export const SESSION_KEY = `campuslost:proto:v${DB_VERSION}:session`;
+export const DB_KEY = `${KEY_PREFIX}:v${DB_VERSION}:db`;
+export const SESSION_KEY = `${KEY_PREFIX}:v${DB_VERSION}:session`;
+
+/** Chaves de versões anteriores do banco (não confundir com a atual). */
+function legacyDbKeys(): string[] {
+  return Array.from({ length: DB_VERSION - 1 }, (_, i) => `${KEY_PREFIX}:v${i + 1}:db`);
+}
 
 export interface StoreOptions {
   /** Banco (padrão: `localStorage`, compartilhado entre abas). */
@@ -12,6 +20,20 @@ export interface StoreOptions {
   /** Sessão (padrão: `sessionStorage`: cada aba tem a sua e ela sobrevive a recarregar). */
   sessionStorage?: KeyValueStorage;
   now?: () => Date;
+}
+
+/** Descarta `photoDataUrl` de formato inválido (banco adulterado/corrompido); o item segue sem foto. */
+function sanitizePhotos(db: Db): Db {
+  if (db.items.every((i) => i.photoDataUrl === undefined || isStoredPhotoSrc(i.photoDataUrl))) return db;
+  return {
+    ...db,
+    items: db.items.map((i) => {
+      if (i.photoDataUrl === undefined || isStoredPhotoSrc(i.photoDataUrl)) return i;
+      const { photoDataUrl: _dropped, ...rest } = i;
+      void _dropped;
+      return rest;
+    }),
+  };
 }
 
 function isDb(value: unknown): value is Db {
@@ -63,12 +85,20 @@ export class MockStore {
     if (raw) {
       try {
         const parsed: unknown = JSON.parse(raw);
-        if (isDb(parsed)) return parsed;
+        if (isDb(parsed)) return sanitizePhotos(parsed);
       } catch {
         /* JSON corrompido: recai no seed */
       }
     }
     const seeded = buildSeed(this.now());
+    // Descarta bancos de versões antigas (liberam espaço); a sessão antiga fica órfã e inofensiva.
+    for (const key of legacyDbKeys()) {
+      try {
+        this.storage.removeItem(key);
+      } catch {
+        /* ignora */
+      }
+    }
     try {
       this.storage.setItem(DB_KEY, JSON.stringify(seeded));
     } catch {
