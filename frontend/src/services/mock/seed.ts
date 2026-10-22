@@ -3,27 +3,65 @@
  * demonstrativos (nomes, itens, locais; ver `DEMO_DATA_NOTICE`). Os locais usados
  * são apenas os do catálogo demonstrativo. Datas são relativas a `now`.
  */
-import type { Claim, Item, ReturnRecord, User, UserRole } from "@/types/domain";
+import type { AuthProvider, Claim, Item, ReturnRecord, User, UserRole } from "@/types/domain";
 import { addDays, addHours, toLocalDateString } from "@/lib/rules/dates";
 
 /** Aviso para a interface: todo o conteúdo do seed é fictício. */
 export const DEMO_DATA_NOTICE =
   "Dados fictícios de demonstração (pessoas, itens e locais); não representam o campus real.";
 
+/**
+ * Registro de credenciais (SEPARADO de `User`; nunca sai do serviço). Em uma API real isto fica
+ * no servidor. `password`: PBKDF2-SHA-256 (`salt` e `hash` em hexadecimal). `google`: sem senha.
+ */
+export interface CredentialRecord {
+  userId: string;
+  provider: AuthProvider;
+  salt?: string;
+  hash?: string;
+  iterations?: number;
+}
+
 export interface Db {
   /** Versão do formato persistido; muda junto com a chave do store. */
   version: number;
   users: User[];
+  credentials: CredentialRecord[];
   items: Item[];
   claims: Claim[];
   returns: ReturnRecord[];
 }
 
 /**
- * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). Subir a versão troca a chave do
- * armazenamento e faz navegadores com o seed antigo receberem o novo (o antigo é removido).
+ * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). v3: login por senha e Google (P29/P30;
+ * `credentials` no banco). Subir a versão troca a chave do armazenamento e faz navegadores com o
+ * seed antigo receberem o novo (o antigo é removido).
  */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
+
+/** Senha de demonstração das 5 contas `@demo.test` (P29). NÃO é segredo: é dado fictício. */
+export const DEMO_PASSWORD = "demo12345";
+
+/** Hashes PBKDF2-SHA-256 (100k iterações) de `DEMO_PASSWORD`, precomputados e determinísticos (conferidos em teste). */
+const DEMO_CREDENTIALS: CredentialRecord[] = [
+  ["user-marina", "2d71da00f3c7893f8974e8d965ea415c6812a50b0d38292f1ae398fe0fee1af4"],
+  ["user-rafael", "3f72ca3aa59882bbe9687058cce02dd2175c1b8467bd61229d9c411288f920c3"],
+  ["user-admin", "bb09f06fe05f62800ad57b83932bfb076bda344a0b1a5a81f03d5dd95f4ec801"],
+  ["user-lucas", "d7e8e9bd3a8d417026e58d88df5c84cb162de557bb581b6688fe6c7a0cb08a17"],
+  ["user-beatriz", "453ae177f84d5256eef00a206d1ab6baf93797759306cca193ee224561bb2ca1"],
+].map(([userId, hash]) => ({
+  userId,
+  provider: "password" as const,
+  // sal fixo por usuário só no seed (reprodutível); contas novas usam sal aleatório
+  salt: demoSalt(userId),
+  hash,
+  iterations: 100_000,
+}));
+
+/** Sal determinístico das contas de demonstração: UTF-8 de `campuslost-demo-salt:<id>` em hexadecimal. */
+export function demoSalt(userId: string): string {
+  return Array.from(new TextEncoder().encode(`campuslost-demo-salt:${userId}`), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /** Perfis de entrada rápida (AC01.3). Os demais usuários do seed existem, mas não são atalhos. */
 export const DEMO_PROFILE_IDS: Readonly<Record<UserRole, string>> = {
@@ -250,5 +288,7 @@ export function buildSeed(now: Date): Db {
     },
   ];
 
-  return { version: DB_VERSION, users: USERS.map((u) => ({ ...u })), items, claims, returns };
+  return { version: DB_VERSION, users: USERS.map((u) => ({ ...u })),
+    credentials: DEMO_CREDENTIALS.map((c) => ({ ...c })),
+    items, claims, returns };
 }

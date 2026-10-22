@@ -23,6 +23,7 @@ import type {
   Item,
   PublicUser,
   ReturnRecord,
+  SignupRole,
   User,
   UserRole,
 } from "@/types/domain";
@@ -97,15 +98,48 @@ export interface DemoProfile {
 export type ItemInput = ItemFormValues & { photo?: File | null };
 export type ClaimInput = ClaimFormValues;
 
+/** Perfil devolvido pelo Google, JÁ verificado no servidor. */
+export interface GoogleProfile {
+  email: string;
+  name: string;
+}
+
+export type GoogleSignInResult =
+  | { status: "signed_in"; user: User }
+  | { status: "needs_role"; profile: GoogleProfile };
+
+export interface GoogleSignUpInput extends GoogleProfile {
+  role: SignupRole;
+}
+
 /* ---------- Serviços ---------- */
 
 export interface AuthService {
   /** Sessão atual ou `null`. Sobrevive ao recarregamento da página (AC01.4). */
   getCurrentUser(): Promise<User | null>;
-  /** Cria conta (aluno/professor) e abre sessão. `EMAIL_TAKEN` se o e-mail já existe (AC01.1). */
+  /**
+   * Cria conta (aluno/professor) com senha (8 a 72 caracteres, P29) e abre sessão.
+   * `EMAIL_TAKEN` se o e-mail já existe (AC01.1).
+   */
   signUp(input: SignUpValues): Promise<User>;
-  /** Entra pelo e-mail. `USER_NOT_FOUND` se não houver conta (AC01.2). Senha não existe no protótipo. */
+  /**
+   * Entra com e-mail + senha (P29). E-mail inexistente, senha errada ou conta criada só pelo Google
+   * lançam o MESMO erro `INVALID_CREDENTIALS` ("E-mail ou senha incorretos."), sem revelar qual (AC01.2).
+   */
   signIn(input: SignInValues): Promise<User>;
+  /**
+   * "Entrar com Google" (P30). ATENÇÃO: o chamador só pode usar depois de verificar o ID token do
+   * Google NO SERVIDOR (assinatura, `aud`, `exp`, `email_verified`); este método confia no perfil
+   * recebido e NÃO verifica token (o mock tampouco). Domínio fora do institucional: `FORBIDDEN_DOMAIN`.
+   * Conta existente: abre sessão (`signed_in`). Conta nova: `needs_role` (nada é criado ainda) e a UI
+   * pede aluno/professor e chama `completeGoogleSignUp`.
+   */
+  signInWithGoogle(profile: GoogleProfile): Promise<GoogleSignInResult>;
+  /**
+   * Conclui o cadastro via Google (sem senha) e abre sessão. Mesmo pré-requisito de verificação do
+   * token de `signInWithGoogle`. `FORBIDDEN_DOMAIN` fora do domínio; `EMAIL_TAKEN` se já existe conta.
+   */
+  completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** [Somente protótipo] Entra com um dos perfis de demonstração (AC01.3). */
   signInAsDemo(role: UserRole): Promise<User>;
   /** [Somente protótipo] Perfis de entrada rápida. */

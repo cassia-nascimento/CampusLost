@@ -3,6 +3,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
+import type { GoogleProfile, GoogleSignInResult, GoogleSignUpInput } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
 import type { User, UserRole } from "@/types/domain";
 
@@ -12,9 +13,17 @@ export type SessionStatus = "loading" | "ready";
 export interface SessionValue {
   user: User | null;
   status: SessionStatus;
-  /** Entra pelo e-mail. Lança `ServiceError` (`USER_NOT_FOUND`, `VALIDATION`). */
+  /** Entra com e-mail e senha. Lança `ServiceError` (`INVALID_CREDENTIALS`, `VALIDATION`). */
   signIn(input: SignInValues): Promise<User>;
+  /** Cria a conta com senha e abre a sessão. Lança `ServiceError` (`EMAIL_TAKEN`, `VALIDATION`). */
   signUp(input: SignUpValues): Promise<User>;
+  /**
+   * "Entrar com Google": o perfil já deve ter sido verificado no servidor. A sessão só é adotada quando
+   * o resultado é `signed_in`; em `needs_role` nada muda e a tela pede o papel. Lança `FORBIDDEN_DOMAIN`.
+   */
+  signInWithGoogle(profile: GoogleProfile): Promise<GoogleSignInResult>;
+  /** Conclui o cadastro via Google (aluno/professor) e abre a sessão. Lança `FORBIDDEN_DOMAIN`, `EMAIL_TAKEN`. */
+  completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** Perfis de demonstração (AC01.3). */
   signInAsDemo(role: UserRole): Promise<User>;
   signOut(): Promise<void>;
@@ -67,6 +76,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status,
       signIn: async (input) => adopt(await services.auth.signIn(input)),
       signUp: async (input) => adopt(await services.auth.signUp(input)),
+      signInWithGoogle: async (profile) => {
+        const result = await services.auth.signInWithGoogle(profile);
+        if (result.status === "signed_in") adopt(result.user);
+        return result;
+      },
+      completeGoogleSignUp: async (input) => adopt(await services.auth.completeGoogleSignUp(input)),
       signInAsDemo: async (role) => adopt(await services.auth.signInAsDemo(role)),
       signOut: async () => {
         await services.auth.signOut();

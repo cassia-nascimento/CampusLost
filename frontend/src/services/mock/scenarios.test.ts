@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
+import { DEMO_PASSWORD } from "./seed";
 import { DB_KEY, SESSION_KEY } from "./store";
 import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness } from "./test-utils";
 
@@ -27,33 +28,42 @@ describe("RF01 — autenticação simulada", () => {
 
   it("AC01.1: cadastro cria conta e sessão; e-mail repetido (qualquer caixa) dá erro", async () => {
     const h = createHarness();
-    const user = await h.services.auth.signUp({ name: "Carla Dias", email: "Carla@Demo.test", role: "teacher" });
+    const user = await h.services.auth.signUp({ name: "Carla Dias", email: "Carla@Demo.test", password: "senha-segura-1", role: "teacher" });
     expect(user).toMatchObject({ name: "Carla Dias", email: "carla@demo.test", role: "teacher" });
     expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
     const err = await expectCode(
-      h.services.auth.signUp({ name: "Outra Carla", email: " CARLA@demo.test ", role: "student" }),
+      h.services.auth.signUp({ name: "Outra Carla", email: " CARLA@demo.test ", password: "senha-segura-1", role: "student" }),
       "EMAIL_TAKEN",
     );
     expect(err.fieldErrors?.email).toBeTruthy();
-    await expectCode(h.services.auth.signUp({ name: "Marina", email: "marina@demo.test", role: "student" }), "EMAIL_TAKEN");
+    await expectCode(h.services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "senha-segura-1", role: "student" }), "EMAIL_TAKEN");
   });
 
   it("AC01.1: cadastro valida campos e não aceita papel admin", async () => {
     const h = createHarness();
     const err = await expectCode(
-      h.services.auth.signUp({ name: "", email: "x", role: "admin" as never }),
+      h.services.auth.signUp({ name: "", email: "x", password: "", role: "admin" as never }),
       "VALIDATION",
     );
-    expect(Object.keys(err.fieldErrors ?? {}).sort()).toEqual(["email", "name", "role"]);
+    expect(Object.keys(err.fieldErrors ?? {}).sort()).toEqual(["email", "name", "password", "role"]);
   });
 
-  it("AC01.2: login por e-mail cadastrado cria sessão; inexistente dá erro claro", async () => {
+  it("AC01.2: login por e-mail + senha cria sessão; e-mail inexistente e senha errada dão o mesmo erro", async () => {
     const h = createHarness();
-    const user = await h.services.auth.signIn({ email: " MARINA@demo.test " });
+    const user = await h.services.auth.signIn({ email: " MARINA@demo.test ", password: DEMO_PASSWORD });
     expect(user.id).toBe("user-marina");
     await h.services.auth.signOut();
-    const err = await expectCode(h.services.auth.signIn({ email: "ninguem@demo.test" }), "USER_NOT_FOUND");
-    expect(err.message).toMatch(/Não encontramos/);
+    const noUser = await expectCode(
+      h.services.auth.signIn({ email: "ninguem@demo.test", password: DEMO_PASSWORD }),
+      "INVALID_CREDENTIALS",
+    );
+    const wrong = await expectCode(
+      h.services.auth.signIn({ email: "marina@demo.test", password: "errada-errada" }),
+      "INVALID_CREDENTIALS",
+    );
+    expect(noUser.message).toBe("E-mail ou senha incorretos.");
+    expect(wrong.message).toBe(noUser.message);
+    expect(wrong.fieldErrors).toEqual(noUser.fieldErrors);
     expect(await h.services.auth.getCurrentUser()).toBeNull();
   });
 
@@ -586,7 +596,7 @@ describe("usuário capturado antes da latência (I2)", () => {
     vi.useFakeTimers();
     try {
       const { fast, slow } = pair();
-      await fast.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", role: "student" });
+      await fast.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: "senha-segura-1", role: "student" });
 
       const attempt = expectCode(slow.services.items.create(validItem), "UNAUTHENTICATED"); // captura Carla
       await fast.services.demo.reset(); // Carla não existe no seed

@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Brand } from "@/components/layout/Brand";
 import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
+import type { GoogleProfile } from "@/services";
 import { DemoProfiles } from "./DemoProfiles";
+import { GoogleRoleStep } from "./GoogleRoleStep";
+import { GoogleSignIn } from "./GoogleSignIn";
 import { withNext } from "./next-param";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { useNextPath } from "./use-next-path";
@@ -56,20 +59,30 @@ function BrandPanel() {
 
 function SignInContent() {
   const next = useNextPath();
+  const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
   return (
     <RedirectIfAuthenticated>
       <div className="grid flex-1 lg:grid-cols-2">
         <BrandPanel />
         <div className="flex flex-col px-gutter pt-6 pb-10 lg:justify-center lg:py-12">
           <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-            <div>
-              <Brand href="/entrar" className="-ml-1 lg:hidden" markSize={32} />
-              <h1 className="mt-4 text-display lg:mt-0">Achou ou perdeu algo no campus?</h1>
-              <p className="mt-3 text-lead font-normal text-ink-muted">Entre para ver e registrar itens.</p>
-            </div>
+            {googleProfile ? (
+              <GoogleRoleStep profile={googleProfile} onCancel={() => setGoogleProfile(null)} />
+            ) : (
+              <>
+                <div>
+                  <Brand href="/entrar" className="-ml-1 lg:hidden" markSize={32} />
+                  <h1 className="mt-4 text-display lg:mt-0">Achou ou perdeu algo no campus?</h1>
+                  <p className="mt-3 text-lead font-normal text-ink-muted">Entre para ver e registrar itens.</p>
+                </div>
 
-            <SignInForm />
-            <DemoProfiles />
+                <div className="flex flex-col gap-5">
+                  <SignInForm />
+                  <GoogleSignIn onNeedsRole={setGoogleProfile} />
+                </div>
+                <DemoProfiles />
+              </>
+            )}
 
             <div className="flex flex-col items-start gap-1">
               <p className="text-body text-ink-muted">
@@ -86,7 +99,7 @@ function SignInContent() {
   );
 }
 
-/** `/entrar` (RF01, AC01.2/01.3): login por e-mail, perfis de demonstração e cadastro; volta ao item de `?next=`. */
+/** `/entrar` (RF01, AC01.2/01.3): login por e-mail e senha ou Google, perfis de demonstração e cadastro; volta ao item de `?next=`. */
 export function SignInScreen() {
   return (
     <Suspense fallback={<AuthLoading />}>

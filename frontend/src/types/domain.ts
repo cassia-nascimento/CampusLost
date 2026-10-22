@@ -34,6 +34,10 @@ export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
   rejected: "Recusada",
 };
 
+/** Como a conta autentica. Vive FORA de `User` (registro de credenciais do banco; P29/P30). */
+export const AUTH_PROVIDERS = ["password", "google"] as const;
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
+
 export interface User {
   id: string;
   name: string;
@@ -100,7 +104,10 @@ export type ServiceErrorCode =
   | "CLAIM_BLOCKED"
   | "ITEM_RETURNED"
   | "EMAIL_TAKEN"
-  | "USER_NOT_FOUND"
+  /** E-mail inexistente OU senha errada (mensagem única, P29). */
+  | "INVALID_CREDENTIALS"
+  /** Login com Google fora do(s) domínio(s) institucional(is) permitido(s) (P30). */
+  | "FORBIDDEN_DOMAIN"
   | "PHOTO_INVALID"
   | "STORAGE_FULL"
   /** Reservado para a API REST (sem rede / timeout). O mock nunca o lança. */

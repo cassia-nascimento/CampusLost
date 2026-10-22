@@ -1,0 +1,243 @@
+import { describe, expect, it } from "vitest";
+import { createMockServices } from "./index";
+import { hashPassword } from "./password";
+import { buildSeed, DB_VERSION, DEMO_PASSWORD, demoSalt } from "./seed";
+import { DB_KEY, MockStore } from "./store";
+import { createMemoryStorage } from "./storage";
+import { createHarness, expectCode, TEST_NOW } from "./test-utils";
+
+const PW = "senha-segura-1";
+const google = { email: "Ana.Lima@alunos.UNDB.edu.br", name: "  Ana Lima " };
+
+describe("senha (P29)", () => {
+  it("cadastro com senha abre sessão e permite entrar depois com a mesma senha", async () => {
+    const h = createHarness();
+    const u = await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student" });
+    await h.services.auth.signOut();
+    expect((await h.services.auth.signIn({ email: "CARLA@demo.test", password: PW })).id).toBe(u.id);
+    expect((await h.services.auth.getCurrentUser())?.id).toBe(u.id);
+  });
+
+  it("cadastro rejeita senha curta/longa/ausente com fieldErrors.password", async () => {
+    const h = createHarness();
+    const base = { name: "Carla Dias", email: "carla@demo.test", role: "student" as const };
+    for (const [password, msg] of [
+      ["1234567", "Use pelo menos 8 caracteres."],
+      ["a".repeat(73), "Use no máximo 72 caracteres."],
+      ["", "Crie uma senha."],
+    ] as const) {
+      const err = await expectCode(h.services.auth.signUp({ ...base, password }), "VALIDATION");
+      expect(err.fieldErrors?.password).toBe(msg);
+    }
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+  });
+
+  it("senha errada, e-mail inexistente e senha vazia: INVALID_CREDENTIALS/VALIDATION; sem sessão", async () => {
+    const h = createHarness();
+    const a = await expectCode(h.services.auth.signIn({ email: "marina@demo.test", password: "demo12346" }), "INVALID_CREDENTIALS");
+    const b = await expectCode(h.services.auth.signIn({ email: "nao@existe.test", password: "demo12345" }), "INVALID_CREDENTIALS");
+    expect(a.message).toBe("E-mail ou senha incorretos.");
+    expect(b.message).toBe(a.message);
+    expect(a.fieldErrors).toBeUndefined();
+    const v = await expectCode(h.services.auth.signIn({ email: "marina@demo.test", password: "" }), "VALIDATION");
+    expect(v.fieldErrors?.password).toBe("Informe sua senha.");
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+  });
+
+  it("a senha é sensível a maiúsculas e a espaços", async () => {
+    const h = createHarness();
+    await expectCode(h.services.auth.signIn({ email: "marina@demo.test", password: "DEMO12345" }), "INVALID_CREDENTIALS");
+    await expectCode(h.services.auth.signIn({ email: "marina@demo.test", password: " demo12345" }), "INVALID_CREDENTIALS");
+  });
+
+  it("as 5 contas de demonstração entram com DEMO_PASSWORD; perfis de um toque seguem sem senha", async () => {
+    expect(DEMO_PASSWORD).toBe("demo12345");
+    const h = createHarness();
+    for (const email of ["marina", "rafael", "admin", "lucas", "beatriz"]) {
+      const user = await h.services.auth.signIn({ email: `${email}@demo.test`, password: DEMO_PASSWORD });
+      expect(user.email).toBe(`${email}@demo.test`);
+    }
+    expect((await h.services.auth.signInAsDemo("admin")).role).toBe("admin");
+  });
+
+  it("hashes do seed conferem com PBKDF2 de DEMO_PASSWORD e são determinísticos", async () => {
+    const db = buildSeed(TEST_NOW);
+    expect(buildSeed(TEST_NOW).credentials).toEqual(db.credentials);
+    expect(db.credentials).toHaveLength(db.users.length);
+    for (const c of db.credentials) {
+      expect(c.provider).toBe("password");
+      expect(c.salt).toBe(demoSalt(c.userId));
+      expect(await hashPassword(DEMO_PASSWORD, c.salt!, c.iterations)).toBe(c.hash);
+    }
+    expect(new Set(db.credentials.map((c) => c.hash)).size).toBe(db.credentials.length);
+  });
+
+  it("senha guardada só como hash com sal aleatório por usuário", async () => {
+    const h = createHarness();
+    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student" });
+    await h.services.auth.signUp({ name: "Dora Dias", email: "dora@demo.test", password: PW, role: "student" });
+    const raw = h.storage.getItem(DB_KEY)!;
+    expect(raw).not.toContain(PW);
+    const db = JSON.parse(raw);
+    const [c, d] = db.credentials.slice(-2);
+    expect(c.salt).not.toBe(d.salt);
+    expect(c.hash).not.toBe(d.hash);
+    expect(c.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(c.iterations).toBe(100_000);
+  });
+
+  it("hash/sal/senha não aparecem em nada devolvido à UI", async () => {
+    const h = createHarness();
+    const out: unknown[] = [];
+    out.push(await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student" }));
+    out.push(await h.services.auth.getCurrentUser());
+    out.push(await h.services.auth.listDemoProfiles());
+    out.push(await h.services.auth.signIn({ email: "carla@demo.test", password: PW }));
+    out.push(await h.services.auth.signInWithGoogle(google));
+    out.push(await h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" }));
+    await h.services.auth.signInAsDemo("admin");
+    out.push(await h.services.items.list(), await h.services.items.get("item-03"));
+    out.push(await h.services.claims.listPending(), await h.services.claims.listByItem("item-03"));
+    out.push(await h.services.returns.list());
+    for (const value of out) {
+      const json = JSON.stringify(value);
+      expect(json).not.toMatch(/hash|salt|password|credential|iterations|provider/i);
+      expect(json).not.toContain(PW);
+      expect(json).not.toContain(DEMO_PASSWORD);
+    }
+  });
+
+  it("EMAIL_TAKEN no cadastro com senha (qualquer caixa) e nenhuma credencial é criada", async () => {
+    const h = createHarness();
+    const before = JSON.parse(h.storage.getItem(DB_KEY) ?? "null");
+    await expectCode(
+      h.services.auth.signUp({ name: "Outra Marina", email: " MARINA@demo.test ", password: PW, role: "student" }),
+      "EMAIL_TAKEN",
+    );
+    expect(before).toBeNull(); // banco ainda nem gravado; a leitura abaixo grava o seed
+    const db = new MockStore({ storage: h.storage, now: () => TEST_NOW }).read();
+    expect(db.credentials).toHaveLength(db.users.length);
+    expect(db.users.filter((u) => u.email === "marina@demo.test")).toHaveLength(1);
+  });
+
+  it("sessão sobrevive a 'recarregar' (novo serviço sobre o mesmo armazenamento) e sair encerra", async () => {
+    const h = createHarness();
+    await h.services.auth.signIn({ email: "marina@demo.test", password: DEMO_PASSWORD });
+    const reloaded = createMockServices({ latency: 0, storage: h.storage, sessionStorage: h.sessionStorage, now: h.clock });
+    expect((await reloaded.auth.getCurrentUser())?.id).toBe("user-marina");
+    await reloaded.auth.signOut();
+    expect(await reloaded.auth.getCurrentUser()).toBeNull();
+  });
+});
+
+describe("Google institucional (P30)", () => {
+  it("conta nova: needs_role (nada criado) -> completar -> sessão", async () => {
+    const h = createHarness();
+    const r = await h.services.auth.signInWithGoogle(google);
+    expect(r).toEqual({ status: "needs_role", profile: { email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima" } });
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+    const user = await h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" });
+    expect(user).toMatchObject({ email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima", role: "teacher" });
+    expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
+  });
+
+  it("conta existente: signed_in direto, sem criar outra", async () => {
+    const h = createHarness();
+    const user = await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
+    await h.services.auth.signOut();
+    const r = await h.services.auth.signInWithGoogle({ email: " ANA.LIMA@alunos.undb.edu.br", name: "Outro Nome" });
+    expect(r).toEqual({ status: "signed_in", user });
+    expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
+  });
+
+  it("e-mail fora do domínio: FORBIDDEN_DOMAIN em ambos os métodos, sem sessão nem conta", async () => {
+    const h = createHarness();
+    for (const email of ["ana@gmail.com", "ana@undb.edu.br.evil.com", "ana@evilundb.edu.br", "x@undb.edu.br@evil.com", "marina@demo.test"]) {
+      const a = await expectCode(h.services.auth.signInWithGoogle({ email, name: "Ana" }), "FORBIDDEN_DOMAIN");
+      expect(a.message).toBe("Use o e-mail institucional da UNDB.");
+      await expectCode(h.services.auth.completeGoogleSignUp({ email, name: "Ana", role: "student" }), "FORBIDDEN_DOMAIN");
+    }
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+  });
+
+  it("domínio configurável por createMockServices", async () => {
+    const h = createHarness({ allowedGoogleDomains: ["demo.test"] });
+    expect((await h.services.auth.signInWithGoogle({ email: "marina@demo.test", name: "Marina" })).status).toBe("signed_in");
+    await expectCode(h.services.auth.signInWithGoogle(google), "FORBIDDEN_DOMAIN");
+  });
+
+  it("completar para e-mail já existente: EMAIL_TAKEN", async () => {
+    const h = createHarness({ allowedGoogleDomains: ["demo.test", "undb.edu.br"] });
+    await expectCode(
+      h.services.auth.completeGoogleSignUp({ email: "marina@demo.test", name: "Marina", role: "student" }),
+      "EMAIL_TAKEN",
+    );
+    await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
+    await expectCode(h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" }), "EMAIL_TAKEN");
+  });
+
+  it("papel inválido (admin) é recusado", async () => {
+    const h = createHarness();
+    const err = await expectCode(h.services.auth.completeGoogleSignUp({ ...google, role: "admin" as never }), "VALIDATION");
+    expect(err.fieldErrors?.role).toBeTruthy();
+  });
+
+  it("nome curto/ausente vira a parte local do e-mail; nome longo é truncado em 80", async () => {
+    const h = createHarness();
+    const a = await h.services.auth.completeGoogleSignUp({ email: "bia@undb.edu.br", name: "", role: "student" });
+    expect(a.name).toBe("bia");
+    const b = await h.services.auth.completeGoogleSignUp({ email: "bob@undb.edu.br", name: "x".repeat(200), role: "student" });
+    expect(b.name).toHaveLength(80);
+  });
+
+  it("conta do Google não tem senha: entrar por senha dá INVALID_CREDENTIALS (mesma mensagem)", async () => {
+    const h = createHarness();
+    await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
+    await h.services.auth.signOut();
+    for (const password of [PW, "", "undefined", "null", "12345678"]) {
+      const err = await expectCode(
+        h.services.auth.signIn({ email: google.email, password }),
+        password === "" ? "VALIDATION" : "INVALID_CREDENTIALS",
+      );
+      if (password !== "") expect(err.message).toBe("E-mail ou senha incorretos.");
+    }
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+    const db = new MockStore({ storage: h.storage, now: () => TEST_NOW }).read();
+    const cred = db.credentials.find((c) => c.provider === "google")!;
+    expect(cred.hash).toBeUndefined();
+    expect(cred.salt).toBeUndefined();
+  });
+
+  it("Google em conta de senha existente abre sessão (a senha continua valendo)", async () => {
+    const h = createHarness();
+    await h.services.auth.signUp({ name: "Ana Lima", email: google.email, password: PW, role: "student" });
+    await h.services.auth.signOut();
+    expect((await h.services.auth.signInWithGoogle(google)).status).toBe("signed_in");
+    await h.services.auth.signOut();
+    expect((await h.services.auth.signIn({ email: google.email, password: PW })).email).toBe("ana.lima@alunos.undb.edu.br");
+  });
+});
+
+describe("migração DB_VERSION (P29/P30)", () => {
+  it("DB_VERSION é 3; v1/v2 antigos são descartados e o seed novo traz credenciais", () => {
+    expect(DB_VERSION).toBe(3);
+    const storage = createMemoryStorage();
+    const { credentials: _c, ...legacy } = buildSeed(TEST_NOW);
+    void _c;
+    storage.setItem("campuslost:proto:v1:db", JSON.stringify({ ...legacy, version: 1 }));
+    storage.setItem("campuslost:proto:v2:db", JSON.stringify({ ...legacy, version: 2 }));
+    const db = new MockStore({ storage, now: () => TEST_NOW }).read();
+    expect(db.version).toBe(3);
+    expect(db.credentials).toHaveLength(db.users.length);
+    expect(storage.getItem("campuslost:proto:v1:db")).toBeNull();
+    expect(storage.getItem("campuslost:proto:v2:db")).toBeNull();
+  });
+
+  it("banco v3 sem `credentials` (adulterado) é descartado e regenerado", () => {
+    const storage = createMemoryStorage();
+    const { credentials: _c, ...broken } = buildSeed(TEST_NOW);
+    void _c;
+    storage.setItem(DB_KEY, JSON.stringify(broken));
+    expect(new MockStore({ storage, now: () => TEST_NOW }).read().credentials.length).toBeGreaterThan(0);
+  });
+});
