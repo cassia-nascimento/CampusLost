@@ -1,0 +1,435 @@
+import { describe, expect, it } from "vitest";
+import { ServiceError, type ServiceErrorCode } from "@/types/domain";
+import { TOKEN_STORAGE_KEY } from "./http";
+import { BASE, createHarness, denied, rawClaim, rawItem, rawSession, rawUser } from "./test-utils";
+
+async function failure(promise: Promise<unknown>): Promise<ServiceError> {
+  try {
+    await promise;
+  } catch (error) {
+    if (error instanceof ServiceError) return error;
+    throw error;
+  }
+  throw new Error("esperava rejeição");
+}
+
+describe("mapeamento (API.md §3)", () => {
+  it("item: photoUrl relativo vira photoDataUrl absoluto; sem foto, o campo não existe", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [rawItem, { ...rawItem, id: "item-04", photoUrl: null }] });
+    const [withPhoto, withoutPhoto] = await services.items.list();
+    expect(withPhoto.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect("photoUrl" in withPhoto).toBe(false);
+    expect(withoutPhoto.photoDataUrl).toBeUndefined();
+    expect(withPhoto).toMatchObject({ id: "item-03", storedAt: "Portaria", createdById: "user-lucas" });
+  });
+
+  it("visitante: item sem storedAt/createdById continua sem essas chaves", async () => {
+    const { api, services } = createHarness();
+    const { storedAt: _s, createdById: _c, ...guest } = rawItem;
+    void _s;
+    void _c;
+    api.reply({ json: [guest] });
+    const [item] = await services.items.list();
+    expect("storedAt" in item).toBe(false);
+    expect("createdById" in item).toBe(false);
+  });
+
+  it("photoUrl suspeito é descartado (esquema, outro host, //, ..)", async () => {
+    const { api, services } = createHarness();
+    const bad = ["javascript:alert(1)", "http://evil.test/uploads/" + "a".repeat(32) + ".png", "//evil.test/x.png", "/uploads/../x.png", "/outro/" + "a".repeat(32) + ".png", 42];
+    api.reply({ json: bad.map((photoUrl, i) => ({ ...rawItem, id: `i${i}`, photoUrl })) });
+    const items = await services.items.list();
+    expect(items.every((i) => i.photoDataUrl === undefined)).toBe(true);
+  });
+
+  it("foto enviada: /uploads/<uuid>.png", async () => {
+    const { api, services } = createHarness();
+    const name = "0123456789abcdef0123456789abcdef";
+    api.reply({ json: [{ ...rawItem, photoUrl: `/uploads/${name}.png` }] });
+    expect((await services.items.list())[0].photoDataUrl).toBe(`${BASE}/uploads/${name}.png`);
+  });
+
+  it("detalhe: item, createdBy, myClaims, claims, returnRecord e viewer", async () => {
+    const { api, services } = createHarness();
+    const viewer = { claim: { allowed: true }, edit: denied, delete: denied, registerReturn: denied };
+    api.reply({
+      json: {
+        item: rawItem,
+        createdBy: { id: "user-lucas", name: "Lucas Prado", role: "student" },
+        myClaims: [rawClaim],
+        claims: [{ ...rawClaim, claimant: rawUser }],
+        returnRecord: null,
+        viewer,
+      },
+    });
+    const detail = await services.items.get("item-03");
+    expect(api.calls[0].url.pathname).toBe("/items/item-03");
+    expect(detail.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(detail.createdBy?.name).toBe("Lucas Prado");
+    expect(detail.myClaims).toHaveLength(1);
+    expect(detail.claims[0].claimant.email).toBe("marina@demo.test");
+    expect(detail.returnRecord).toBeNull();
+    expect(detail.viewer).toEqual(viewer);
+  });
+
+  it("detalhe de visitante: createdBy null", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { item: rawItem, createdBy: null, myClaims: [], claims: [], returnRecord: null, viewer: {} } });
+    expect((await services.items.get("item-03")).createdBy).toBeNull();
+  });
+
+  it("claim com reviewedAt ausente permanece sem a chave; ClaimView traz claimant e item", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [{ ...rawClaim, claimant: rawUser, item: rawItem }] });
+    const [view] = await services.claims.listMine();
+    expect("reviewedAt" in view).toBe(false);
+    expect(view.claimant.id).toBe("user-marina");
+    expect(view.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+  });
+
+  it("decisão de reivindicação e devolução", async () => {
+    const { api, services } = createHarness();
+    const accepted = { ...rawClaim, status: "accepted", reviewedAt: "2026-10-22T15:00:00.000Z" };
+    api.reply({ json: { claim: accepted, item: rawItem, autoRejectedIds: ["claim-02"] } });
+    const result = await services.claims.accept("claim-01");
+    expect(api.calls[0]).toMatchObject({ method: "POST" });
+    expect(api.calls[0].url.pathname).toBe("/claims/claim-01/accept");
+    expect(result.claim.reviewedAt).toBe("2026-10-22T15:00:00.000Z");
+    expect(result.autoRejectedIds).toEqual(["claim-02"]);
+
+    api.reply({
+      status: 201,
+      json: {
+        id: "return-01",
+        itemId: "item-03",
+        claimId: "claim-01",
+        returnedToId: "user-beatriz",
+        registeredById: "user-admin",
+        returnedAt: "2026-10-22T16:00:00.000Z",
+        item: rawItem,
+        returnedTo: rawUser,
+        registeredBy: { id: "user-admin", name: "Admin", role: "admin" },
+      },
+    });
+    const ret = await services.returns.register("item-03");
+    expect(api.calls[1].url.pathname).toBe("/items/item-03/return");
+    expect(ret.item.photoDataUrl).toContain("/uploads/seed/");
+    expect(ret.registeredBy.name).toBe("Admin");
+  });
+
+  it("resposta com formato errado vira UNEXPECTED (sem vazar detalhes)", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { nao: "uma lista" } });
+    const error = await failure(services.items.list());
+    expect(error.code).toBe("UNEXPECTED");
+    expect(error.message).toBe("Algo deu errado. Tente novamente.");
+  });
+});
+
+describe("filtros e rotas", () => {
+  it("items.list envia só filtros preenchidos na query", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [] }, { json: [] });
+    await services.items.list({ category: "Chaves", location: "Bloco A", from: "2026-10-01", to: "2026-10-20", status: "available", sort: "found" });
+    expect(Object.fromEntries(api.calls[0].url.searchParams)).toEqual({
+      category: "Chaves",
+      location: "Bloco A",
+      from: "2026-10-01",
+      to: "2026-10-20",
+      status: "available",
+      sort: "found",
+    });
+    await services.items.list({ category: undefined, location: "" });
+    expect(api.calls[1].url.search).toBe("");
+  });
+
+  it("returns.list envia o período; ids são codificados no caminho", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [] }, { json: [] });
+    await services.returns.list({ from: "2026-10-01", to: "2026-10-31" });
+    expect(api.calls[0].url.pathname + api.calls[0].url.search).toBe("/returns?from=2026-10-01&to=2026-10-31");
+    await services.claims.listByItem("a/b");
+    expect(api.calls[1].url.pathname).toBe("/items/a%2Fb/claims");
+  });
+
+  it("claims.create envia JSON e devolve a Claim", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: rawClaim });
+    const claim = await services.claims.create("item-03", { proofDetails: "x".repeat(10), lostWhereWhen: "Bloco A, ontem" });
+    expect(api.calls[0].headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(String(api.calls[0].body))).toEqual({ proofDetails: "x".repeat(10), lostWhereWhen: "Bloco A, ontem" });
+    expect(claim.id).toBe("claim-01");
+  });
+
+  it("items.delete aceita 204", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 204 });
+    await expect(services.items.delete("item-03")).resolves.toBeUndefined();
+    expect(api.calls[0]).toMatchObject({ method: "DELETE" });
+  });
+});
+
+describe("foto em multipart", () => {
+  const fields = {
+    title: "Agenda vermelha",
+    description: "Agenda vermelha com elástico e capa dura.",
+    category: "Outros",
+    foundLocation: "Biblioteca",
+    foundDate: "2026-10-21",
+    storedAt: "Portaria",
+  } as const;
+
+  it("create: campos + arquivo, sem Content-Type manual", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: { ...rawItem, photoUrl: "/uploads/" + "ab".repeat(16) + ".png" } });
+    const file = new File([new Uint8Array(20)], "agenda.png", { type: "image/png" });
+    const item = await services.items.create({ ...fields, photo: file });
+    const call = api.calls[0];
+    expect(call.method).toBe("POST");
+    expect(call.headers["Content-Type"]).toBeUndefined();
+    const form = call.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.get("title")).toBe("Agenda vermelha");
+    expect(form.get("foundDate")).toBe("2026-10-21");
+    expect((form.get("photo") as File).name).toBe("agenda.png");
+    expect(form.has("removePhoto")).toBe(false);
+    expect(item.photoDataUrl).toBe(`${BASE}/uploads/${"ab".repeat(16)}.png`);
+  });
+
+  it("create sem foto não envia a parte photo", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: rawItem });
+    await services.items.create({ ...fields });
+    expect((api.calls[0].body as FormData).has("photo")).toBe(false);
+  });
+
+  it("update: undefined mantém, File troca, null remove", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: rawItem }, { json: rawItem }, { json: rawItem });
+    await services.items.update("item-03", { ...fields });
+    await services.items.update("item-03", { ...fields, photo: new File([new Uint8Array(5)], "b.jpg", { type: "image/jpeg" }) });
+    await services.items.update("item-03", { ...fields, photo: null });
+    const [keep, replace, remove] = api.calls.map((c) => c.body as FormData);
+    expect(api.calls[0]).toMatchObject({ method: "PUT" });
+    expect(keep.has("photo") || keep.has("removePhoto")).toBe(false);
+    expect((replace.get("photo") as File).name).toBe("b.jpg");
+    expect(remove.get("removePhoto")).toBe("true");
+  });
+
+  it("arquivo de formato/tamanho inválido: PHOTO_INVALID sem chamar a rede", async () => {
+    const { api, services } = createHarness();
+    const error = await failure(services.items.create({ ...fields, photo: new File([new Uint8Array(5)], "x.gif", { type: "image/gif" }) }));
+    expect(error.code).toBe("PHOTO_INVALID");
+    expect(api.calls).toHaveLength(0);
+  });
+});
+
+describe("autenticação e token", () => {
+  it("login guarda o token, envia o Bearer nas chamadas seguintes e NÃO o envia no login", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(TOKEN_STORAGE_KEY, "antigo");
+    api.reply({ json: rawSession }, { json: [] });
+    const user = await services.auth.signIn({ email: "marina@demo.test", password: "demo12345" });
+    expect(user).toEqual(rawUser);
+    expect(api.calls[0].headers.Authorization).toBeUndefined();
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    await services.items.list();
+    expect(api.calls[1].headers.Authorization).toBe("Bearer tok-1");
+  });
+
+  it("visitante não envia Authorization", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [] });
+    await services.items.list();
+    expect(api.calls[0].headers.Authorization).toBeUndefined();
+  });
+
+  it("signUp, demo e Google guardam o token", async () => {
+    const { api, storage, services } = createHarness();
+    api.reply({ status: 201, json: rawSession });
+    await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demo12345", role: "student" });
+    expect(api.calls[0].url.pathname).toBe("/auth/signup");
+    storage.removeItem(TOKEN_STORAGE_KEY);
+    api.reply({ json: { ...rawSession, token: "tok-demo" } });
+    await services.auth.signInAsDemo("admin");
+    expect(api.calls[1].url.pathname).toBe("/demo/login/admin");
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-demo");
+    api.reply({ json: { status: "signed_in", ...rawSession, token: "tok-g" } });
+    const result = await services.auth.signInWithGoogle("id-token");
+    expect(JSON.parse(String(api.calls[2].body))).toEqual({ credential: "id-token" });
+    expect(result).toEqual({ status: "signed_in", user: rawUser });
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-g");
+  });
+
+  it("Google conta nova: needs_role com ticket = profileToken; completar usa o ticket e guarda o token", async () => {
+    const { api, storage, services } = createHarness();
+    api.reply({ json: { status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, profileToken: "ptok" } });
+    const result = await services.auth.signInWithGoogle("id-token");
+    expect(result).toEqual({ status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, ticket: "ptok" });
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    api.reply({ status: 201, json: { ...rawSession, token: "tok-new" } });
+    await services.auth.completeGoogleSignUp({ ticket: "ptok", role: "teacher" });
+    expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", role: "teacher" });
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-new");
+  });
+
+  it("getCurrentUser: sem token = null sem rede; 401 = null e token descartado; sucesso = usuário", async () => {
+    const { api, storage, services } = createHarness();
+    expect(await services.auth.getCurrentUser()).toBeNull();
+    expect(api.calls).toHaveLength(0);
+
+    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    api.reply({ json: rawUser });
+    expect(await services.auth.getCurrentUser()).toEqual(rawUser);
+    expect(api.calls[0].url.pathname).toBe("/auth/me");
+
+    api.reply({ status: 401, json: { code: "UNAUTHENTICATED", message: "Sua sessão expirou. Entre novamente." } });
+    expect(await services.auth.getCurrentUser()).toBeNull();
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("getCurrentUser: erro de rede propaga (não apaga a sessão)", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    api.reply(new TypeError("fetch failed"));
+    expect((await failure(services.auth.getCurrentUser())).code).toBe("NETWORK");
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+  });
+
+  it("401 em endpoint autenticado descarta o token e avisa os ouvintes", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    let notified = 0;
+    services.subscribe(() => notified++);
+    api.reply({ status: 401, json: { code: "UNAUTHENTICATED", message: "Sua sessão expirou. Entre novamente." } });
+    const error = await failure(services.claims.listMine());
+    expect(error.code).toBe("UNAUTHENTICATED");
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(notified).toBe(1);
+  });
+
+  it("senha errada (401 INVALID_CREDENTIALS) não mexe no token", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    api.reply({ status: 401, json: { code: "INVALID_CREDENTIALS", message: "E-mail ou senha incorretos." } });
+    const error = await failure(services.auth.signIn({ email: "marina@demo.test", password: "errada123" }));
+    expect(error).toMatchObject({ code: "INVALID_CREDENTIALS", message: "E-mail ou senha incorretos." });
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+  });
+
+  it("signOut descarta o token sem chamar a rede", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    let notified = 0;
+    services.subscribe(() => notified++);
+    await services.auth.signOut();
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(api.calls).toHaveLength(0);
+    expect(notified).toBe(0);
+  });
+});
+
+describe("erros", () => {
+  const cases: [number, unknown, ServiceErrorCode, string][] = [
+    [400, { code: "VALIDATION", message: "Corpo inválido." }, "VALIDATION", "Corpo inválido."],
+    [403, { code: "FORBIDDEN", message: "Somente a administração pode editar itens." }, "FORBIDDEN", "Somente a administração pode editar itens."],
+    [404, { code: "NOT_FOUND", message: "Item não encontrado." }, "NOT_FOUND", "Item não encontrado."],
+    [409, { code: "DUPLICATE_CLAIM", message: "Você já tem uma reivindicação em andamento para este item." }, "DUPLICATE_CLAIM", "Você já tem uma reivindicação em andamento para este item."],
+    [409, { code: "ITEM_RETURNED", message: "Este item já foi devolvido." }, "ITEM_RETURNED", "Este item já foi devolvido."],
+    [422, { code: "PHOTO_INVALID", message: "Formato não aceito. Use JPG, PNG ou WebP." }, "PHOTO_INVALID", "Formato não aceito. Use JPG, PNG ou WebP."],
+    [500, { code: "UNEXPECTED", message: "Algo deu errado. Tente novamente." }, "UNEXPECTED", "Algo deu errado. Tente novamente."],
+  ];
+  it.each(cases)("HTTP %i com corpo JSON vira ServiceError(%s)", async (status, json, code, message) => {
+    const { api, services } = createHarness();
+    api.reply({ status, json });
+    const error = await failure(services.items.get("item-03"));
+    expect(error).toMatchObject({ code, message });
+  });
+
+  it("422 VALIDATION traz fieldErrors; EMAIL_TAKEN traz fieldErrors.email", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 422, json: { code: "VALIDATION", message: "Confira os campos destacados.", fieldErrors: { title: "Use pelo menos 3 caracteres.", x: 1 } } });
+    const validation = await failure(services.claims.create("item-03", { proofDetails: "", lostWhereWhen: "" }));
+    expect(validation.fieldErrors).toEqual({ title: "Use pelo menos 3 caracteres." });
+    api.reply({ status: 409, json: { code: "EMAIL_TAKEN", message: "Este e-mail já está cadastrado.", fieldErrors: { email: "Este e-mail já está cadastrado." } } });
+    const taken = await failure(services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "demo12345", role: "student" }));
+    expect(taken).toMatchObject({ code: "EMAIL_TAKEN", fieldErrors: { email: "Este e-mail já está cadastrado." } });
+  });
+
+  it("429 RATE_LIMITED usa o Retry-After na mensagem", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" }, headers: { "Retry-After": "42" } });
+    const error = await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }));
+    expect(error.code).toBe("RATE_LIMITED");
+    expect(error.message).toBe("Muitas tentativas. Tente de novo em 42 segundos.");
+    api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" } });
+    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }))).message).toBe(
+      "Muitas tentativas. Aguarde um instante e tente de novo.",
+    );
+    api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" }, headers: { "Retry-After": "120" } });
+    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }))).message).toBe(
+      "Muitas tentativas. Tente de novo em 2 minutos.",
+    );
+  });
+
+  it("corpo que não é JSON cai no código do status; código desconhecido também", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 502, text: "<html>Bad gateway</html>" });
+    expect(await failure(services.items.list())).toMatchObject({ code: "UNEXPECTED", message: "Algo deu errado. Tente novamente." });
+    api.reply({ status: 404, json: { code: "WAT", message: "" } });
+    expect((await failure(services.items.get("x"))).code).toBe("NOT_FOUND");
+  });
+
+  it("erro de rede e timeout viram NETWORK com mensagem pt-BR", async () => {
+    const { api, services } = createHarness();
+    api.reply(new TypeError("fetch failed"));
+    expect(await failure(services.items.list())).toMatchObject({
+      code: "NETWORK",
+      message: "Não foi possível falar com o servidor. Tente de novo em instantes.",
+    });
+    api.reply(Object.assign(new Error("aborted"), { name: "AbortError" }));
+    expect((await failure(services.items.list())).code).toBe("NETWORK");
+  });
+
+  it("timeout aborta a requisição pendente", async () => {
+    // fetch que nunca responde, mas respeita o sinal
+    const hanging = ((_: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      })) as typeof fetch;
+    const { services } = createHarness({ timeoutMs: 20, fetch: hanging });
+    expect((await failure(services.items.list())).code).toBe("NETWORK");
+  });
+});
+
+describe("demonstração", () => {
+  it("listDemoProfiles devolve perfis; 404/403 (demo desligado) devolvem lista vazia sem erro", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [{ role: "student", label: "Entrar como aluno", user: rawUser }] });
+    expect(await services.auth.listDemoProfiles()).toEqual([{ role: "student", label: "Entrar como aluno", user: rawUser }]);
+    api.reply({ status: 404, json: { code: "NOT_FOUND", message: "Não encontrado." } });
+    expect(await services.auth.listDemoProfiles()).toEqual([]);
+    api.reply({ status: 403, json: { code: "FORBIDDEN", message: "Não permitido." } });
+    expect(await services.auth.listDemoProfiles()).toEqual([]);
+    api.reply(new TypeError("fetch failed"));
+    expect((await failure(services.auth.listDemoProfiles())).code).toBe("NETWORK");
+  });
+
+  it("reset chama /demo/reset e avisa os ouvintes; 404 vira mensagem amigável", async () => {
+    const { api, services } = createHarness();
+    let notified = 0;
+    services.subscribe(() => notified++);
+    api.reply({ status: 204 });
+    await services.demo.reset();
+    expect(api.calls[0]).toMatchObject({ method: "POST" });
+    expect(api.calls[0].url.pathname).toBe("/demo/reset");
+    expect(notified).toBe(1);
+    api.reply({ status: 404, json: { code: "NOT_FOUND", message: "Não encontrado." } });
+    expect(await failure(services.demo.reset())).toMatchObject({
+      code: "NOT_FOUND",
+      message: "A demonstração não está disponível neste servidor.",
+    });
+    expect(services.demo.persistence()).toBe("durable");
+  });
+});

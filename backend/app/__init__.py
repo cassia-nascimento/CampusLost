@@ -1,0 +1,1 @@
+"""CampusLost — backend (FastAPI + SQLite)."""

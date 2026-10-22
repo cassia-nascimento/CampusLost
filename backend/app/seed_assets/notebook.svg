@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: notebook cinza</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="262" rx="150" ry="12" fill="#CBE4E7"/>
+  <rect x="96" y="50" width="208" height="146" rx="12" fill="#5C6B78"/>
+  <rect x="108" y="62" width="184" height="122" rx="5" fill="#FFFFFF"/>
+  <rect x="108" y="62" width="184" height="18" rx="5" fill="#E3E8EC"/>
+  <circle cx="120" cy="71" r="3" fill="#7C8580"/>
+  <circle cx="131" cy="71" r="3" fill="#7C8580"/>
+  <rect x="120" y="92" width="70" height="8" rx="4" fill="#0B5563"/>
+  <rect x="120" y="108" width="150" height="6" rx="3" fill="#D8D4C8"/>
+  <rect x="120" y="122" width="130" height="6" rx="3" fill="#D8D4C8"/>
+  <rect x="120" y="144" width="62" height="30" rx="5" fill="#CBE4E7"/>
+  <rect x="192" y="144" width="62" height="30" rx="5" fill="#E3E8EC"/>
+  <path d="M66 204 H334 L322 232 Q320 238 312 238 H88 Q80 238 78 232 Z" fill="#E3E8EC" stroke="#5C6B78" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="168" y="204" width="64" height="8" rx="4" fill="#5C6B78"/>
+</svg>

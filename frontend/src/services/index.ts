@@ -1,12 +1,20 @@
 /**
  * ÚNICO ponto que escolhe a implementação dos serviços.
- * Para ligar a API REST (FastAPI): troque a linha abaixo por `createApiServices()`.
- * A UI só importa `services` daqui — nunca `services/mock/*`.
+ *  - `NEXT_PUBLIC_API_URL` definida: API REST (FastAPI), `services/api`.
+ *  - Ausente: mock com dados de exemplo no navegador, `services/mock` (comportamento do deploy de demonstração).
+ * ATENÇÃO: `NEXT_PUBLIC_*` é embutida no código em tempo de BUILD. Trocar o valor exige novo build/deploy.
+ * A UI só importa `services` daqui — nunca `services/api/*` nem `services/mock/*`.
  */
 import type { Services } from "./contracts";
+import { getApiBaseUrl } from "@/lib/api-config";
 import { getAllowedGoogleDomains } from "@/lib/rules";
+import { createApiServices } from "./api";
 import { createMockServices } from "./mock";
 
-export const services: Services = createMockServices({ allowedGoogleDomains: getAllowedGoogleDomains() });
+const apiBaseUrl = getApiBaseUrl();
+
+export const services: Services = apiBaseUrl
+  ? createApiServices({ baseUrl: apiBaseUrl })
+  : createMockServices({ allowedGoogleDomains: getAllowedGoogleDomains() });
 
 export type * from "./contracts";

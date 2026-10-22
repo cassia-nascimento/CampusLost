@@ -1,8 +1,9 @@
 import { Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isRenderablePhotoSrc } from "@/lib/validation/photo";
 
 export interface PhotoProps {
-  /** Caminho (`/seed/*.svg`), data URL ou blob. Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
+  /** Caminho (`/seed/*.svg`), data URL, blob ou URL de `/uploads/*` da API (qualquer outro valor vira o placeholder). Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
   src?: string | null;
   /** Vazio (`""`) quando a foto é decorativa (o título do item já a descreve). */
   alt: string;
@@ -29,7 +30,7 @@ export function Photo({ src, alt, aspect, iconSize = "md", eager = false, classN
         className,
       )}
     >
-      {src ? (
+      {src && isRenderablePhotoSrc(src) ? (
         // eslint-disable-next-line @next/next/no-img-element -- ver o comentário do componente
         <img
           src={src}

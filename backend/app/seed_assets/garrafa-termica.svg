@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: garrafa térmica verde</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="270" rx="90" ry="12" fill="#CBE4E7"/>
+  <path d="M170 42 Q170 22 192 22 H208 Q230 22 230 42" fill="none" stroke="#37444F" stroke-width="8" stroke-linecap="round"/>
+  <rect x="164" y="42" width="72" height="42" rx="10" fill="#37444F"/>
+  <rect x="172" y="84" width="56" height="16" fill="#5C6B78"/>
+  <rect x="146" y="98" width="108" height="170" rx="28" fill="#2E8B57"/>
+  <rect x="146" y="196" width="108" height="16" fill="#14613A"/>
+  <rect x="146" y="238" width="108" height="30" rx="14" fill="#14613A"/>
+  <rect x="162" y="114" width="12" height="70" rx="6" fill="#FFFFFF" opacity="0.4"/>
+</svg>

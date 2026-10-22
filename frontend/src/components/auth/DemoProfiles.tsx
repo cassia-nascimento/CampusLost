@@ -28,6 +28,9 @@ export function DemoProfiles() {
     }
   }
 
+  // Servidor sem modo de demonstração (`/demo/*` desligado): os atalhos somem, sem erro.
+  if (profiles.status === "success" && profiles.data?.length === 0) return null;
+
   return (
     <section aria-labelledby="demo-profiles-title">
       <h2 id="demo-profiles-title" className="text-meta font-semibold text-ink-muted font-sans tracking-normal">

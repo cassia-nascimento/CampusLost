@@ -2,6 +2,7 @@ import { ServiceError, type User, type UserRole } from "@/types/domain";
 import { isAllowedGoogleEmail } from "@/lib/rules";
 import { googleSignUpSchema, normalizeEmail, signInSchema, signUpSchema } from "@/lib/validation";
 import type { AuthService, DemoProfile, GoogleProfile, GoogleSignInResult } from "../contracts";
+import { decodeGoogleTicket, encodeGoogleTicket } from "./google";
 import { findUser, parseInput, type MockContext } from "./context";
 import { hashPassword, newSalt, PBKDF2_ITERATIONS, safeEqual } from "./password";
 import { DEMO_PROFILE_IDS, DEMO_PROFILE_LABELS, type Db } from "./seed";
@@ -88,19 +89,19 @@ export function createAuthService(ctx: MockContext): AuthService {
         return user;
       }),
 
-    signInWithGoogle: (profile) =>
-      ctx.run("auth.signInWithGoogle", (): GoogleSignInResult => {
-        const normalized = normalizeGoogleProfile(profile);
+    signInWithGoogle: (credential) =>
+      ctx.run("auth.signInWithGoogle", async (): Promise<GoogleSignInResult> => {
+        const normalized = normalizeGoogleProfile(await ctx.verifyGoogleCredential(credential));
         assertInstitutional(ctx, normalized.email);
         const user = store.read().users.find((u) => normalizeEmail(u.email) === normalized.email);
-        if (!user) return { status: "needs_role", profile: normalized };
+        if (!user) return { status: "needs_role", profile: normalized, ticket: encodeGoogleTicket(normalized) };
         store.setSessionUserId(user.id);
         return { status: "signed_in", user };
       }),
 
     completeGoogleSignUp: (input) =>
       ctx.run("auth.completeGoogleSignUp", () => {
-        const profile = normalizeGoogleProfile(input);
+        const profile = normalizeGoogleProfile(decodeGoogleTicket(input?.ticket));
         assertInstitutional(ctx, profile.email);
         const data = parseInput(googleSignUpSchema, { ...profile, role: input?.role });
         const user = store.transaction((db) => {

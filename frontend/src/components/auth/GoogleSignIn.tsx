@@ -5,44 +5,23 @@ import { Notice } from "@/components/ui/Notice";
 import { Spinner } from "@/components/ui/Spinner";
 import { useSession } from "@/hooks/use-session";
 import { isServiceError } from "@/types/domain";
-import type { GoogleProfile } from "@/services";
+import type { GoogleSignInResult } from "@/services";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 const FORBIDDEN_DOMAIN = "Use o e-mail institucional da UNDB.";
-const GENERIC_ERROR = "Não foi possível entrar com o Google. Tente de novo ou use e-mail e senha.";
-const NETWORK_ERROR = "Sem conexão com o servidor. Confira sua internet e tente de novo.";
+/** Conta nova: a tela pede o papel e repassa o `ticket` opaco ao concluir o cadastro. */
+export type GoogleRolePending = Extract<GoogleSignInResult, { status: "needs_role" }>;
 
-/** Pede ao servidor que verifique o ID token e devolva o perfil. Lança `Error` com mensagem pt-BR. */
-async function verifyCredential(credential: string): Promise<GoogleProfile> {
-  let response: Response;
-  try {
-    response = await fetch("/api/auth/google", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential }),
-    });
-  } catch {
-    throw new Error(NETWORK_ERROR);
-  }
-  if (response.status === 403) throw new Error(FORBIDDEN_DOMAIN);
-  if (!response.ok) throw new Error(GENERIC_ERROR);
-  try {
-    const data = (await response.json()) as Partial<GoogleProfile>;
-    if (typeof data.email === "string" && typeof data.name === "string") return { email: data.email, name: data.name };
-  } catch {
-    // cai no erro genérico abaixo
-  }
-  throw new Error(GENERIC_ERROR);
-}
+const GENERIC_ERROR = "Não foi possível entrar com o Google. Tente de novo ou use e-mail e senha.";
 
 /**
  * "Ou" + "Entrar com Google" (P30). Sem `NEXT_PUBLIC_GOOGLE_CLIENT_ID` nada é mostrado.
  * Quando a conta é nova, avisa `onNeedsRole` para a tela pedir aluno/professor.
- * Obs.: a verificação do token acontece na rota `/api/auth/google`; com o backend real ela passa para o FastAPI.
+ * A verificação do ID token é do serviço: no mock, a rota `/api/auth/google` do Next; na API, o FastAPI.
  */
-export function GoogleSignIn({ onNeedsRole }: { onNeedsRole(profile: GoogleProfile): void }) {
+export function GoogleSignIn({ onNeedsRole }: { onNeedsRole(pending: GoogleRolePending): void }) {
   const { signInWithGoogle } = useSession();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +32,13 @@ export function GoogleSignIn({ onNeedsRole }: { onNeedsRole(profile: GoogleProfi
     setError(null);
     setSending(true);
     try {
-      const profile = await verifyCredential(credential);
-      const result = await signInWithGoogle(profile);
-      if (result.status === "needs_role") onNeedsRole(result.profile);
+      const result = await signInWithGoogle(credential);
+      if (result.status === "needs_role") onNeedsRole(result);
       // `signed_in`: RedirectIfAuthenticated leva a pessoa ao destino (mesmo caminho do login normal).
     } catch (e) {
       if (isServiceError(e) && e.code === "FORBIDDEN_DOMAIN") setError(FORBIDDEN_DOMAIN);
-      else setError(e instanceof Error && !isServiceError(e) ? e.message : GENERIC_ERROR);
+      else if (isServiceError(e) && (e.code === "NETWORK" || e.code === "RATE_LIMITED")) setError(e.message);
+      else setError(GENERIC_ERROR);
     } finally {
       setSending(false);
     }

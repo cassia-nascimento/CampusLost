@@ -3,6 +3,8 @@ import type { Services } from "../contracts";
 import { createMockServices } from "./index";
 import { createMemoryStorage, type KeyValueStorage } from "./storage";
 import type { MockServicesOptions } from "./context";
+import type { GoogleProfile } from "../contracts";
+import { encodeGoogleTicket } from "./google";
 
 /** 19/10/2026 10:00 (hora local) — "hoje" fixo dos testes. */
 export const TEST_NOW = new Date(2026, 9, 19, 10, 0, 0);
@@ -31,6 +33,8 @@ export function createHarness(options: MockServicesOptions & { start?: Date } = 
     now: () => current,
     // contador global: várias "abas" no mesmo teste nunca geram ids repetidos
     generateId: (prefix) => `${prefix}-t${++idCounter}`,
+    // nos testes o "ID token" é o próprio perfil em JSON (ver `googleCredential`)
+    verifyGoogleCredential: async (credential) => JSON.parse(credential) as GoogleProfile,
     photoProcessor: async (file) => `data:image/jpeg;base64,FAKE-${file.name}`,
     ...options,
   });
@@ -42,6 +46,11 @@ export function createHarness(options: MockServicesOptions & { start?: Date } = 
     clock: () => current,
   };
 }
+
+/** "ID token" falso aceito pelo verificador do harness. */
+export const googleCredential = (profile: GoogleProfile): string => JSON.stringify(profile);
+/** Ticket de `needs_role` para um perfil (equivale a obter `needs_role` e guardar o ticket). */
+export const googleTicket = (profile: GoogleProfile): string => encodeGoogleTicket(profile);
 
 /** Afirma que a promessa rejeita com `ServiceError` do código dado. */
 export async function expectCode(promise: Promise<unknown>, code: ServiceErrorCode): Promise<ServiceError> {

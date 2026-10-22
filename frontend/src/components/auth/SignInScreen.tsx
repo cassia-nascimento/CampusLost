@@ -4,10 +4,9 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { Brand } from "@/components/layout/Brand";
 import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
-import type { GoogleProfile } from "@/services";
 import { DemoProfiles } from "./DemoProfiles";
 import { GoogleRoleStep } from "./GoogleRoleStep";
-import { GoogleSignIn } from "./GoogleSignIn";
+import { GoogleSignIn, type GoogleRolePending } from "./GoogleSignIn";
 import { withNext } from "./next-param";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { useNextPath } from "./use-next-path";
@@ -59,15 +58,15 @@ function BrandPanel() {
 
 function SignInContent() {
   const next = useNextPath();
-  const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
+  const [googlePending, setGooglePending] = useState<GoogleRolePending | null>(null);
   return (
     <RedirectIfAuthenticated>
       <div className="grid flex-1 lg:grid-cols-2">
         <BrandPanel />
         <div className="flex flex-col px-gutter pt-6 pb-10 lg:justify-center lg:py-12">
           <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-            {googleProfile ? (
-              <GoogleRoleStep profile={googleProfile} onCancel={() => setGoogleProfile(null)} />
+            {googlePending ? (
+              <GoogleRoleStep pending={googlePending} onCancel={() => setGooglePending(null)} />
             ) : (
               <>
                 <div>
@@ -78,7 +77,7 @@ function SignInContent() {
 
                 <div className="flex flex-col gap-5">
                   <SignInForm />
-                  <GoogleSignIn onNeedsRole={setGoogleProfile} />
+                  <GoogleSignIn onNeedsRole={setGooglePending} />
                 </div>
                 <DemoProfiles />
               </>

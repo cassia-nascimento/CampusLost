@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: calculadora científica</title>
+  <defs>
+    <g id="linha">
+      <rect x="146" y="0" width="22" height="20" rx="5"/>
+      <rect x="174" y="0" width="22" height="20" rx="5"/>
+      <rect x="202" y="0" width="22" height="20" rx="5"/>
+      <rect x="230" y="0" width="24" height="20" rx="5"/>
+    </g>
+  </defs>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="274" rx="100" ry="12" fill="#CBE4E7"/>
+  <rect x="124" y="28" width="152" height="240" rx="18" fill="#37444F"/>
+  <rect x="140" y="44" width="120" height="44" rx="8" fill="#E4F1F2"/>
+  <rect x="150" y="52" width="40" height="7" rx="3.5" fill="#0B5563" opacity="0.4"/>
+  <path d="M152 76 H168 M176 76 H192 M200 76 H216 M224 76 H248" stroke="#0B5563" stroke-width="6" stroke-linecap="round"/>
+  <use href="#linha" y="100" fill="#7C8580"/>
+  <use href="#linha" y="126" fill="#7C8580"/>
+  <use href="#linha" y="152" fill="#FFFFFF"/>
+  <use href="#linha" y="178" fill="#FFFFFF"/>
+  <use href="#linha" y="204" fill="#FFFFFF"/>
+  <use href="#linha" y="230" fill="#FFFFFF"/>
+  <rect x="230" y="230" width="24" height="20" rx="5" fill="#B97500"/>
+</svg>

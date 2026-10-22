@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img">
+  <title>Ilustração: carregador USB-C</title>
+  <rect width="400" height="300" fill="#E4F1F2"/>
+  <ellipse cx="200" cy="262" rx="150" ry="12" fill="#CBE4E7"/>
+  <rect x="42" y="124" width="30" height="9" rx="3" fill="#5C6B78"/>
+  <rect x="42" y="158" width="30" height="9" rx="3" fill="#5C6B78"/>
+  <rect x="70" y="100" width="116" height="100" rx="16" fill="#FFFFFF" stroke="#7C8580" stroke-width="3"/>
+  <circle cx="98" cy="126" r="6" fill="#2E8B57"/>
+  <rect x="94" y="164" width="64" height="8" rx="4" fill="#D8D4C8"/>
+  <rect x="94" y="180" width="40" height="6" rx="3" fill="#D8D4C8"/>
+  <rect x="184" y="136" width="24" height="28" rx="6" fill="#46524E"/>
+  <path d="M206 150 C262 150 246 226 296 226" fill="none" stroke="#46524E" stroke-width="10" stroke-linecap="round"/>
+  <rect x="290" y="210" width="44" height="32" rx="8" fill="#5C6B78"/>
+  <rect x="330" y="217" width="40" height="18" rx="9" fill="#37444F"/>
+  <rect x="338" y="224" width="24" height="4" rx="2" fill="#7C8580"/>
+</svg>
