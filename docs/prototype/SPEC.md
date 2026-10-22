@@ -27,6 +27,7 @@ Opcionais (só após o fluxo principal estar completo): indicador de pendências
 | Cadastrar-se / entrar (RF01) | ✔ | ✔ | só entra (conta de seed) |
 | Registrar item encontrado (RF02) | ✔ | ✔ | ✔ |
 | Buscar e ver itens (RF03) | ✔ | ✔ | ✔ |
+| Ver a lista e o detalhe dos itens sem entrar (visitante, P26) | — | — | — |
 | Reivindicar item (RF04) | ✔ | ✔ | ✘ (premissa) |
 | Ver "Minhas reivindicações" | ✔ | ✔ | ✘ |
 | Analisar (aceitar/recusar) reivindicações | ✘ | ✘ | ✔ |
@@ -73,8 +74,9 @@ Regras associadas:
 |---|---|---|---|---|
 | `/entrar` | Login (e-mail) + perfis de demonstração | RF01 | público | Entrada; atalhos de demo evitam digitar credenciais. |
 | `/cadastro` | Cadastro (nome, e-mail, papel aluno/professor) | RF01 | público | Autocadastro. |
-| `/itens` | Busca/listagem + filtros (categoria, local, período) | RF03 | logado | Tela inicial após login. Oculta devolvidos; mais recentes primeiro. |
-| `/itens/[id]` | Detalhe do item | RF03/04 | logado | Mostra status, CTA "É meu" (usuário comum) ou ações administrativas. |
+| `/` | Landing page: o que é o CampusLost, como funciona (4 passos), itens recentes e chamadas para entrar/cadastrar | RF03 | público (P26) | Porta de entrada. Quem já tem sessão vai para a página inicial do perfil. |
+| `/itens` | Busca/listagem + filtros (categoria, local, período) | RF03 | **público (P26)** | Visitante vê e filtra; tela inicial após login. Oculta devolvidos; mais recentes primeiro. |
+| `/itens/[id]` | Detalhe do item | RF03/04 | **público (P26)** | Mostra status. Visitante vê "Entre para reivindicar" no lugar de "É meu" e não vê "onde está guardado". Usuário comum vê "É meu"; administração vê as ações administrativas. |
 | `/itens/novo` | Registrar item encontrado | RF02 | logado | Foto, descrição, categoria, local, data, onde está guardado. |
 | `/itens/[id]/reivindicar` | Formulário de reivindicação | RF04 | aluno/prof. | Validação por perguntas (sem chat). |
 | `/minhas-reivindicacoes` | Acompanhamento de status | RF04 | aluno/prof. | Substitui notificações (decisão: acompanhar na interface). |
@@ -85,11 +87,7 @@ Regras associadas:
 
 Registro da devolução é uma **ação com diálogo de confirmação** na análise/detalhe (não é rota própria). Não criar telas adicionais sem justificativa funcional registrada em `BACKLOG.md`.
 
-<<<<<<< HEAD
-Utilitário de demonstração (justificado): **"Reiniciar demonstração"** (restaura os dados de seed) acessível no menu do usuário e na tela de login.
-=======
 Utilitário de demonstração (justificado): **"Reiniciar demonstração"** (restaura os dados de seed) acessível no menu do usuário (removido da tela de login por decisão da usuária em 20/10/2026).
->>>>>>> 40889fbe11ac4bae1f425d3e85f3efebf53bc50d
 
 ## 6. Estados de interface obrigatórios
 
@@ -103,11 +101,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 - AC01.3 Três perfis de demonstração (aluno, professor, administração) entram com um toque.
 - AC01.4 Sessão persiste ao recarregar; sair encerra a sessão.
 - AC01.5 Rotas privadas redirecionam visitante para `/entrar`; rotas `/admin/**` negam acesso a aluno/professor com tela "Acesso negado".
-<<<<<<< HEAD
-- AC01.6 Aviso de segurança simulada visível.
-=======
 - ~~AC01.6 Aviso de segurança simulada visível.~~ **Removido** por decisão da usuária em 20/10/2026 (banner, rodapé e aviso em `/entrar` retirados).
->>>>>>> 40889fbe11ac4bae1f425d3e85f3efebf53bc50d
 
 **RF02**
 - AC02.1 Qualquer usuário logado registra item com título, descrição, categoria, local, data (não futura) e "onde está guardado agora".
@@ -186,5 +180,7 @@ Para cada lista/formulário/ação: *carregando* (skeleton), *vazio*, *sem resul
 | P23 | Painel admin lista uma linha por item em reivindicação, mas o item pode ter várias reivindicações | A linha mostra a reivindicação aceita, se houver; senão a pendente mais antiga | [Premissa] (T08) |
 | P24 | Após registrar um item, o enunciado manda ir ao detalhe; DESIGN §9.5 diz voltar à lista | Vai ao detalhe do item criado (`router.replace`) | [Premissa] (T06) |
 | P25 | DESIGN §9.9 manda voltar ao painel após registrar devolução | Abre `/admin/devolucoes`, onde a devolução recém-registrada já aparece (fecha o fluxo da demo) | [Premissa] (QA, decisão do orquestrador) |
+| P26 | Usuária pediu (22/10/2026) que qualquer pessoa possa ver os itens sem criar conta ou entrar; a recomendação anterior era exigir login (RF03) e alertava que a busca pública expõe fotos e dados | Lista e detalhe públicos para visitantes. Não aparecem ao visitante: "onde está guardado" e qualquer dado de reivindicação. Reivindicar, registrar item e demais telas continuam exigindo login (visitante vai para `/entrar` e volta ao item depois de entrar). Devolvidos continuam ocultos | **Decisão da usuária** (22/10/2026), ainda não confirmada pela equipe nem pelo professor |
+| P27 | Seed sem fotos deixava a lista sem imagem | Os itens do seed ganham imagens ilustrativas originais (SVG em `frontend/public/seed/`), identificáveis como demonstrativas; fotos reais podem substituí-las. Itens criados pelo usuário continuam com foto enviada (data URL) | [Premissa] (substitui parte de P20) |
 
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.

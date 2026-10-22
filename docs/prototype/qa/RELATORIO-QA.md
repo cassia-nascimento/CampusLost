@@ -253,8 +253,6 @@ Scripts: `lib.mjs`, `rec.mjs` (utilitários), `genimg.py`, `e2e-flow.mjs`, `perm
 - Decisão do orquestrador sobre I2 (redirecionamento pós-devolução) e D12 (usar `DEMO_DATA_NOTICE`).
 - Não testados: leitor de tela, dispositivos reais, Safari/Firefox, `forced-colors`, corrida de escrita entre abas.
 - Reexecutar `node keyboard.mjs` e `node responsive.mjs stress` depois das correções para confirmar D1–D4.
-<<<<<<< HEAD
-=======
 
 
 ---
@@ -319,4 +317,3 @@ Verificações manuais adicionais (`residual.mjs`): o "voltar" do celular preser
 ### 8.5 Veredito
 
 **Aprovado para demonstração, com ressalvas** (0 defeitos que bloqueiam a demo; ressalvas: seção 8.4 e os resultados de `forms`/`photo`/`misc`/`keyboard` não reconfirmados nesta rodada). Os cinco itens que os desenvolvedores haviam declarado "não verificados" seguem verificados em Chromium real.
->>>>>>> 40889fbe11ac4bae1f425d3e85f3efebf53bc50d
