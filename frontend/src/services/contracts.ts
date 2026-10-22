@@ -16,7 +16,8 @@
  * Específicos do protótipo: `Services.demo` (reiniciar demonstração), `AuthService.signInAsDemo` e
  * `AuthService.listDemoProfiles`. Uma API real pode omiti-los ou implementá-los à parte
  * (por exemplo, atrás de uma flag de ambiente).
- * Códigos `NETWORK` e `CONFLICT` de `ServiceError` são reservados para a API; o mock não os lança.
+ * Códigos `NETWORK`, `CONFLICT` e `RATE_LIMITED` de `ServiceError` são reservados para a API; o mock só lança
+ * `NETWORK` na verificação do Google (rota de servidor inacessível).
  */
 import type {
   Claim,
@@ -106,9 +107,15 @@ export interface GoogleProfile {
 
 export type GoogleSignInResult =
   | { status: "signed_in"; user: User }
-  | { status: "needs_role"; profile: GoogleProfile };
+  /**
+   * Conta nova: nada foi criado. `ticket` é um valor OPACO (a UI só o repassa a `completeGoogleSignUp`);
+   * na API é o `profileToken` assinado pelo servidor, que prova o perfil verificado por poucos minutos.
+   */
+  | { status: "needs_role"; profile: GoogleProfile; ticket: string };
 
-export interface GoogleSignUpInput extends GoogleProfile {
+export interface GoogleSignUpInput {
+  /** `ticket` recebido em `needs_role`. */
+  ticket: string;
   role: SignupRole;
 }
 
@@ -128,16 +135,16 @@ export interface AuthService {
    */
   signIn(input: SignInValues): Promise<User>;
   /**
-   * "Entrar com Google" (P30). ATENÇÃO: o chamador só pode usar depois de verificar o ID token do
-   * Google NO SERVIDOR (assinatura, `aud`, `exp`, `email_verified`); este método confia no perfil
-   * recebido e NÃO verifica token (o mock tampouco). Domínio fora do institucional: `FORBIDDEN_DOMAIN`.
+   * "Entrar com Google" (P30). Recebe o ID token BRUTO (`credential`) do Google Identity Services; a
+   * verificação (assinatura, `aud`, `iss`, `exp`, `email_verified`) é feita no servidor (FastAPI; no mock, pela
+   * rota `/api/auth/google` do Next). Domínio fora do institucional: `FORBIDDEN_DOMAIN`.
    * Conta existente: abre sessão (`signed_in`). Conta nova: `needs_role` (nada é criado ainda) e a UI
-   * pede aluno/professor e chama `completeGoogleSignUp`.
+   * pede aluno/professor e chama `completeGoogleSignUp` com o `ticket`.
    */
-  signInWithGoogle(profile: GoogleProfile): Promise<GoogleSignInResult>;
+  signInWithGoogle(credential: string): Promise<GoogleSignInResult>;
   /**
-   * Conclui o cadastro via Google (sem senha) e abre sessão. Mesmo pré-requisito de verificação do
-   * token de `signInWithGoogle`. `FORBIDDEN_DOMAIN` fora do domínio; `EMAIL_TAKEN` se já existe conta.
+   * Conclui o cadastro via Google (sem senha) e abre sessão, usando o `ticket` de `needs_role`.
+   * `UNAUTHENTICATED` se o ticket expirou/é inválido; `FORBIDDEN_DOMAIN` fora do domínio; `EMAIL_TAKEN` se já existe conta.
    */
   completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** [Somente protótipo] Entra com um dos perfis de demonstração (AC01.3). */
@@ -208,7 +215,7 @@ export type DemoPersistence = "durable" | "volatile";
 
 /** [Somente protótipo] */
 export interface DemoService {
-  /** Restaura os dados de seed (datas relativas a hoje). Mantém a sessão se o usuário ainda existir. */
+  /** Restaura os dados de seed (datas relativas a hoje). Mantém a sessão se o usuário ainda existir. Na API: `NOT_FOUND` se o servidor não está em modo de demonstração. */
   reset(): Promise<void>;
   /**
    * Se os dados desta demonstração serão guardados ou se serão perdidos ao recarregar (a UI avisa no
@@ -226,7 +233,8 @@ export interface Services {
   demo: DemoService;
   /**
    * Avisa quando os dados mudam (nesta aba ou, no mock, em outra aba), para a UI refazer a leitura
-   * sem recarregar a página (AC04.8). Devolve a função de cancelamento.
+   * sem recarregar a página (AC04.8). Na API, que não notifica, o aviso vem após cada mudança feita por esta
+   * aba e por releitura periódica leve (só com a aba visível). Devolve a função de cancelamento.
    */
   subscribe(listener: () => void): () => void;
 }

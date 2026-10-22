@@ -33,9 +33,9 @@ CampusLost/
 
 ## Como executar
 
-### Protótipo de frontend (sem backend)
+### Frontend com dados simulados (sem backend)
 
-O estado atual é um **protótipo navegável do frontend**, com dados simulados no navegador (sem FastAPI, SQLite nem autenticação real). Requer Node ≥ 20.9.
+Sem a variável `NEXT_PUBLIC_API_URL`, o frontend usa dados simulados no navegador (é o que roda na hospedagem atual). Requer Node ≥ 20.9.
 
 ```bash
 cd frontend
@@ -53,8 +53,28 @@ npm run dev          # http://localhost:3000
 - **Roteiro de demonstração:** `docs/prototype/DEMO.md` (perfis de demonstração, fluxo completo e limitações).
 - **Especificação, premissas e critérios de aceite:** `docs/prototype/SPEC.md`; design: `docs/prototype/DESIGN.md`; QA: `docs/prototype/qa/RELATORIO-QA.md`.
 - As regras de negócio do protótipo vêm das **recomendações** do documento de decisões, usadas como **premissas** ainda não confirmadas pela equipe. A segurança (RNF01) é apenas simulada.
-- Trocar os mocks por uma API REST exige alterar apenas `frontend/src/services/index.ts`.
+- Com `NEXT_PUBLIC_API_URL` definida, o frontend passa a usar a API real (ver abaixo).
 
 ### Aplicação completa (frontend + backend)
 
-> Em construção. As instruções de backend, banco, seed e variáveis de ambiente serão adicionadas até 26/10.
+Backend em FastAPI com SQLite (detalhes em `backend/README.md`; contrato da API em `docs/api/API.md`). Requer Python 3.11+.
+
+```bash
+# 1) API (http://localhost:8000, documentação em /docs)
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows (no Linux/macOS: source .venv/bin/activate)
+pip install -r requirements.txt
+copy .env.example .env           # ajuste as variáveis (no Linux/macOS: cp)
+uvicorn app.main:app --reload --port 8000   # em desenvolvimento o banco vazio recebe os dados de exemplo
+
+# 2) Frontend apontando para a API
+cd ../frontend
+copy .env.example .env.local     # defina NEXT_PUBLIC_API_URL=http://localhost:8000
+npm run dev                      # http://localhost:3000
+```
+
+- Contas de demonstração (`*@demo.test`) usam a senha `demo12345`.
+- Testes do backend: `cd backend && pytest`.
+- Login com Google: exige `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend) e `GOOGLE_CLIENT_ID` (backend); sem eles o botão não aparece.
+- Hospedagem serverless (Vercel) não guarda o SQLite nem as fotos enviadas: para usar a API fora do computador local, ela precisa de um servidor com disco persistente (ver P31 na SPEC).

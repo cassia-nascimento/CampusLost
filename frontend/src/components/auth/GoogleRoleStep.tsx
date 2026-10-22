@@ -9,12 +9,13 @@ import { RadioCard, RadioGroup } from "@/components/ui/RadioCard";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { googleRoleSchema, type GoogleRoleValues } from "@/lib/validation";
-import type { GoogleProfile } from "@/services";
+import type { GoogleRolePending } from "./GoogleSignIn";
 import { ROLE_LABEL, SIGNUP_ROLES, isServiceError } from "@/types/domain";
 
 /** Segundo passo do primeiro acesso com Google: a pessoa informa se é aluno ou professor (P30). */
-export function GoogleRoleStep({ profile, onCancel }: { profile: GoogleProfile; onCancel(): void }) {
+export function GoogleRoleStep({ pending, onCancel }: { pending: GoogleRolePending; onCancel(): void }) {
   const { completeGoogleSignUp } = useSession();
+  const { profile, ticket } = pending;
   const toast = useToast();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -31,13 +32,15 @@ export function GoogleRoleStep({ profile, onCancel }: { profile: GoogleProfile; 
   async function onSubmit({ role }: GoogleRoleValues) {
     setFormError(null);
     try {
-      await completeGoogleSignUp({ ...profile, role });
+      await completeGoogleSignUp({ ticket, role });
       toast.success("Conta criada. Você já entrou no CampusLost.");
     } catch (error) {
       if (isServiceError(error) && error.code === "EMAIL_TAKEN") {
         setFormError("Esse e-mail já tem cadastro. Entre com ele.");
       } else if (isServiceError(error) && error.code === "FORBIDDEN_DOMAIN") {
         setFormError("Use o e-mail institucional da UNDB.");
+      } else if (isServiceError(error) && error.code === "UNAUTHENTICATED") {
+        setFormError("Sua verificação do Google expirou. Cancele e entre com o Google novamente.");
       } else {
         setFormError("Não foi possível concluir o cadastro. Tente de novo em instantes.");
       }

@@ -2,6 +2,7 @@ import { ServiceError, type PublicUser, type User } from "@/types/domain";
 import { checkCapability, assertAllowed, parseAllowedDomains, type Capability } from "@/lib/rules";
 import { toFieldErrors } from "@/lib/validation/common";
 import type { z } from "zod";
+import { verifyGoogleCredentialViaRoute, type GoogleCredentialVerifier } from "./google";
 import { createDelay, type LatencyOption } from "./latency";
 import { processPhotoInBrowser, type PhotoProcessor } from "./photo";
 import type { Db } from "./seed";
@@ -22,6 +23,8 @@ export interface MockServicesOptions {
   generateId?: (prefix: string) => string;
   /** Domínios aceitos no login com Google (P30). Padrão: `parseAllowedDomains()` (`undb.edu.br`). */
   allowedGoogleDomains?: readonly string[];
+  /** Verifica o ID token do Google. Padrão: rota de servidor `/api/auth/google`. Testes injetam um falso. */
+  verifyGoogleCredential?: GoogleCredentialVerifier;
   /** Padrão: redimensiona no navegador (canvas). Testes injetam um falso. */
   photoProcessor?: PhotoProcessor;
   /**
@@ -37,6 +40,7 @@ export interface MockContext {
   newId(prefix: string): string;
   allowedGoogleDomains: readonly string[];
   photo: PhotoProcessor;
+  verifyGoogleCredential: GoogleCredentialVerifier;
   /**
    * Captura o usuário da sessão NO INSTANTE DA CHAMADA (antes da latência), aplica latência e
    * falha injetada, passa o usuário capturado a `fn` e converte erros inesperados em `ServiceError`.
@@ -69,6 +73,7 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
     newId: generateId,
     allowedGoogleDomains: options.allowedGoogleDomains ?? parseAllowedDomains(),
     photo: options.photoProcessor ?? processPhotoInBrowser,
+    verifyGoogleCredential: options.verifyGoogleCredential ?? verifyGoogleCredentialViaRoute,
     async run(operation, fn, opts) {
       try {
         const actor = currentUser(store.getSessionUserId(), store.read());

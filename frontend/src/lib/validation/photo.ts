@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "@/lib/api-config";
+
 /** Limites da foto do item (AC02.2). A foto é opcional (P6). */
 export const PHOTO_ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
@@ -16,11 +18,31 @@ export function validatePhotoFile(file: { type: string; size: number }): string 
   return null;
 }
 
+/** Nome de arquivo servido pela API: `/uploads/<uuid>.jpg|png|webp` ou `/uploads/seed/<slug>.svg`. */
+const API_UPLOAD_PATH = /^\/uploads\/(?:[a-f0-9]{16,64}\.(?:jpe?g|png|webp)|seed\/[a-z0-9-]+\.svg)$/i;
+
 /**
- * Valor aceito em `Item.photoDataUrl` (P27): data URL de imagem OU caminho público ilustrativo
- * `/seed/<slug>.svg`. Usado só para checar o que já está guardado; a escolha de arquivo usa `validatePhotoFile`.
+ * Caminho relativo `photoUrl` da API -> caminho aceito, ou `null`. Recusa qualquer coisa fora de
+ * `/uploads/...` (esquemas, `//host`, `..`, barras invertidas).
+ */
+export function isApiUploadPath(path: string): boolean {
+  return API_UPLOAD_PATH.test(path);
+}
+
+/**
+ * Valor aceito em `Item.photoDataUrl` (P27; nome histórico do campo): data URL de imagem, caminho público
+ * ilustrativo `/seed/<slug>.svg` OU, em modo API, URL absoluta de `/uploads/...` DA PRÓPRIA API
+ * (`apiBaseUrl`, de `getApiBaseUrl()`). Qualquer outro esquema (`javascript:`, `http://outro-host/...`) é recusado.
+ * Usado só para checar o que já está guardado; a escolha de arquivo usa `validatePhotoFile`.
  */
 const STORED_PHOTO_PATTERN = /^(data:image\/(jpeg|png|webp);base64,|\/seed\/[a-z0-9-]+\.svg$)/;
-export function isStoredPhotoSrc(value: string): boolean {
-  return STORED_PHOTO_PATTERN.test(value);
+export function isStoredPhotoSrc(value: string, apiBaseUrl: string = getApiBaseUrl()): boolean {
+  if (STORED_PHOTO_PATTERN.test(value)) return true;
+  if (!apiBaseUrl || !value.startsWith(`${apiBaseUrl}/`)) return false;
+  return isApiUploadPath(value.slice(apiBaseUrl.length));
+}
+
+/** O que `<Photo>` pode exibir: o que pode ser guardado mais `blob:` (pré-visualização de arquivo escolhido). */
+export function isRenderablePhotoSrc(value: string, apiBaseUrl: string = getApiBaseUrl()): boolean {
+  return isStoredPhotoSrc(value, apiBaseUrl) || /^blob:/i.test(value);
 }

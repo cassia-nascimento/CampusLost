@@ -60,8 +60,9 @@ export interface Item {
   /** Onde o item está guardado agora. */
   storedAt: string;
   /**
-   * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário) OU um
-   * caminho público `/seed/<slug>.svg` (imagens ilustrativas do seed, P27). O nome do campo é histórico.
+   * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário no mock), um
+   * caminho público `/seed/<slug>.svg` (ilustrações do seed, P27) OU, em modo API, a URL absoluta de
+   * `/uploads/...` (a API devolve `photoUrl` relativo; o cliente aplica o prefixo). Nome do campo histórico.
    */
   photoDataUrl?: string;
   status: ItemStatus;
@@ -110,6 +111,8 @@ export type ServiceErrorCode =
   | "FORBIDDEN_DOMAIN"
   | "PHOTO_INVALID"
   | "STORAGE_FULL"
+  /** Muitas tentativas de login (HTTP 429, só na API). */
+  | "RATE_LIMITED"
   /** Reservado para a API REST (sem rede / timeout). O mock nunca o lança. */
   | "NETWORK"
   /** Reservado para a API REST (HTTP 409: o recurso mudou desde a leitura). O mock nunca o lança. */

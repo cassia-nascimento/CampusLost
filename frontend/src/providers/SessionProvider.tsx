@@ -3,7 +3,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
-import type { GoogleProfile, GoogleSignInResult, GoogleSignUpInput } from "@/services";
+import type { GoogleSignInResult, GoogleSignUpInput } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
 import type { User, UserRole } from "@/types/domain";
 
@@ -18,11 +18,12 @@ export interface SessionValue {
   /** Cria a conta com senha e abre a sessão. Lança `ServiceError` (`EMAIL_TAKEN`, `VALIDATION`). */
   signUp(input: SignUpValues): Promise<User>;
   /**
-   * "Entrar com Google": o perfil já deve ter sido verificado no servidor. A sessão só é adotada quando
-   * o resultado é `signed_in`; em `needs_role` nada muda e a tela pede o papel. Lança `FORBIDDEN_DOMAIN`.
+   * "Entrar com Google": recebe o ID token bruto (`credential`); o serviço o verifica no servidor. A sessão só é
+   * adotada quando o resultado é `signed_in`; em `needs_role` nada muda e a tela pede o papel (guardando o `ticket`).
+   * Lança `FORBIDDEN_DOMAIN`.
    */
-  signInWithGoogle(profile: GoogleProfile): Promise<GoogleSignInResult>;
-  /** Conclui o cadastro via Google (aluno/professor) e abre a sessão. Lança `FORBIDDEN_DOMAIN`, `EMAIL_TAKEN`. */
+  signInWithGoogle(credential: string): Promise<GoogleSignInResult>;
+  /** Conclui o cadastro via Google (aluno/professor, com o `ticket`) e abre a sessão. Lança `FORBIDDEN_DOMAIN`, `EMAIL_TAKEN`, `UNAUTHENTICATED` (ticket expirado). */
   completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** Perfis de demonstração (AC01.3). */
   signInAsDemo(role: UserRole): Promise<User>;
@@ -76,8 +77,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status,
       signIn: async (input) => adopt(await services.auth.signIn(input)),
       signUp: async (input) => adopt(await services.auth.signUp(input)),
-      signInWithGoogle: async (profile) => {
-        const result = await services.auth.signInWithGoogle(profile);
+      signInWithGoogle: async (credential) => {
+        const result = await services.auth.signInWithGoogle(credential);
         if (result.status === "signed_in") adopt(result.user);
         return result;
       },

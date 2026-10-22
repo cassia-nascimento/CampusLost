@@ -4,7 +4,7 @@ import { hashPassword } from "./password";
 import { buildSeed, DB_VERSION, DEMO_PASSWORD, demoSalt } from "./seed";
 import { DB_KEY, MockStore } from "./store";
 import { createMemoryStorage } from "./storage";
-import { createHarness, expectCode, TEST_NOW } from "./test-utils";
+import { createHarness, expectCode, googleCredential, googleTicket, TEST_NOW } from "./test-utils";
 
 const PW = "senha-segura-1";
 const google = { email: "Ana.Lima@alunos.UNDB.edu.br", name: "  Ana Lima " };
@@ -93,8 +93,8 @@ describe("senha (P29)", () => {
     out.push(await h.services.auth.getCurrentUser());
     out.push(await h.services.auth.listDemoProfiles());
     out.push(await h.services.auth.signIn({ email: "carla@demo.test", password: PW }));
-    out.push(await h.services.auth.signInWithGoogle(google));
-    out.push(await h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" }));
+    out.push(await h.services.auth.signInWithGoogle(googleCredential(google)));
+    out.push(await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "teacher" }));
     await h.services.auth.signInAsDemo("admin");
     out.push(await h.services.items.list(), await h.services.items.get("item-03"));
     out.push(await h.services.claims.listPending(), await h.services.claims.listByItem("item-03"));
@@ -133,19 +133,41 @@ describe("senha (P29)", () => {
 describe("Google institucional (P30)", () => {
   it("conta nova: needs_role (nada criado) -> completar -> sessão", async () => {
     const h = createHarness();
-    const r = await h.services.auth.signInWithGoogle(google);
-    expect(r).toEqual({ status: "needs_role", profile: { email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima" } });
+    const r = await h.services.auth.signInWithGoogle(googleCredential(google));
+    expect(r).toEqual({
+      status: "needs_role",
+      profile: { email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima" },
+      ticket: expect.any(String),
+    });
     expect(await h.services.auth.getCurrentUser()).toBeNull();
-    const user = await h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" });
+    const ticket = r.status === "needs_role" ? r.ticket : "";
+    const user = await h.services.auth.completeGoogleSignUp({ ticket, role: "teacher" });
     expect(user).toMatchObject({ email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima", role: "teacher" });
     expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
   });
 
+  it("ticket inválido ou adulterado: UNAUTHENTICATED e nada é criado", async () => {
+    const h = createHarness();
+    for (const ticket of ["", "lixo", "e30", "eyJmb28iOjF9"]) {
+      await expectCode(h.services.auth.completeGoogleSignUp({ ticket, role: "student" }), "UNAUTHENTICATED");
+    }
+    expect(await h.services.auth.getCurrentUser()).toBeNull();
+  });
+
+  it("nome com acentos sobrevive ao ticket", async () => {
+    const h = createHarness();
+    const user = await h.services.auth.completeGoogleSignUp({
+      ticket: googleTicket({ email: "jose@undb.edu.br", name: "José Conceição" }),
+      role: "student",
+    });
+    expect(user.name).toBe("José Conceição");
+  });
+
   it("conta existente: signed_in direto, sem criar outra", async () => {
     const h = createHarness();
-    const user = await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
+    const user = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student" });
     await h.services.auth.signOut();
-    const r = await h.services.auth.signInWithGoogle({ email: " ANA.LIMA@alunos.undb.edu.br", name: "Outro Nome" });
+    const r = await h.services.auth.signInWithGoogle(googleCredential({ email: " ANA.LIMA@alunos.undb.edu.br", name: "Outro Nome" }));
     expect(r).toEqual({ status: "signed_in", user });
     expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
   });
@@ -153,46 +175,46 @@ describe("Google institucional (P30)", () => {
   it("e-mail fora do domínio: FORBIDDEN_DOMAIN em ambos os métodos, sem sessão nem conta", async () => {
     const h = createHarness();
     for (const email of ["ana@gmail.com", "ana@undb.edu.br.evil.com", "ana@evilundb.edu.br", "x@undb.edu.br@evil.com", "marina@demo.test"]) {
-      const a = await expectCode(h.services.auth.signInWithGoogle({ email, name: "Ana" }), "FORBIDDEN_DOMAIN");
+      const a = await expectCode(h.services.auth.signInWithGoogle(googleCredential({ email, name: "Ana" })), "FORBIDDEN_DOMAIN");
       expect(a.message).toBe("Use o e-mail institucional da UNDB.");
-      await expectCode(h.services.auth.completeGoogleSignUp({ email, name: "Ana", role: "student" }), "FORBIDDEN_DOMAIN");
+      await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email, name: "Ana" }), role: "student" }), "FORBIDDEN_DOMAIN");
     }
     expect(await h.services.auth.getCurrentUser()).toBeNull();
   });
 
   it("domínio configurável por createMockServices", async () => {
     const h = createHarness({ allowedGoogleDomains: ["demo.test"] });
-    expect((await h.services.auth.signInWithGoogle({ email: "marina@demo.test", name: "Marina" })).status).toBe("signed_in");
-    await expectCode(h.services.auth.signInWithGoogle(google), "FORBIDDEN_DOMAIN");
+    expect((await h.services.auth.signInWithGoogle(googleCredential({ email: "marina@demo.test", name: "Marina" }))).status).toBe("signed_in");
+    await expectCode(h.services.auth.signInWithGoogle(googleCredential(google)), "FORBIDDEN_DOMAIN");
   });
 
   it("completar para e-mail já existente: EMAIL_TAKEN", async () => {
     const h = createHarness({ allowedGoogleDomains: ["demo.test", "undb.edu.br"] });
     await expectCode(
-      h.services.auth.completeGoogleSignUp({ email: "marina@demo.test", name: "Marina", role: "student" }),
+      h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "marina@demo.test", name: "Marina" }), role: "student" }),
       "EMAIL_TAKEN",
     );
-    await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
-    await expectCode(h.services.auth.completeGoogleSignUp({ ...google, role: "teacher" }), "EMAIL_TAKEN");
+    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student" });
+    await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "teacher" }), "EMAIL_TAKEN");
   });
 
   it("papel inválido (admin) é recusado", async () => {
     const h = createHarness();
-    const err = await expectCode(h.services.auth.completeGoogleSignUp({ ...google, role: "admin" as never }), "VALIDATION");
+    const err = await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "admin" as never }), "VALIDATION");
     expect(err.fieldErrors?.role).toBeTruthy();
   });
 
   it("nome curto/ausente vira a parte local do e-mail; nome longo é truncado em 80", async () => {
     const h = createHarness();
-    const a = await h.services.auth.completeGoogleSignUp({ email: "bia@undb.edu.br", name: "", role: "student" });
+    const a = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bia@undb.edu.br", name: "" }), role: "student" });
     expect(a.name).toBe("bia");
-    const b = await h.services.auth.completeGoogleSignUp({ email: "bob@undb.edu.br", name: "x".repeat(200), role: "student" });
+    const b = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bob@undb.edu.br", name: "x".repeat(200) }), role: "student" });
     expect(b.name).toHaveLength(80);
   });
 
   it("conta do Google não tem senha: entrar por senha dá INVALID_CREDENTIALS (mesma mensagem)", async () => {
     const h = createHarness();
-    await h.services.auth.completeGoogleSignUp({ ...google, role: "student" });
+    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student" });
     await h.services.auth.signOut();
     for (const password of [PW, "", "undefined", "null", "12345678"]) {
       const err = await expectCode(
@@ -212,7 +234,7 @@ describe("Google institucional (P30)", () => {
     const h = createHarness();
     await h.services.auth.signUp({ name: "Ana Lima", email: google.email, password: PW, role: "student" });
     await h.services.auth.signOut();
-    expect((await h.services.auth.signInWithGoogle(google)).status).toBe("signed_in");
+    expect((await h.services.auth.signInWithGoogle(googleCredential(google))).status).toBe("signed_in");
     await h.services.auth.signOut();
     expect((await h.services.auth.signIn({ email: google.email, password: PW })).email).toBe("ana.lima@alunos.undb.edu.br");
   });
