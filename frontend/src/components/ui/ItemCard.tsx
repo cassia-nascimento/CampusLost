@@ -23,8 +23,10 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
     <Link
       href={`/itens/${item.id}`}
       className={cn(
-        "flex min-h-30 min-w-0 flex-wrap gap-3 rounded-lg bg-surface p-3 shadow-card transition-shadow",
-        "hover:shadow-raised active:bg-paper",
+        "group/card flex min-h-30 min-w-0 flex-wrap gap-3 rounded-lg bg-surface p-3 shadow-card",
+        "transition-[box-shadow,translate] duration-200 ease-standard",
+        "hover:shadow-raised motion-safe:hover:-translate-y-0.5 active:bg-paper",
+        "hover:[&_h2]:text-primary [&_h2]:transition-colors",
         "sm:h-full sm:flex-col sm:flex-nowrap sm:gap-0 sm:overflow-hidden sm:p-0",
         className,
       )}
@@ -33,7 +35,11 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
         src={item.photoDataUrl}
         alt=""
         aspect="square"
-        className="size-24 shrink-0 rounded-md sm:h-auto sm:w-full sm:aspect-[4/3] sm:rounded-none"
+        className={cn(
+          "size-24 shrink-0 rounded-md sm:h-auto sm:w-full sm:aspect-[4/3] sm:rounded-none",
+          // A foto dá um zoom leve ao passar o mouse no cartão (o `overflow-hidden` do Photo recorta).
+          "[&_img]:transition-transform [&_img]:duration-300 [&_img]:ease-standard motion-safe:group-hover/card:[&_img]:scale-105",
+        )}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:p-4">
         <h2 className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</h2>

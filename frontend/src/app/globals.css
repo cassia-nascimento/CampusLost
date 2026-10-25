@@ -423,3 +423,44 @@
 @utility animate-fade {
   animation: cl-fade var(--motion-base) var(--ease-standard) both;
 }
+
+/* Revelação ao rolar (landing): o bloco sobe e aparece quando entra na tela. Só com `animation-timeline`
+   (CSS puro, sem JavaScript) e só sem preferência por movimento reduzido; onde não houver suporte, o conteúdo
+   simplesmente já está visível. Nada fica escondido por dependência de script. */
+@keyframes cl-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility reveal {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      animation: cl-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+/* Flutuação lenta de 6 px, só decorativa (selos do hero). */
+@keyframes cl-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+@utility animate-float {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: cl-float 6s ease-in-out infinite;
+  }
+}

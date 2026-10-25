@@ -28,10 +28,13 @@ export function RecentItems() {
         <h2 id="itens-recentes-titulo">Itens recentes</h2>
         <Link
           href="/itens"
-          className="link touch-target inline-flex shrink-0 items-center gap-1 font-semibold no-underline hover:underline"
+          className="link group/link touch-target inline-flex shrink-0 items-center gap-1 font-semibold no-underline hover:underline"
         >
           Ver todos
-          <ArrowRight aria-hidden="true" className="size-4" />
+          <ArrowRight
+            aria-hidden="true"
+            className="size-4 transition-transform duration-150 ease-standard motion-safe:group-hover/link:translate-x-1"
+          />
         </Link>
       </div>
 
@@ -56,7 +59,7 @@ export function RecentItems() {
           <>
             <ul role="list" className={GRID}>
               {recent.map((item) => (
-                <li key={item.id}>
+                <li key={item.id} className="reveal">
                   <ItemCard item={item} />
                 </li>
               ))}

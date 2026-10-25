@@ -926,6 +926,14 @@ Tablet (`sm`–`md`): hero em coluna única centralizada em `max-w-form`, botõe
 - **Rodapé:** `surface`, borda superior `line`, `text-meta`, links com `touch-target` e sublinhado, `<footer>`; sem redes sociais, sem política inventada, sem logos de terceiros. Marca com descrição curta, colunas "Plataforma" (Ver itens, Como funciona, Perguntas frequentes) e "Conta" (Entrar, Criar conta) e "© ano CampusLost". Não há mais crédito de projeto acadêmico na landing (decisão da usuária, 25/10/2026).
 - **Landmarks:** `header`, `main` (Hero, Como funciona e Itens recentes são `section` com `aria-labelledby` do seu título), `footer`; link "Pular para o conteúdo" como primeiro foco.
 
+**Movimento e interação (25/10/2026).** Mínimo e sempre opcional: tudo some com `prefers-reduced-motion` (movimento) e nada depende de JavaScript.
+
+- *Botões* (§6.1): ao passar o mouse, `primary`, `secondary` e `danger` sobem 1 px e ganham sombra (`shadow-raised`/`shadow-card`); ao pressionar, encolhem para 98 %. Não vale para botão desabilitado nem para `ghost`. A seta do CTA do hero e a de "Ver todos" andam 4 px para a direita. Duração 150 ms, curva `ease-standard`.
+- *Cartão de item* (§6.5): sobe 2 px, ganha `shadow-raised`, o título vira `primary` e a foto dá zoom de 5 % (recortada pelo cartão).
+- *Navegação do header*: o indicador de 3 px cresce da esquerda ao passar o mouse; no item ativo já está inteiro.
+- *Revelação ao rolar* (`reveal`, em `globals.css`): cartões de Benefícios, passos, itens recentes, lista do FAQ e bloco final sobem 20 px e aparecem ao entrar na tela, com `animation-timeline: view()`. Onde o navegador não suporta, o conteúdo já está visível. Os cartões de Benefícios e de passos **não** ganham hover, porque não são clicáveis.
+- *Hero*: a prévia entra subindo (`animate-rise`) e os três selos de status flutuam 6 px em ciclos de 6 s, defasados (`animate-float`). *FAQ*: o `summary` ganha fundo `primary-soft` no hover e a pergunta aberta vira cartão `surface`; a resposta entra com `animate-fade`.
+
 **Estados de "Itens recentes"** (a landing nunca fica quebrada por causa dessa faixa)
 
 | Estado | Visual |

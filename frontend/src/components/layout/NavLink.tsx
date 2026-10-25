@@ -9,8 +9,11 @@ export function NavLink({ href, active, children }: { href: string; active: bool
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex h-full items-center px-3 text-body font-semibold hover:text-primary",
-        active ? "text-ink after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:bg-primary" : "text-ink-muted",
+        "relative flex h-full items-center px-3 text-body font-semibold transition-colors hover:text-primary",
+        // O indicador de 3 px cresce da esquerda ao passar o mouse; no item ativo já está inteiro.
+        "after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:origin-left after:bg-primary",
+        "after:transition-transform after:duration-200 after:ease-standard",
+        active ? "text-ink after:scale-x-100" : "text-ink-muted after:scale-x-0 hover:after:scale-x-100",
       )}
     >
       {children}

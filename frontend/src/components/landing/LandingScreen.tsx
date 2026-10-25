@@ -44,15 +44,15 @@ function LandingLoading() {
  */
 function HeroPreview() {
   return (
-    <div aria-hidden="true" className="relative mx-auto w-full max-w-form lg:max-w-none">
+    <div aria-hidden="true" className="animate-rise relative mx-auto w-full max-w-form lg:max-w-none">
       <div className="rounded-xl bg-surface p-3 shadow-raised">
         {/* `<img>` simples, é um SVG. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/hero.svg" alt="" width={400} height={300} className="aspect-[4/3] w-full rounded-lg" />
       </div>
-      <ItemStatusBadge status="available" className="absolute top-6 left-6 shadow-card" />
-      <ItemStatusBadge status="under_claim" className="absolute top-[22%] right-6 shadow-card" />
-      <ItemStatusBadge status="returned" className="absolute bottom-6 left-6 shadow-card" />
+      <ItemStatusBadge status="available" className="animate-float absolute top-6 left-6 shadow-card" />
+      <ItemStatusBadge status="under_claim" className="animate-float absolute top-[22%] right-6 shadow-card [animation-delay:-2s]" />
+      <ItemStatusBadge status="returned" className="animate-float absolute bottom-6 left-6 shadow-card [animation-delay:-4s]" />
     </div>
   );
 }
@@ -74,7 +74,10 @@ function Hero() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <LinkButton href="/itens" size="lg" width="mobile-full">
               Procurar meu item
-              <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
+              <ArrowRight
+                aria-hidden="true"
+                className="size-5 shrink-0 transition-transform duration-150 ease-standard motion-safe:group-hover/btn:translate-x-1"
+              />
             </LinkButton>
             <LinkButton href="/entrar" variant="secondary" size="lg" width="mobile-full">
               Entrar
@@ -96,7 +99,7 @@ function Hero() {
 function FinalCall() {
   return (
     <section aria-labelledby="chamada-final-titulo">
-      <div className="flex flex-col gap-6 rounded-xl bg-primary-soft p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-8 lg:p-10">
+      <div className="reveal flex flex-col gap-6 rounded-xl bg-primary-soft p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-8 lg:p-10">
         <div className="max-w-xl">
           <h2 id="chamada-final-titulo">Achou algo ou perdeu algo?</h2>
           <p className="mt-2 text-body text-ink">
