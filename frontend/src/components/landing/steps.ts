@@ -13,17 +13,17 @@ export interface HowItWorksStep {
 export const HOW_IT_WORKS_STEPS: readonly HowItWorksStep[] = [
   {
     title: "Registrar",
-    text: "Quem acha um objeto cadastra o item, com foto e o local onde o encontrou.",
+    text: "Achou algo? Cadastre o item com foto e o local onde o encontrou.",
     icon: Camera,
   },
   {
     title: "Buscar",
-    text: "Qualquer pessoa pode ver os itens e filtrar por categoria, local e data.",
+    text: "Veja os itens sem precisar de conta e filtre por categoria, local e data.",
     icon: Search,
   },
   {
     title: "Reivindicar",
-    text: "Quem perdeu entra na conta, diz que o item é seu e responde a duas perguntas.",
+    text: "Achou o seu? Entre na conta, diga que é seu e responda a duas perguntas.",
     icon: Tag,
   },
   {

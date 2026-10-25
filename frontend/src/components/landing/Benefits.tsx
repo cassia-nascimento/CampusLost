@@ -1,4 +1,4 @@
-import { ListChecks, ShieldCheck, Layers, type LucideIcon } from "lucide-react";
+import { Layers, ListChecks, ShieldCheck, type LucideIcon } from "lucide-react";
 
 interface Benefit {
   title: string;
@@ -8,18 +8,18 @@ interface Benefit {
 
 const BENEFITS: readonly Benefit[] = [
   {
-    title: "Tudo em um só lugar",
-    text: "Os itens encontrados ficam reunidos em uma única lista, com descrição, local e data, e filtros por categoria, local e período.",
+    title: "Um só lugar",
+    text: "Todos os itens encontrados no campus em uma única lista, com local e data, e filtros por categoria, local e período.",
     icon: Layers,
   },
   {
-    title: "Devolução com verificação",
-    text: "Para reivindicar, a pessoa descreve o item e diz onde e quando o perdeu. A administração confere antes de aceitar. O local de guarda não é exibido a visitantes.",
+    title: "Devolução segura",
+    text: "Quem reivindica descreve o item e conta onde e quando o perdeu. A administração confere antes de devolver, e o local de guarda não aparece para visitantes.",
     icon: ShieldCheck,
   },
   {
-    title: "Cada etapa acompanhada",
-    text: "Todo item tem um status claro (Disponível, Em reivindicação ou Devolvido) e quem reivindicou acompanha a resposta em Minhas reivindicações.",
+    title: "Sempre por dentro",
+    text: "Cada item mostra se está Disponível, Em reivindicação ou Devolvido, e você acompanha as suas reivindicações em um só lugar.",
     icon: ListChecks,
   },
 ];
@@ -28,16 +28,15 @@ const BENEFITS: readonly Benefit[] = [
 export function Benefits() {
   return (
     <section aria-labelledby="beneficios-titulo">
-      <h2 id="beneficios-titulo">Achados e perdidos sem improviso</h2>
-      <p className="mt-2 max-w-form text-lead font-normal text-ink-muted">
-        Um fluxo único para registrar, buscar, reivindicar e devolver, com responsabilidades claras para cada perfil.
-      </p>
-      <ul role="list" className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <h2 id="beneficios-titulo" className="max-w-form">
+        Do item achado à devolução, sem perder o fio
+      </h2>
+      <ul role="list" className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3 lg:gap-6">
         {BENEFITS.map(({ title, text, icon: Icon }) => (
-          <li key={title} className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-card">
+          <li key={title} className="flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card">
             <span
               aria-hidden="true"
-              className="grid size-11 shrink-0 place-items-center rounded-md bg-primary-soft text-primary"
+              className="grid size-12 shrink-0 place-items-center rounded-md bg-primary-soft text-primary"
             >
               <Icon className="size-6" />
             </span>

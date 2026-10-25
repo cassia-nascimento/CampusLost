@@ -11,10 +11,17 @@ import type { RouteChrome } from "./navigation";
 
 const ITEMS_HREF = "/itens";
 
+/** Âncoras da landing (`/`): funcionam também a partir de `/itens`, que leva de volta à seção. */
+const SECTION_LINKS = [
+  { href: "/#como-funciona", label: "Como funciona" },
+  { href: "/#perguntas", label: "Perguntas" },
+] as const;
+
 /**
  * Header do visitante (DESIGN §6.12, P26): `/`, `/itens` e `/itens/[id]` sem sessão. Nunca tem BottomNav.
  * 360 px: marca + "Entrar" (cabe com alvo de 44 px; "Criar conta" fica no corpo das telas). A partir de 640 px
- * entram "Ver itens" e "Criar conta"; a partir de 768 px "Ver itens" sobe para a navegação ao lado da marca.
+ * entram "Ver itens" e "Criar conta"; a partir de 768 px "Ver itens" sobe para a navegação ao lado da marca;
+ * a partir de 1024 px a navegação ganha "Como funciona" e "Perguntas" (âncoras da landing).
  * No detalhe do item, no celular, vira o header de drill-down (voltar + título), como o do usuário logado.
  * Em `/itens/[id]`, "Entrar" e "Criar conta" levam o item no `?next=` para a pessoa voltar a ele.
  */
@@ -40,10 +47,18 @@ export function PublicHeader({ chrome = { kind: "top" }, pathname }: { chrome?: 
 
         <Brand href="/" className={cn(detail ? "hidden md:inline-flex" : "inline-flex")} />
 
-        <nav aria-label="Principal" className="ml-4 hidden h-full md:block">
+        <nav aria-label="Principal" className="ml-4 hidden h-full md:flex">
           <NavLink href={ITEMS_HREF} active={onItems}>
             Ver itens
           </NavLink>
+          {/* Atalhos para as seções da landing: a partir de 1024 px, onde há largura para os três links. */}
+          <div className="hidden h-full lg:flex">
+            {SECTION_LINKS.map(({ href, label }) => (
+              <NavLink key={href} href={href} active={false}>
+                {label}
+              </NavLink>
+            ))}
+          </div>
         </nav>
 
         <div className={cn("ml-auto items-center gap-2", detail ? "hidden sm:flex" : "flex")}>
