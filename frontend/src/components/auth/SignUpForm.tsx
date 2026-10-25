@@ -131,7 +131,11 @@ export function SignUpForm({
           error={errors.acceptedTerms?.message}
           label={
             <>
-              Li e aceito os termos de uso e a{" "}
+              Li e aceito os{" "}
+              <Link href="/termos" target="_blank" rel="noopener" className="link font-semibold">
+                termos de uso<span className="sr-only"> (abre em nova aba)</span>
+              </Link>{" "}
+              e a{" "}
               <Link href="/privacidade" target="_blank" rel="noopener" className="link font-semibold">
                 Política de privacidade<span className="sr-only"> (abre em nova aba)</span>
               </Link>

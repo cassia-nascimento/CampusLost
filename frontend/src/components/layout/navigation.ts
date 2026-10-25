@@ -158,6 +158,7 @@ const DETAIL_ROUTES: {
   { pattern: /^\/admin\/auditoria$/, title: "Auditoria", back: () => "/admin" },
   { pattern: /^\/conta$/, title: "Minha conta", back: () => "/itens" },
   { pattern: /^\/privacidade$/, title: "Privacidade", back: () => "/itens" },
+  { pattern: /^\/termos$/, title: "Termos de uso", back: () => "/itens" },
 ];
 
 /**
