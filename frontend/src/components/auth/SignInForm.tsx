@@ -1,12 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
+import { accountErrorMessage } from "./error-messages";
 import { PasswordInput } from "./PasswordInput";
 import { useSession } from "@/hooks/use-session";
 import { signInSchema, type SignInValues } from "@/lib/validation";
@@ -52,7 +54,7 @@ export function SignInForm() {
           return;
         }
       }
-      setFormError("Não foi possível entrar. Tente de novo em instantes.");
+      setFormError(accountErrorMessage(error, "Não foi possível entrar. Tente de novo em instantes."));
     }
   }
 
@@ -78,9 +80,14 @@ export function SignInForm() {
           {...register("email")}
         />
       </Field>
-      <Field label="Senha" error={errors.password?.message}>
-        <PasswordInput autoComplete="current-password" {...register("password")} />
-      </Field>
+      <div>
+        <Field label="Senha" error={errors.password?.message}>
+          <PasswordInput autoComplete="current-password" {...register("password")} />
+        </Field>
+        <Link href="/esqueci-senha" className="link touch-target mt-1 inline-flex items-center text-meta font-semibold">
+          Esqueci minha senha
+        </Link>
+      </div>
       <p role="status" className="sr-only">
         {announcement}
       </p>

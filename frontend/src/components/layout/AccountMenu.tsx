@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, RotateCcw } from "lucide-react";
+import { LogOut, RotateCcw, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ConfirmDialog } from "@/components/ui/Dialog";
@@ -15,7 +16,7 @@ const ITEM_CLASSES =
   "hover:bg-primary-soft focus-visible:bg-primary-soft";
 
 /**
- * Menu da conta (DESIGN §6.12): nome, papel, "Reiniciar demonstração" e "Sair".
+ * Menu da conta (DESIGN §6.12): nome, papel, "Minha conta", "Reiniciar demonstração" e "Sair".
  * Padrão de menu: foco no primeiro item ao abrir, setas/Home/End, Esc devolve o foco ao botão.
  */
 export function AccountMenu() {
@@ -119,6 +120,10 @@ export function AccountMenu() {
             <p className="user-text font-semibold text-ink">{user.name}</p>
             <p className="text-meta text-ink-muted">{ROLE_LABEL[user.role]}</p>
           </div>
+          <Link href="/conta" role="menuitem" className={ITEM_CLASSES} onClick={() => setOpen(false)}>
+            <UserRound aria-hidden="true" className="size-5 shrink-0 text-ink-muted" />
+            Minha conta
+          </Link>
           <button
             type="button"
             role="menuitem"

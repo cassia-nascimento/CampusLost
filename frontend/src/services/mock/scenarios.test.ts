@@ -14,10 +14,10 @@ async function as(h: Harness, role: "student" | "teacher" | "admin") {
 }
 
 describe("RF01 — autenticação simulada", () => {
-  it("AC01.3: três perfis de demonstração entram com um toque", async () => {
+  it("AC01.3: perfis de demonstração entram com um toque", async () => {
     const h = createHarness();
     const profiles = await h.services.auth.listDemoProfiles();
-    expect(profiles.map((p) => p.role)).toEqual(["student", "teacher", "admin"]);
+    expect(profiles.map((p) => p.role)).toEqual(["student", "teacher", "external", "admin"]);
     expect(profiles.every((p) => p.user.email.endsWith("@demo.test"))).toBe(true);
     for (const p of profiles) {
       const user = await h.services.auth.signInAsDemo(p.role);
@@ -28,21 +28,21 @@ describe("RF01 — autenticação simulada", () => {
 
   it("AC01.1: cadastro cria conta e sessão; e-mail repetido (qualquer caixa) dá erro", async () => {
     const h = createHarness();
-    const user = await h.services.auth.signUp({ name: "Carla Dias", email: "Carla@Demo.test", password: "senha-segura-1", role: "teacher" });
+    const user = await h.services.auth.signUp({ name: "Carla Dias", email: "Carla@Demo.test", password: "senha-segura-1", role: "teacher", acceptedTerms: true });
     expect(user).toMatchObject({ name: "Carla Dias", email: "carla@demo.test", role: "teacher" });
     expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
     const err = await expectCode(
-      h.services.auth.signUp({ name: "Outra Carla", email: " CARLA@demo.test ", password: "senha-segura-1", role: "student" }),
+      h.services.auth.signUp({ name: "Outra Carla", email: " CARLA@demo.test ", password: "senha-segura-1", role: "student", acceptedTerms: true }),
       "EMAIL_TAKEN",
     );
     expect(err.fieldErrors?.email).toBeTruthy();
-    await expectCode(h.services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "senha-segura-1", role: "student" }), "EMAIL_TAKEN");
+    await expectCode(h.services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "senha-segura-1", role: "student", acceptedTerms: true }), "EMAIL_TAKEN");
   });
 
   it("AC01.1: cadastro valida campos e não aceita papel admin", async () => {
     const h = createHarness();
     const err = await expectCode(
-      h.services.auth.signUp({ name: "", email: "x", password: "", role: "admin" as never }),
+      h.services.auth.signUp({ name: "", email: "x", password: "", role: "admin" as never, acceptedTerms: true }),
       "VALIDATION",
     );
     expect(Object.keys(err.fieldErrors ?? {}).sort()).toEqual(["email", "name", "password", "role"]);
@@ -596,7 +596,7 @@ describe("usuário capturado antes da latência (I2)", () => {
     vi.useFakeTimers();
     try {
       const { fast, slow } = pair();
-      await fast.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: "senha-segura-1", role: "student" });
+      await fast.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: "senha-segura-1", role: "student", acceptedTerms: true });
 
       const attempt = expectCode(slow.services.items.create(validItem), "UNAUTHENTICATED"); // captura Carla
       await fast.services.demo.reset(); // Carla não existe no seed

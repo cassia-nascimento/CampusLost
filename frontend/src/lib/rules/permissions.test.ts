@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { externalUser, unverified, student, admin } from "./test-fixtures";
 import {
   canAccessAdminArea,
+  checkEmailVerified,
   checkCapability,
   hasCapability,
   PERMISSIONS,
@@ -47,5 +49,32 @@ describe("permissões por papel (SPEC §2)", () => {
     }
     expect(checkCapability({ role: "student" }, "review_claims")).toMatchObject({ allowed: false, code: "FORBIDDEN" });
     expect(checkCapability({ role: "admin" }, "review_claims")).toEqual({ allowed: true });
+  });
+});
+
+describe("papel external e e-mail verificado", () => {
+  it("external tem as mesmas permissões de student/teacher em todas as capacidades", () => {
+    for (const c of Object.keys(PERMISSIONS) as Capability[]) {
+      expect(hasCapability({ role: "external" }, c)).toBe(hasCapability({ role: "student" }, c));
+    }
+    expect(canAccessAdminArea(externalUser)).toBe(false);
+  });
+
+  it("conta não verificada não registra item nem reivindica (EMAIL_NOT_VERIFIED); o resto segue permitido", () => {
+    for (const c of ["register_item", "claim_item"] as const) {
+      expect(checkCapability(unverified, c)).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
+      expect(checkCapability(student, c)).toEqual({ allowed: true });
+      expect(checkCapability(externalUser, c)).toEqual({ allowed: true });
+    }
+    for (const c of ["search_items", "view_own_claims"] as const) {
+      expect(checkCapability(unverified, c)).toEqual({ allowed: true });
+    }
+  });
+
+  it("checkEmailVerified: visitante, não verificado, verificado e admin", () => {
+    expect(checkEmailVerified(null)).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
+    expect(checkEmailVerified(unverified)).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
+    expect(checkEmailVerified(student)).toEqual({ allowed: true });
+    expect(checkEmailVerified(admin)).toEqual({ allowed: true });
   });
 });

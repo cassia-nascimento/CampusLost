@@ -22,11 +22,25 @@ export interface CredentialRecord {
   iterations?: number;
 }
 
+export type TokenKind = "verify_email" | "reset_password";
+
+export interface TokenRecord {
+  token: string;
+  userId: string;
+  kind: TokenKind;
+  /** Instante ISO 8601 (UTC). */
+  expiresAt: string;
+  /** Preenchido quando o token foi usado (uso único). */
+  usedAt?: string;
+}
+
 export interface Db {
   /** Versão do formato persistido; muda junto com a chave do store. */
   version: number;
   users: User[];
   credentials: CredentialRecord[];
+  /** Tokens de verificação de e-mail e de redefinição de senha (o "e-mail" é simulado). */
+  tokens: TokenRecord[];
   items: Item[];
   claims: Claim[];
   returns: ReturnRecord[];
@@ -36,19 +50,22 @@ export interface Db {
  * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). v3: login por senha e Google (P29/P30;
  * `credentials` no banco). Subir a versão troca a chave do armazenamento e faz navegadores com o
  * seed antigo receberem o novo (o antigo é removido).
+ * v4: papel `external`, `emailVerified` no usuário, política de senha nova (senha demo `demonstracao123`) e `tokens`
+ * (verificação de e-mail e redefinição de senha).
  */
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
-/** Senha de demonstração das 5 contas `@demo.test` (P29). NÃO é segredo: é dado fictício. */
-export const DEMO_PASSWORD = "demo12345";
+/** Senha de demonstração das 6 contas `@demo.test` (P29). NÃO é segredo: é dado fictício. */
+export const DEMO_PASSWORD = "demonstracao123";
 
 /** Hashes PBKDF2-SHA-256 (100k iterações) de `DEMO_PASSWORD`, precomputados e determinísticos (conferidos em teste). */
 const DEMO_CREDENTIALS: CredentialRecord[] = [
-  ["user-marina", "2d71da00f3c7893f8974e8d965ea415c6812a50b0d38292f1ae398fe0fee1af4"],
-  ["user-rafael", "3f72ca3aa59882bbe9687058cce02dd2175c1b8467bd61229d9c411288f920c3"],
-  ["user-admin", "bb09f06fe05f62800ad57b83932bfb076bda344a0b1a5a81f03d5dd95f4ec801"],
-  ["user-lucas", "d7e8e9bd3a8d417026e58d88df5c84cb162de557bb581b6688fe6c7a0cb08a17"],
-  ["user-beatriz", "453ae177f84d5256eef00a206d1ab6baf93797759306cca193ee224561bb2ca1"],
+  ["user-marina", "3fff9fae49ecea9354070a3ad2aa49c6d1d38a298336d2f4c31633d295a59e5e"],
+  ["user-rafael", "37c390b1bfa623cd78676781a0fa10b28928df5c51b6578b6ac03bc9dddb6b51"],
+  ["user-admin", "51f297ece5cd5fedd2564cbba926d8a6974482a15279f2df024867dd1419ccd1"],
+  ["user-lucas", "be246cdb8005c9c6ba46f884b7e1116c58e9a47cea6062c1acbdc492be5c26ba"],
+  ["user-beatriz", "7392898bbac067c5c06c8381aa72b9528ce5d4971891b90b22dea1aa8a41d6e1"],
+  ["user-externo", "548252f8c2434e07164f50b0d2703049cd40c49b00d252eecd6800f488304ffd"],
 ].map(([userId, hash]) => ({
   userId,
   provider: "password" as const,
@@ -67,22 +84,25 @@ export function demoSalt(userId: string): string {
 export const DEMO_PROFILE_IDS: Readonly<Record<UserRole, string>> = {
   student: "user-marina",
   teacher: "user-rafael",
+  external: "user-externo",
   admin: "user-admin",
 };
 
 export const DEMO_PROFILE_LABELS: Readonly<Record<UserRole, string>> = {
   student: "Entrar como aluno",
   teacher: "Entrar como professor",
+  external: "Entrar como comunidade externa",
   admin: "Entrar como administração",
 };
 
 const USERS: User[] = [
-  { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student" },
-  { id: "user-rafael", name: "Rafael Lima", email: "rafael@demo.test", role: "teacher" },
-  { id: "user-admin", name: "Administração Demo", email: "admin@demo.test", role: "admin" },
+  { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", emailVerified: true, hasPassword: true },
+  { id: "user-rafael", name: "Rafael Lima", email: "rafael@demo.test", role: "teacher", emailVerified: true, hasPassword: true },
+  { id: "user-admin", name: "Administração Demo", email: "admin@demo.test", role: "admin", emailVerified: true, hasPassword: true },
+  { id: "user-externo", name: "Camila Torres", email: "externo@demo.test", role: "external", emailVerified: true, hasPassword: true },
   // Usuários de apoio (autores de reivindicações); não aparecem como perfis de demonstração.
-  { id: "user-lucas", name: "Lucas Prado", email: "lucas@demo.test", role: "student" },
-  { id: "user-beatriz", name: "Beatriz Nunes", email: "beatriz@demo.test", role: "student" },
+  { id: "user-lucas", name: "Lucas Prado", email: "lucas@demo.test", role: "student", emailVerified: true, hasPassword: true },
+  { id: "user-beatriz", name: "Beatriz Nunes", email: "beatriz@demo.test", role: "student", emailVerified: true, hasPassword: true },
 ];
 
 export function buildSeed(now: Date): Db {
@@ -290,5 +310,6 @@ export function buildSeed(now: Date): Db {
 
   return { version: DB_VERSION, users: USERS.map((u) => ({ ...u })),
     credentials: DEMO_CREDENTIALS.map((c) => ({ ...c })),
+    tokens: [],
     items, claims, returns };
 }

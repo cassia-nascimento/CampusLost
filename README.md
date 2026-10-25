@@ -74,7 +74,7 @@ copy .env.example .env.local     # defina NEXT_PUBLIC_API_URL=http://localhost:8
 npm run dev                      # http://localhost:3000
 ```
 
-- Contas de demonstração (`*@demo.test`) usam a senha `demo12345`.
+- Contas de demonstração (`*@demo.test`) usam a senha `demonstracao123`.
 - Testes do backend: `cd backend && pytest`.
 - Login com Google: exige `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend) e `GOOGLE_CLIENT_ID` (backend); sem eles o botão não aparece.
 - Hospedagem serverless (Vercel) não guarda o SQLite nem as fotos enviadas: para usar a API fora do computador local, ela precisa de um servidor com disco persistente (ver P31 na SPEC).

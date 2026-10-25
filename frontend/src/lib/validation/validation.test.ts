@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
 import {
   claimSchema,
   createItemSchema,
@@ -8,6 +9,10 @@ import {
   googleSignUpSchema,
   signInSchema,
   signUpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  deleteAccountSchema,
   toFieldErrors,
   validatePhotoFile,
   PHOTO_MAX_BYTES,
@@ -22,30 +27,55 @@ const messages = (result: { success: boolean; error?: { issues: { message: strin
   result.error?.issues.map((i) => i.message) ?? [];
 
 describe("cadastro e login (AC01.1, AC01.2)", () => {
+  const valid = { name: "Ana Souza", email: "ana@demo.test", password: "uma senha longa 1", role: "student", acceptedTerms: true };
+
   it("aceita dados válidos e normaliza e-mail/nome", () => {
-    const r = signUpSchema.parse({ name: "  Ana Souza ", email: "  ANA@Demo.Test ", password: " senha 123 ", role: "student" });
-    expect(r).toEqual({ name: "Ana Souza", email: "ana@demo.test", password: " senha 123 ", role: "student" });
+    const r = signUpSchema.parse({ ...valid, name: "  Ana Souza ", email: "  ANA@Demo.Test ", password: " senha de teste 123 " });
+    expect(r).toEqual({ ...valid, password: " senha de teste 123 " });
   });
 
-  it("exige nome, e-mail válido e papel aluno/professor", () => {
+  it("aceita os papéis aluno, professor e comunidade externa", () => {
+    for (const role of ["student", "teacher", "external"]) expect(signUpSchema.safeParse({ ...valid, role }).success).toBe(true);
+  });
+
+  it("exige nome, e-mail válido e papel de cadastro (admin não)", () => {
     const r = signUpSchema.safeParse({ name: "", email: "nao-e-email", role: "admin" });
     expect(r.success).toBe(false);
     const errors = toFieldErrors(r.error!);
     expect(errors.name).toBe("Informe seu nome.");
     expect(errors.email).toBe("Esse e-mail não parece válido. Use o formato nome@exemplo.com.");
-    expect(errors.role).toBe("Escolha se você é aluno ou professor.");
+    expect(errors.role).toBe("Escolha como você usa o CampusLost.");
   });
 
-  it("senha: obrigatória, 8 a 72 caracteres, sem trim", () => {
-    const base = { name: "Ana", email: "ana@demo.test", role: "student" };
-    const err = (password: unknown) => toFieldErrors(signUpSchema.safeParse({ ...base, password }).error!).password;
+  it("termos: acceptedTerms precisa ser true", () => {
+    for (const acceptedTerms of [false, undefined, "true", 1]) {
+      const r = signUpSchema.safeParse({ ...valid, acceptedTerms });
+      expect(r.success).toBe(false);
+      expect(toFieldErrors(r.error!).acceptedTerms).toBe("Aceite os termos de uso para criar a conta.");
+    }
+  });
+
+  it("senha: obrigatória, mín. 10 caracteres, máx. 72 BYTES, sem trim", () => {
+    const err = (password: unknown) => toFieldErrors(signUpSchema.safeParse({ ...valid, password }).error!).password;
     expect(err(undefined)).toBe("Crie uma senha.");
     expect(err("")).toBe("Crie uma senha.");
-    expect(err("1234567")).toBe("Use pelo menos 8 caracteres.");
-    expect(err("a".repeat(73))).toBe("Use no máximo 72 caracteres.");
-    expect(signUpSchema.safeParse({ ...base, password: "12345678" }).success).toBe(true);
-    expect(signUpSchema.safeParse({ ...base, password: "a".repeat(72) }).success).toBe(true);
-    expect(signUpSchema.safeParse({ ...base, password: "        " }).success).toBe(true); // espaços contam
+    expect(err("123456789")).toBe("Use pelo menos 10 caracteres.");
+    expect(err("a".repeat(73))).toBe(PASSWORD_ISSUE_MESSAGE.too_long);
+    expect(signUpSchema.safeParse({ ...valid, password: "a".repeat(72) }).success).toBe(true);
+    // 37 x "é" = 37 caracteres, 74 bytes
+    expect(err("é".repeat(37))).toBe(PASSWORD_ISSUE_MESSAGE.too_long);
+    expect(signUpSchema.safeParse({ ...valid, password: "é".repeat(36) }).success).toBe(true); // 72 bytes
+    expect(signUpSchema.safeParse({ ...valid, password: " ".repeat(10) }).success).toBe(true); // espaços contam
+  });
+
+  it("senha: recusa senhas comuns (sem diferenciar caixa) e igual ao e-mail/nome", () => {
+    const err = (over: object) => toFieldErrors(signUpSchema.safeParse({ ...valid, ...over }).error!).password;
+    expect(err({ password: "Password123" })).toBe(PASSWORD_ISSUE_MESSAGE.common);
+    expect(err({ password: "1234567890" })).toBe(PASSWORD_ISSUE_MESSAGE.common);
+    expect(err({ password: "ana@demo.test" })).toBe(PASSWORD_ISSUE_MESSAGE.same_as_email);
+    expect(err({ password: "ANA@DEMO.TEST" })).toBe(PASSWORD_ISSUE_MESSAGE.same_as_email);
+    expect(err({ name: "Maria da Silva", password: "Maria da Silva" })).toBe(PASSWORD_ISSUE_MESSAGE.same_as_name);
+    expect(err({ name: "José Conceição", password: "josé conceição" })).toBe(PASSWORD_ISSUE_MESSAGE.same_as_name);
   });
 
   it("campos ausentes têm mensagem de obrigatório em pt-BR", () => {
@@ -54,8 +84,20 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
       name: "Informe seu nome.",
       email: "Informe seu e-mail.",
       password: "Crie uma senha.",
-      role: "Escolha se você é aluno ou professor.",
+      role: "Escolha como você usa o CampusLost.",
+      acceptedTerms: "Aceite os termos de uso para criar a conta.",
     });
+  });
+
+  it("esqueci/redefinir/verificar: e-mail, token e a mesma política de senha", () => {
+    expect(forgotPasswordSchema.parse({ email: " A@B.co " })).toEqual({ email: "a@b.co" });
+    expect(forgotPasswordSchema.safeParse({ email: "x" }).success).toBe(false);
+    expect(resetPasswordSchema.parse({ token: " abc ", password: "uma senha longa 1" })).toEqual({ token: "abc", password: "uma senha longa 1" });
+    const e = toFieldErrors(resetPasswordSchema.safeParse({ token: "", password: "curta" }).error!);
+    expect(e).toEqual({ token: "Link inválido ou incompleto.", password: "Use pelo menos 10 caracteres." });
+    expect(toFieldErrors(resetPasswordSchema.safeParse({ token: "t", password: "senha12345" }).error!).password).toBe(PASSWORD_ISSUE_MESSAGE.common);
+    expect(verifyEmailSchema.safeParse({ token: "" }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({}).success).toBe(true);
   });
 
   it("e-mail e senha vazios no login", () => {
@@ -70,10 +112,12 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
     expect(toFieldErrors(googleRoleSchema.safeParse({ role: "admin" }).error!)).toEqual({
       role: "Escolha se você é aluno ou professor.",
     });
-    expect(googleSignUpSchema.safeParse({ email: "A@undb.edu.br", name: "Ana", role: "teacher" }).data).toEqual({
+    expect(googleRoleSchema.safeParse({ role: "external" }).success).toBe(false); // externo não passa pelo passo do Google
+    expect(googleSignUpSchema.safeParse({ email: "A@undb.edu.br", name: "Ana", role: "teacher", acceptedTerms: true }).data).toEqual({
       email: "a@undb.edu.br",
       name: "Ana",
       role: "teacher",
+      acceptedTerms: true,
     });
   });
 });

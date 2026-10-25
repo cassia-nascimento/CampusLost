@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/ui/Notice";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { getAllowedGoogleDomains } from "@/lib/rules";
 
 /** Tipos mínimos do Google Identity Services (só o que usamos). */
 interface GoogleCredentialResponse {
@@ -13,7 +12,6 @@ interface GoogleIdApi {
   initialize(config: {
     client_id: string;
     callback: (response: GoogleCredentialResponse) => void;
-    hd?: string;
     ux_mode: "popup";
     auto_select: boolean;
   }): void;
@@ -69,7 +67,7 @@ export interface GoogleSignInButtonProps {
   onCredential(credential: string): void;
 }
 
-/** Botão oficial "Entrar com Google" (GIS), restrito ao domínio institucional via `hd`. */
+/** Botão oficial "Entrar com Google" (GIS). Sem filtro de domínio: contas de outros domínios entram como comunidade externa. */
 export function GoogleSignInButton({ clientId, onCredential }: GoogleSignInButtonProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,7 +94,6 @@ export function GoogleSignInButton({ clientId, onCredential }: GoogleSignInButto
           callback: (response) => {
             if (response.credential) callbackRef.current(response.credential);
           },
-          hd: getAllowedGoogleDomains()[0],
           ux_mode: "popup",
           auto_select: false,
         });

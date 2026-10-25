@@ -3,7 +3,7 @@ import type { ClaimView } from "@/services";
 import type { Item, User } from "@/types/domain";
 import { summarizeClaimedItems } from "./claimed-items";
 
-const user: User = { id: "u1", name: "Pessoa", email: "p@demo.test", role: "student" };
+const user: User = { id: "u1", name: "Pessoa", email: "p@demo.test", role: "student", emailVerified: true };
 
 function makeItem(id: string): Item {
   return {

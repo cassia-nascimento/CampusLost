@@ -1,5 +1,5 @@
 import { isServiceError, ServiceError, type User, type UserRole } from "@/types/domain";
-import type { AuthService, DemoProfile, GoogleSignInResult } from "../contracts";
+import type { AuthService, DemoProfile, EmailDispatch, GoogleSignInResult, MyDataExport } from "../contracts";
 import type { HttpClient } from "./http";
 import { asArray, asRecord, type Mappers } from "./mappers";
 
@@ -34,29 +34,79 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
     },
 
     async signUp(input) {
-      return adopt(await http.request("POST", "/auth/signup", { json: input, auth: false }));
+      // O contrato do frontend chama `acceptedTerms`; o backend, `acceptTerms`.
+      const { acceptedTerms, ...rest } = input;
+      return adopt(await http.request("POST", "/auth/signup", { json: { ...rest, acceptTerms: acceptedTerms }, auth: false }));
     },
 
     async signIn(input) {
       return adopt(await http.request("POST", "/auth/login", { json: input, auth: false }));
     },
 
-    async signInWithGoogle(credential): Promise<GoogleSignInResult> {
-      const raw = asRecord(await http.request("POST", "/auth/google", { json: { credential }, auth: false }), "Google");
+    async signInWithGoogle(credential, options): Promise<GoogleSignInResult> {
+      const json = options?.acceptedTerms ? { credential, acceptTerms: true } : { credential };
+      const raw = asRecord(await http.request("POST", "/auth/google", { json, auth: false }), "Google");
       if (raw.status === "signed_in") return { status: "signed_in", user: adopt(raw) };
       const profile = asRecord(raw.profile, "perfil");
-      if (raw.status !== "needs_role" || typeof raw.profileToken !== "string" || typeof profile.email !== "string") {
+      if ((raw.status !== "needs_role" && raw.status !== "needs_terms") || typeof raw.profileToken !== "string" || typeof profile.email !== "string") {
         throw new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", { cause: new Error("resposta do Google") });
       }
       return {
-        status: "needs_role",
+        status: raw.status,
         profile: { email: profile.email, name: typeof profile.name === "string" ? profile.name : "" },
         ticket: raw.profileToken,
       };
     },
 
-    async completeGoogleSignUp({ ticket, role }) {
-      return adopt(await http.request("POST", "/auth/google/complete", { json: { profileToken: ticket, role }, auth: false }));
+    async completeGoogleSignUp({ ticket, role, acceptedTerms }) {
+      const json = { profileToken: ticket, ...(role ? { role } : {}), acceptTerms: acceptedTerms };
+      return adopt(await http.request("POST", "/auth/google/complete", { json, auth: false }));
+    },
+
+    async verifyEmail(token) {
+      // Responde `{verified:true}` (sem usuário). Quem tem sessão relê o usuário pela UI (`changed` refaz as leituras).
+      await http.request("POST", "/auth/verify-email", { json: { token }, auth: false });
+      changed();
+    },
+
+    async resendVerification(turnstileToken): Promise<EmailDispatch> {
+      // Logado, o corpo pode ser vazio (o servidor usa o e-mail da sessão); responde 202 genérico.
+      await http.request("POST", "/auth/resend-verification", { json: turnstileToken ? { turnstileToken } : {} });
+      return {}; // o e-mail é enviado pelo servidor; não há `devLink` na API
+    },
+
+    async forgotPassword(email, turnstileToken): Promise<EmailDispatch> {
+      await http.request("POST", "/auth/forgot-password", { json: turnstileToken ? { email, turnstileToken } : { email }, auth: false });
+      return {};
+    },
+
+    async resetPassword(token, password) {
+      await http.request("POST", "/auth/reset-password", { json: { token, password }, auth: false });
+    },
+
+    async exportMyData(): Promise<MyDataExport> {
+      const raw = asRecord(await http.request("GET", "/me/export"), "exportação");
+      const account = asRecord(raw.account, "conta");
+      return {
+        ...(raw as unknown as MyDataExport),
+        account: account as unknown as MyDataExport["account"],
+        itemsRegistered: asArray(raw.itemsRegistered ?? [], "itemsRegistered").map(mappers.item),
+        claims: asArray(raw.claims ?? [], "claims") as MyDataExport["claims"],
+        returns: asArray(raw.returns ?? [], "returns") as MyDataExport["returns"],
+        sessions: asArray(raw.sessions ?? [], "sessions") as MyDataExport["sessions"],
+      };
+    },
+
+    async deleteMyAccount(confirmation) {
+      const body = confirmation && (confirmation.password !== undefined || confirmation.credential !== undefined) ? confirmation : undefined;
+      await http.request("DELETE", "/me", { json: body });
+      http.clearToken();
+      changed();
+    },
+
+    // Na API o e-mail é real: não há link simulado.
+    async peekSimulatedEmail() {
+      return null;
     },
 
     async signInAsDemo(role: UserRole) {

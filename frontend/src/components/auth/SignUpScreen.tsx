@@ -1,26 +1,31 @@
 "use client";
 
-import { Suspense } from "react";
-import { Brand } from "@/components/layout/Brand";
+import { Suspense, useState } from "react";
+import type { User } from "@/types/domain";
+import { AuthCard } from "./AuthCard";
+import { CheckEmailPanel } from "./CheckEmailPanel";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { SignUpForm } from "./SignUpForm";
 
 function SignUpContent() {
+  // `creating`/`created` seguram o redirecionamento: a conta nova já tem sessão, mas antes de seguir
+  // a pessoa precisa ver "Confirme seu e-mail".
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<User | null>(null);
   return (
-    <RedirectIfAuthenticated>
-      <div className="mx-auto flex w-full max-w-form flex-1 flex-col px-gutter pt-6 pb-10 md:py-12">
-        <div className="flex flex-1 flex-col md:flex-none md:rounded-xl md:bg-surface md:p-8 md:shadow-card">
-          <Brand href="/entrar" className="-ml-1 self-start" markSize={32} />
-          <h1 className="mt-4 text-display">Criar conta</h1>
-          <p className="mt-3 mb-6 text-lead font-normal text-ink-muted">Todos os campos são obrigatórios.</p>
-          <SignUpForm />
-        </div>
-      </div>
+    <RedirectIfAuthenticated hold={creating || created !== null}>
+      {created ? (
+        <CheckEmailPanel email={created.email} role={created.role} />
+      ) : (
+        <AuthCard title="Criar conta" description="Todos os campos são obrigatórios.">
+          <SignUpForm onCreatingChange={setCreating} onCreated={setCreated} />
+        </AuthCard>
+      )}
     </RedirectIfAuthenticated>
   );
 }
 
-/** `/cadastro` (RF01 / AC01.1): no celular ocupa a tela; a partir de `md` vira um cartão centralizado. */
+/** `/cadastro` (RF01 / AC01.1): formulário e, depois de criar a conta, a tela "Confirme seu e-mail". */
 export function SignUpScreen() {
   return (
     <Suspense fallback={<AuthLoading />}>
