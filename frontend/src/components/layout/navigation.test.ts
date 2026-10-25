@@ -102,6 +102,8 @@ describe("cromo por rota", () => {
     expect(getRouteChrome("/privacidade")).toEqual({ kind: "detail", title: "Privacidade", backHref: "/itens" });
     expect(showsBottomNav("/conta")).toBe(false);
     expect(showsBottomNav("/privacidade")).toBe(false);
+    expect(getRouteChrome("/termos")).toEqual({ kind: "detail", title: "Termos de uso", backHref: "/itens" });
+    expect(showsBottomNav("/termos")).toBe(false);
   });
 
   it("voltar do detalhe e do registro reabre a última busca; as demais rotas ignoram", () => {
