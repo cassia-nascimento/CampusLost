@@ -3,8 +3,11 @@ import { HOW_IT_WORKS_STEPS } from "./steps";
 /** "Como funciona" (DESIGN §9.13): os quatro passos em lista ordenada; o número visível é decorativo. */
 export function HowItWorks() {
   return (
-    <section aria-labelledby="como-funciona-titulo">
+    <section id="como-funciona" aria-labelledby="como-funciona-titulo">
       <h2 id="como-funciona-titulo">Como funciona</h2>
+      <p className="mt-2 max-w-form text-lead font-normal text-ink-muted">
+        Do registro à devolução, em quatro etapas.
+      </p>
       {/* `role="list"`: o reset de listas do Tailwind faz o Safari/VoiceOver deixar de anunciar a lista. */}
       <ol role="list" className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {HOW_IT_WORKS_STEPS.map(({ title, text, icon: Icon }, index) => (

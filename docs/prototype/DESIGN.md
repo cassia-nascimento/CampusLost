@@ -835,7 +835,7 @@ Filtro por período usa a data da devolução (premissa de design: aqui o "perí
 
 **Objetivo de usabilidade.** Em 5 segundos, quem chega (de pé, pelo celular, talvez por link de um colega) entende o que é, vê que há itens reais para olhar **sem cadastro**, e escolhe: ver itens (CTA principal) ou entrar. Nada de carrossel, vídeo ou animação de entrada além de `animate-fade` curto. Uma única `h1`. Quem já tem sessão é redirecionado para a página inicial do perfil (SPEC §5); enquanto a sessão é resolvida, mostrar só o header com a marca e um `LoaderCircle` central com `sr-only` "Carregando…" (evita piscar a landing para quem está logado).
 
-**Ordem das seções (todas sobre `paper`, ritmo vertical de 48 px entre seções a 360 px, 64 px em `lg`):** Header público → Hero → Como funciona → Itens recentes → Bloco final → Rodapé.
+**Ordem das seções (Hero em faixa de largura total sobre `primary-soft`; as demais sobre `paper`, ritmo vertical de 48 px entre seções a 360 px, 64 px em `lg`):** Header público → Hero → Benefícios → Como funciona → Itens recentes → Para cada perfil → Perguntas frequentes → Bloco final → Rodapé. *(Revisão de 25/10/2026: tom profissional, sem menção a projeto acadêmico; os wireframes abaixo mostram a versão anterior do Hero, sem as seções novas.)*
 
 ```
 360 px
@@ -908,7 +908,7 @@ Desktop (>= 1024; max-w-page 1152, gutter 32)
 +------------------------------------------------------------------------------+
 |  [ bloco final: texto à esquerda, botões à direita, uma linha ]              |
 +------------------------------------------------------------------------------+
-|  Rodapé: marca · links · "Projeto acadêmico · UNDB"                          |
+|  Rodapé: marca + descrição · colunas Plataforma e Conta · © ano CampusLost   |
 +------------------------------------------------------------------------------+
 ```
 
@@ -916,11 +916,14 @@ Tablet (`sm`–`md`): hero em coluna única centralizada em `max-w-form`, botõe
 
 **Decisões e porquês**
 
-- **Hero:** título em `text-h1` (28 px a 360), não `text-display`: a LP precisa mostrar a faixa "Como funciona" logo na primeira rolagem em tela de 640 px de altura útil. Os dois botões ficam **empilhados e na metade inferior do primeiro quadro** (polegar). A ilustração vem **depois** dos botões em mobile (não empurra o CTA para fora da primeira dobra); em `lg` fica à direita. Fundo da seção: `paper`; a imagem tem fundo próprio `primary-soft`.
+- **Hero:** título em `text-h1` (28 px a 360), não `text-display`. Os dois botões ficam **empilhados e na metade inferior do primeiro quadro** (polegar), seguidos de três garantias curtas com `Check` (consulta sem cadastro, reivindicação conferida pela administração, uso no celular; todas já valem pela SPEC). A ilustração vem **depois** dos botões em mobile; em `lg` fica à direita. Fundo da faixa: `primary-soft`, igual ao fundo próprio da imagem, que por isso se funde à faixa. Texto: `ink`, `ink-muted` e `primary` sobre `primary-soft` (pares já calculados abaixo).
+- **Benefícios:** três cartões `surface` com ícone em quadrado `primary-soft` (`Layers`, `ShieldCheck`, `ListChecks`); só afirmam regras já existentes (lista única e filtros, verificação pela administração e local de guarda oculto a visitantes, status e Minhas reivindicações). **Sem números nem depoimentos inventados.**
+- **Para cada perfil:** dois cartões (Alunos e professores / Administração) com lista de capacidades conforme SPEC §2 e um botão `secondary` ("Criar conta" / "Entrar").
+- **Perguntas frequentes:** cinco `<details>` nativos (teclado e leitor de tela sem JavaScript), `summary` com alvo ≥ 44 px e chevron que gira ao abrir; respostas só com o que a SPEC garante.
 - **Como funciona:** os mesmos 4 passos de `/entrar` (um único módulo de dados compartilhado entre as duas telas; ver pendências). Cada passo: círculo `primary` 32 px com número em `on-primary` (8,42:1) + ícone 24 px `primary` + `h3` + 1 frase. Ícones (lucide, existentes): Registrar `Camera`, Buscar `Search`, Reivindicar `Tag`, Devolver `PackageCheck`. Cartão `surface`, `shadow-card`, `rounded-lg`; **não clicável** (sem hover de link). Lista semântica `<ol>`: leitor de tela anuncia "lista de 4 itens"; o número visível é `aria-hidden`.
 - **Itens recentes:** os **até 4 itens não devolvidos mais recentes** (mesma regra de AC03.2/03.4; sem filtros). ItemCard exatamente como em §6.5 (nenhuma variante nova), sem slot "Sua reivindicação" (visitante). Cada card leva a `/itens/[id]`. "Ver todos" aparece no cabeçalho da seção (link com seta, 44 px) **e** como botão `secondary` largura total ao fim da lista em < 640 px (o alvo do fim da lista é o lugar natural do polegar).
 - **Bloco final:** fundo `primary-soft`, `rounded-xl`, padding 24 px; título `h2`; texto `ink`; botões `primary` "Criar conta" e `secondary` "Entrar". Escolhido `primary-soft` e não um painel `primary` cheio para não precisar de anel de foco claro (`focus-on-dark`) e manter um só par de foco verificado.
-- **Rodapé:** `surface`, borda superior `line`, `text-meta`, links com `touch-target` e sublinhado, `<footer>`; sem redes sociais, sem política inventada, sem logos de terceiros. "Projeto acadêmico · UNDB" é o único crédito (verdadeiro segundo `CLAUDE.md`).
+- **Rodapé:** `surface`, borda superior `line`, `text-meta`, links com `touch-target` e sublinhado, `<footer>`; sem redes sociais, sem política inventada, sem logos de terceiros. Marca com descrição curta, colunas "Plataforma" (Ver itens, Como funciona, Perguntas frequentes) e "Conta" (Entrar, Criar conta) e "© ano CampusLost". Não há mais crédito de projeto acadêmico na landing (decisão da usuária, 25/10/2026).
 - **Landmarks:** `header`, `main` (Hero, Como funciona e Itens recentes são `section` com `aria-labelledby` do seu título), `footer`; link "Pular para o conteúdo" como primeiro foco.
 
 **Estados de "Itens recentes"** (a landing nunca fica quebrada por causa dessa faixa)
