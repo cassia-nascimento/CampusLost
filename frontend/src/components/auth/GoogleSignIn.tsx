@@ -24,10 +24,13 @@ const GENERIC_ERROR = "Não foi possível entrar com o Google. Tente de novo ou 
 export function GoogleSignIn({
   onPending,
   onNeedsTwoFactor,
+  mode = "signin",
 }: {
   onPending(pending: GooglePending): void;
   /** Conta com 2FA: recebe o desafio e a tela pede o código. */
   onNeedsTwoFactor(challengeToken: string): void;
+  /** Na tela de cadastro o botão diz "Cadastrar-se com o Google". */
+  mode?: "signin" | "signup";
 }) {
   const { signInWithGoogle } = useSession();
   const [sending, setSending] = useState(false);
@@ -52,7 +55,7 @@ export function GoogleSignIn({
   }
 
   return (
-    <section aria-label="Entrar com Google" className="flex flex-col gap-4">
+    <section aria-label={mode === "signup" ? "Cadastrar com Google" : "Entrar com Google"} className="flex flex-col gap-4">
       <div aria-hidden="true" className="flex items-center gap-3 text-meta text-ink-muted">
         <span className="h-px flex-1 bg-line" />
         ou
@@ -63,7 +66,7 @@ export function GoogleSignIn({
           {error}
         </Notice>
       ) : null}
-      <GoogleSignInButton clientId={CLIENT_ID} onCredential={(c) => void handleCredential(c)} />
+      <GoogleSignInButton clientId={CLIENT_ID} onCredential={(c) => void handleCredential(c)} mode={mode} />
       <p className="text-center text-meta text-ink-muted">
         Com e-mail institucional da UNDB, você escolhe aluno ou professor no primeiro acesso. Contas Google de
         outros domínios entram direto como comunidade externa.
@@ -72,7 +75,7 @@ export function GoogleSignIn({
         {sending ? (
           <>
             <Spinner className="size-4" />
-            Entrando com Google…
+            Continuando com Google…
           </>
         ) : null}
       </p>
