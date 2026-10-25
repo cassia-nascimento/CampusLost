@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Request, Response
 from sqlalchemy import delete, func, or_, select
 
-from .. import login_throttle
+from .. import audit, login_throttle
 from ..clock import to_iso
 from ..deps import ClockDep, CurrentUser, DbDep, LockDep, SettingsDep, client_ip
 from ..errors import ServiceError
@@ -94,6 +94,10 @@ def delete_my_account(
             )
             if (admins or 0) <= 1:
                 raise ServiceError("CONFLICT", "Você é a única conta de administração. Crie outra antes de excluir esta.")
+        audit.record(
+            db, instant, audit.ACCOUNT_DELETE, actor_id=user.id, target_type="user", target_id=user.id, ip=ip,
+            commit=False,
+        )
         _anonymize(db, user, instant)
         db.commit()
     out = Response(status_code=204)

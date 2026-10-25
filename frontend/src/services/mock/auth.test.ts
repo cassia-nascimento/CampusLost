@@ -5,7 +5,7 @@ import { hashPassword } from "./password";
 import { buildSeed, DB_VERSION, DEMO_PASSWORD, demoSalt } from "./seed";
 import { DB_KEY, MockStore } from "./store";
 import { createMemoryStorage } from "./storage";
-import { createHarness, expectCode, googleCredential, googleTicket, TEST_NOW } from "./test-utils";
+import { createHarness, expectCode, googleCredential, googleTicket, TEST_NOW, userOf } from "./test-utils";
 
 const PW = "senha-segura-1";
 const google = { email: "Ana.Lima@alunos.UNDB.edu.br", name: "  Ana Lima " };
@@ -15,7 +15,7 @@ describe("senha (P29)", () => {
     const h = createHarness();
     const u = await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true });
     await h.services.auth.signOut();
-    expect((await h.services.auth.signIn({ email: "CARLA@demo.test", password: PW })).id).toBe(u.id);
+    expect(userOf(await h.services.auth.signIn({ email: "CARLA@demo.test", password: PW })).id).toBe(u.id);
     expect((await h.services.auth.getCurrentUser())?.id).toBe(u.id);
   });
 
@@ -56,7 +56,7 @@ describe("senha (P29)", () => {
     expect(DEMO_PASSWORD).toBe("demonstracao123");
     const h = createHarness();
     for (const email of ["marina", "rafael", "admin", "lucas", "beatriz", "externo"]) {
-      const user = await h.services.auth.signIn({ email: `${email}@demo.test`, password: DEMO_PASSWORD });
+      const user = userOf(await h.services.auth.signIn({ email: `${email}@demo.test`, password: DEMO_PASSWORD }));
       expect(user.email).toBe(`${email}@demo.test`);
     }
     expect((await h.services.auth.signInAsDemo("admin")).role).toBe("admin");
@@ -66,12 +66,13 @@ describe("senha (P29)", () => {
     const db = buildSeed(TEST_NOW);
     expect(buildSeed(TEST_NOW).credentials).toEqual(db.credentials);
     expect(db.credentials).toHaveLength(db.users.length);
-    for (const c of db.credentials) {
-      expect(c.provider).toBe("password");
+    const withPassword = db.credentials.filter((c) => c.provider === "password");
+    expect(db.credentials.filter((c) => c.provider === "google").map((c) => c.userId)).toEqual(["user-tiago"]);
+    for (const c of withPassword) {
       expect(c.salt).toBe(demoSalt(c.userId));
       expect(await hashPassword(DEMO_PASSWORD, c.salt!, c.iterations)).toBe(c.hash);
     }
-    expect(new Set(db.credentials.map((c) => c.hash)).size).toBe(db.credentials.length);
+    expect(new Set(withPassword.map((c) => c.hash)).size).toBe(withPassword.length);
   });
 
   it("senha guardada só como hash com sal aleatório por usuário", async () => {
@@ -277,27 +278,27 @@ describe("Google institucional (P30)", () => {
     await h.services.auth.signOut();
     expect((await h.services.auth.signInWithGoogle(googleCredential(google))).status).toBe("signed_in");
     await h.services.auth.signOut();
-    expect((await h.services.auth.signIn({ email: google.email, password: PW })).email).toBe("ana.lima@alunos.undb.edu.br");
+    expect(userOf(await h.services.auth.signIn({ email: google.email, password: PW })).email).toBe("ana.lima@alunos.undb.edu.br");
   });
 });
 
 describe("migração DB_VERSION (P29/P30)", () => {
-  it("DB_VERSION é 4; v1/v2/v3 antigos são descartados e o seed novo traz credenciais", () => {
-    expect(DB_VERSION).toBe(4);
+  it("DB_VERSION é 5; v1/v2/v3 antigos são descartados e o seed novo traz credenciais", () => {
+    expect(DB_VERSION).toBe(5);
     const storage = createMemoryStorage();
     const { credentials: _c, ...legacy } = buildSeed(TEST_NOW);
     void _c;
     storage.setItem("campuslost:proto:v1:db", JSON.stringify({ ...legacy, version: 1 }));
     storage.setItem("campuslost:proto:v2:db", JSON.stringify({ ...legacy, version: 2 }));
     const db = new MockStore({ storage, now: () => TEST_NOW }).read();
-    expect(db.version).toBe(4);
+    expect(db.version).toBe(5);
     expect(db.tokens).toEqual([]);
     expect(db.credentials).toHaveLength(db.users.length);
     expect(storage.getItem("campuslost:proto:v1:db")).toBeNull();
     expect(storage.getItem("campuslost:proto:v2:db")).toBeNull();
   });
 
-  it("banco v4 sem `credentials` (adulterado) é descartado e regenerado", () => {
+  it("banco v5 sem `credentials` (adulterado) é descartado e regenerado", () => {
     const storage = createMemoryStorage();
     const { credentials: _c, ...broken } = buildSeed(TEST_NOW);
     void _c;

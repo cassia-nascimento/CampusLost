@@ -26,3 +26,14 @@ Atualizado pelo orquestrador ao fim de cada onda.
 - T10a (ce0e58a) alterou `lib/validation/{auth,item,photo}.ts` (dono: mock-engineer) apenas em textos de mensagens, com testes ajustados; T10b recebe permissão excepcional para `lib/validation/**` (limites exportados) e `services/index.ts`.
 - Adiados conscientemente (revisão T09a): M2 (extrair `ClaimRow`/`ItemMeta` e padronizar formato da data de envio), M5 (decisão de permissão da análise via `viewer.review` no contrato), sugestões 2, 3, 5, 6 e 8.
 - Limitação conhecida a constar no roteiro da demo (P18): excluir um item remove sem aviso a reivindicação pendente de quem a fez.
+
+## Decisões posteriores — 25/10/2026 (segurança e contas)
+
+Todas são **[Premissa]** do protótipo, a validar pela equipe (não são decisões aprovadas):
+
+- Novo papel **comunidade externa** (`external`), com as mesmas permissões de aluno/professor. Cadastro por senha (e-mail confirmado) ou Google (qualquer conta; domínio institucional escolhe aluno/professor).
+- E-mail precisa ser confirmado para cadastrar itens e reivindicar. Senha: mín. 10 caracteres, máx. 72 bytes, fora da lista de comuns.
+- Recuperação de senha por e-mail; sessões por cookie HttpOnly + refresh rotativo (backend); limite de tentativas de login no banco.
+- Administração: gestão de usuários, convites de administrador, auditoria e 2FA (TOTP) obrigatório para admin (exceto demonstração). 2FA sem QR code (segredo manual + link otpauth), para não adicionar dependência.
+- LGPD: aceite dos termos, exportar e excluir dados. `/privacidade` é **texto-modelo** com lacunas a preencher pela equipe.
+- Pendente de teste real: envio de e-mail, login Google, captcha (Turnstile). Hospedagem da API com disco persistente segue indefinida.

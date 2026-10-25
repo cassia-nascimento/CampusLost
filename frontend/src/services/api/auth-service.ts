@@ -1,11 +1,22 @@
+import type { TwoFactorChallenge } from "@/types/admin";
 import { isServiceError, ServiceError, type User, type UserRole } from "@/types/domain";
-import type { AuthService, DemoProfile, EmailDispatch, GoogleSignInResult, MyDataExport } from "../contracts";
+import type { TwoFactorEnabled, TwoFactorSetup } from "@/types/admin";
+import type { AuthService, DemoProfile, EmailDispatch, GoogleSignInResult, MyDataExport, SignInResult } from "../contracts";
 import type { HttpClient } from "./http";
 import { asArray, asRecord, type Mappers } from "./mappers";
 
 interface SessionJson {
   token: string;
   user: unknown;
+}
+
+function unexpected(what: string): ServiceError {
+  return new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", { cause: new Error(`Resposta inesperada da API: ${what}`) });
+}
+
+function challenge(raw: Record<string, unknown>): TwoFactorChallenge {
+  if (typeof raw.challengeToken !== "string" || !raw.challengeToken) throw unexpected("desafio de 2FA");
+  return { status: "needs_2fa", challengeToken: raw.challengeToken };
 }
 
 export function createAuthService(http: HttpClient, mappers: Mappers, changed: () => void): AuthService {
@@ -39,14 +50,45 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
       return adopt(await http.request("POST", "/auth/signup", { json: { ...rest, acceptTerms: acceptedTerms }, auth: false }));
     },
 
-    async signIn(input) {
-      return adopt(await http.request("POST", "/auth/login", { json: input, auth: false }));
+    async signIn(input): Promise<SignInResult> {
+      const raw = asRecord(await http.request("POST", "/auth/login", { json: input, auth: false }), "login");
+      if (raw.status === "needs_2fa") return challenge(raw);
+      return { status: "signed_in", user: adopt(raw) };
+    },
+
+    async verifyTwoFactor({ challengeToken, code, recoveryCode }) {
+      // Exatamente um dos dois vai no corpo (o backend dá prioridade a `recoveryCode` quando presente).
+      const json = recoveryCode?.trim() ? { challengeToken, recoveryCode } : { challengeToken, code };
+      return adopt(await http.request("POST", "/auth/2fa/verify", { json, auth: false }));
+    },
+
+    async setupTwoFactor(): Promise<TwoFactorSetup> {
+      const raw = asRecord(await http.request("POST", "/auth/2fa/setup"), "2FA");
+      if (typeof raw.secret !== "string" || typeof raw.otpauthUri !== "string") throw unexpected("2FA");
+      return { secret: raw.secret, otpauthUri: raw.otpauthUri };
+    },
+
+    async enableTwoFactor(code): Promise<TwoFactorEnabled> {
+      const raw = asRecord(await http.request("POST", "/auth/2fa/enable", { json: { code } }), "2FA");
+      changed();
+      return { recoveryCodes: asArray(raw.recoveryCodes, "recoveryCodes").filter((c): c is string => typeof c === "string") };
+    },
+
+    async disableTwoFactor({ password, code }) {
+      await http.request("POST", "/auth/2fa/disable", { json: password !== undefined && password !== "" ? { password, code } : { code } });
+      changed();
+    },
+
+    async acceptInvite({ token, name, password }) {
+      // `acceptedTerms` não vai: o convite não grava aceite de termos.
+      return adopt(await http.request("POST", "/auth/accept-invite", { json: { token, name, password }, auth: false }));
     },
 
     async signInWithGoogle(credential, options): Promise<GoogleSignInResult> {
       const json = options?.acceptedTerms ? { credential, acceptTerms: true } : { credential };
       const raw = asRecord(await http.request("POST", "/auth/google", { json, auth: false }), "Google");
       if (raw.status === "signed_in") return { status: "signed_in", user: adopt(raw) };
+      if (raw.status === "needs_2fa") return challenge(raw);
       const profile = asRecord(raw.profile, "perfil");
       if ((raw.status !== "needs_role" && raw.status !== "needs_terms") || typeof raw.profileToken !== "string" || typeof profile.email !== "string") {
         throw new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", { cause: new Error("resposta do Google") });

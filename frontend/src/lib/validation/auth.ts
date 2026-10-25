@@ -16,6 +16,9 @@ const email = requiredString("Informe seu e-mail.")
   .max(120, "Use no máximo 120 caracteres.")
   .pipe(z.email({ error: "Esse e-mail não parece válido. Use o formato nome@exemplo.com." }));
 
+/** Campos reutilizados por outros esquemas (administração). */
+export const emailField = email;
+
 export const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
 export const PASSWORD_MAX = PASSWORD_MAX_BYTES;
 
@@ -25,6 +28,8 @@ const newPassword = requiredString("Crie uma senha.")
   .min(PASSWORD_MIN, `Use pelo menos ${PASSWORD_MIN} caracteres.`)
   .refine((pw) => passwordByteLength(pw) <= PASSWORD_MAX, { error: PASSWORD_ISSUE_MESSAGE.too_long })
   .refine((pw) => passwordIssue(pw) !== "common", { error: PASSWORD_ISSUE_MESSAGE.common });
+
+export const newPasswordField = newPassword;
 
 /** Senha no login: só exige preenchimento (regras de tamanho não vazam o que é válido). */
 const loginPassword = requiredString("Informe sua senha.")

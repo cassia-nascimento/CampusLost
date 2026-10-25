@@ -5,9 +5,12 @@
 import {
   LayoutDashboard,
   ListChecks,
+  MailPlus,
   PackageCheck,
   Plus,
+  ScrollText,
   Search,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { hasCapability } from "@/lib/rules";
@@ -45,6 +48,23 @@ const RETURNS: NavItem = {
   fullLabel: "Devoluções",
   icon: PackageCheck,
 };
+
+/**
+ * Seções de gestão da administração. Ficam fora do BottomNav (já tem 4 itens) e do header (não cabem a 768 px):
+ * o Painel lista as três e cada uma tem a faixa `AdminSectionNav` para alternar entre elas.
+ */
+export interface AdminSection {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+export const ADMIN_SECTIONS: readonly AdminSection[] = [
+  { href: "/admin/usuarios", label: "Usuários", description: "Papéis e contas ativas.", icon: Users },
+  { href: "/admin/convites", label: "Convites", description: "Convide novas pessoas para a administração.", icon: MailPlus },
+  { href: "/admin/auditoria", label: "Auditoria", description: "Quem fez o quê e quando.", icon: ScrollText },
+];
 
 /** Itens do BottomNav (celular). Aluno/professor: 3; administração: 4. */
 export function getBottomNavItems(role: UserRole): NavItem[] {
@@ -133,6 +153,9 @@ const DETAIL_ROUTES: {
     back: (_, __, origin) => (origin?.startsWith("/itens/") ? origin : "/admin"),
   },
   { pattern: /^\/admin\/itens\/([^/]+)\/editar$/, title: "Editar item", back: (m) => `/itens/${m[1]}` },
+  { pattern: /^\/admin\/usuarios$/, title: "Usuários", back: () => "/admin" },
+  { pattern: /^\/admin\/convites$/, title: "Convites", back: () => "/admin" },
+  { pattern: /^\/admin\/auditoria$/, title: "Auditoria", back: () => "/admin" },
   { pattern: /^\/conta$/, title: "Minha conta", back: () => "/itens" },
   { pattern: /^\/privacidade$/, title: "Privacidade", back: () => "/itens" },
 ];

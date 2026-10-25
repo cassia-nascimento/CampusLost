@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { AdminTwoFactorNotice } from "@/components/account/TwoFactorNotice";
+import { adminNeedsTwoFactor } from "@/components/account/two-factor";
 import { Container } from "@/components/layout/Container";
+import { ADMIN_SECTIONS } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,6 +16,7 @@ import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ClaimStatusBadge } from "@/components/ui/StatusBadge";
 import { TabPanel, Tabs } from "@/components/ui/Tabs";
 import { useMinWidth } from "@/hooks/use-min-width";
+import { useSession } from "@/hooks/use-session";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { formatCount, formatRelativeInstant } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -45,10 +49,12 @@ async function loadDashboard(): Promise<DashboardData> {
 /** `/admin`: ponto de partida da administração (RF04/RF05, AC04.4). */
 export function AdminDashboard() {
   const query = useServiceQuery(loadDashboard);
+  const { user } = useSession();
 
   return (
     <Container size="admin">
       <PageHeader title="Painel" description="Analise as reivindicações e registre as devoluções." />
+      {user && adminNeedsTwoFactor(user) ? <AdminTwoFactorNotice withLink className="mb-6" /> : null}
       {query.status === "loading" ? <DashboardSkeleton /> : null}
       {query.status === "error" ? (
         <ErrorState title="Não conseguimos carregar o painel" onRetry={query.refetch}>
@@ -56,6 +62,7 @@ export function AdminDashboard() {
         </ErrorState>
       ) : null}
       {query.status === "success" && query.data ? <DashboardContent data={query.data} /> : null}
+      <ManagementLinks />
     </Container>
   );
 }
@@ -115,6 +122,34 @@ function DashboardContent({ data }: { data: DashboardData }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Atalhos para usuários, convites e auditoria (fora do BottomNav). */
+function ManagementLinks() {
+  return (
+    <section aria-labelledby="painel-gestao" className="mt-8">
+      <h2 id="painel-gestao" className="mb-3 text-h3">
+        Gestão
+      </h2>
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {ADMIN_SECTIONS.map(({ href, label, description, icon: Icon }) => (
+          <li key={href}>
+            <Link
+              href={href}
+              className="flex h-full touch-target items-center gap-3 rounded-lg bg-surface p-4 shadow-card transition-shadow hover:shadow-raised active:bg-paper"
+            >
+              <Icon aria-hidden="true" className="size-6 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{label}</span>
+                <span className="block text-meta text-ink-muted">{description}</span>
+              </span>
+              <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-primary" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

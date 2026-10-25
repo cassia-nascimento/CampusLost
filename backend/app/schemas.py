@@ -15,7 +15,8 @@ def user_json(u: UserRow) -> dict[str, Any]:
 
 def account_json(u: UserRow) -> dict[str, Any]:
     """Usuário da própria sessão: `User` + `emailVerified` (o cliente mostra o aviso de confirmação)."""
-    return {**user_json(u), "emailVerified": u.email_verified_at is not None, "hasPassword": u.password_hash is not None}
+    return {**user_json(u), "emailVerified": u.email_verified_at is not None, "hasPassword": u.password_hash is not None,
+            "twoFactorEnabled": u.totp_enabled_at is not None}
 
 
 def public_user_json(u: UserRow) -> dict[str, Any]:

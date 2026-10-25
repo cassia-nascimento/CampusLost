@@ -21,6 +21,8 @@ describe("permissões por papel (SPEC §2)", () => {
     ["delete_item", false, false, true],
     ["register_return", false, false, true],
     ["view_returns", false, false, true],
+    ["manage_users", false, false, true],
+    ["view_audit", false, false, true],
   ];
 
   it("cobre todas as capacidades declaradas", () => {

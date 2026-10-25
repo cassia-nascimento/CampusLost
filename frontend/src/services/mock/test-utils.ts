@@ -3,7 +3,8 @@ import type { Services } from "../contracts";
 import { createMockServices } from "./index";
 import { createMemoryStorage, type KeyValueStorage } from "./storage";
 import type { MockServicesOptions } from "./context";
-import type { GoogleProfile } from "../contracts";
+import type { GoogleProfile, GoogleSignInResult, SignInResult } from "../contracts";
+import type { User } from "@/types/domain";
 import { encodeGoogleTicket } from "./google";
 
 /** 19/10/2026 10:00 (hora local) — "hoje" fixo dos testes. */
@@ -45,6 +46,12 @@ export function createHarness(options: MockServicesOptions & { start?: Date } = 
     advance: (ms) => void (current = new Date(current.getTime() + ms)),
     clock: () => current,
   };
+}
+
+/** Usuário de um resultado `signed_in` (falha o teste se pediu 2FA ou outro passo). */
+export function userOf(result: SignInResult | GoogleSignInResult): User {
+  if (result.status !== "signed_in") throw new Error(`Esperava signed_in, recebeu ${result.status}`);
+  return result.user;
 }
 
 /** "ID token" falso aceito pelo verificador do harness. */

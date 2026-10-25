@@ -1,5 +1,6 @@
 import { ServiceError } from "@/types/domain";
 import type { Services } from "../contracts";
+import { createAdminService } from "./admin-service";
 import { createAuthService } from "./auth-service";
 import { createClaimService } from "./claim-service";
 import { createItemService } from "./item-service";
@@ -26,6 +27,7 @@ export function createApiServices(options: ApiServicesOptions): Services {
     items: createItemService(http, mappers, feed.notify),
     claims: createClaimService(http, mappers, feed.notify),
     returns: createReturnService(http, mappers, feed.notify),
+    admin: createAdminService(http, feed.notify),
     demo: {
       async reset() {
         try {

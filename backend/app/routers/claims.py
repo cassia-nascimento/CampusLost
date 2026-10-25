@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from .. import audit
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, find_item, require_session, require_user
+from ..deps import ClockDep, DbDep, LockDep, OptionalUser, client_ip, find_item, require_session, require_user
 from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow, UserRow
 from ..rules.claims import can_view_claim, review_claim, submit_claim
@@ -82,7 +83,7 @@ def get_claim(claim_id: str, db: DbDep, actor: OptionalUser):
     return _view(db, claim)
 
 
-def _decide(claim_id: str, decision: str, db, actor, now, lock) -> dict[str, Any]:
+def _decide(request: Request, claim_id: str, decision: str, db, actor, now, lock) -> dict[str, Any]:
     user = require_user(actor, "review_claims")
     with lock:
         target = db.get(ClaimRow, claim_id)
@@ -93,15 +94,20 @@ def _decide(claim_id: str, decision: str, db, actor, now, lock) -> dict[str, Any
             actor=user, item=item, item_claims=_item_claims(db, item.id),
             claim_id=claim_id, decision=decision, now=now(),
         )
+        audit.record(
+            db, now(), audit.CLAIM_ACCEPT if decision == "accept" else audit.CLAIM_REJECT, actor_id=user.id,
+            target_type="claim", target_id=claim_id, ip=client_ip(request),
+            metadata={"itemId": item.id, "autoRejected": len(result.auto_rejected_ids)}, commit=False,
+        )
         db.commit()
     return {"claim": claim_json(result.claim), "item": item_json(item), "autoRejectedIds": result.auto_rejected_ids}
 
 
 @router.post("/claims/{claim_id}/accept")
-def accept_claim(claim_id: str, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
-    return _decide(claim_id, "accept", db, actor, now, lock)
+def accept_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
+    return _decide(request, claim_id, "accept", db, actor, now, lock)
 
 
 @router.post("/claims/{claim_id}/reject")
-def reject_claim(claim_id: str, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
-    return _decide(claim_id, "reject", db, actor, now, lock)
+def reject_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
+    return _decide(request, claim_id, "reject", db, actor, now, lock)

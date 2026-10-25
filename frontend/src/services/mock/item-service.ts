@@ -13,6 +13,7 @@ import {
 } from "@/lib/rules";
 import { createItemSchema, itemFiltersSchema } from "@/lib/validation";
 import type { ItemDetail, ItemInput, ItemService, ItemView, PublicItemView } from "../contracts";
+import { recordAudit } from "./audit";
 import {
   findItem,
   findUser,
@@ -153,6 +154,12 @@ export function createItemService(ctx: MockContext): ItemService {
           const user = requireSession(db, actor);
           const item = findItem(db, id);
           assertAllowed(canDeleteItem(user, item));
+          recordAudit(ctx, db, {
+            actorId: user.id,
+            action: "item.delete",
+            target: ["item", id],
+            metadata: { title: item.title, status: item.status },
+          });
           db.items = db.items.filter((i) => i.id !== id);
           db.claims = db.claims.filter((c) => c.itemId !== id);
         });

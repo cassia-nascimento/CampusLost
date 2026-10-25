@@ -48,3 +48,19 @@ export function safeEqual(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+const DUMMY_SALT = "00".repeat(16);
+
+/**
+ * Confere a senha da conta no registro de credenciais. Sempre calcula um hash (mesmo sem conta ou sem senha)
+ * para não distinguir os casos pelo tempo. `false` para conta sem senha (só Google).
+ */
+export async function verifyAccountPassword(
+  credentials: readonly { userId: string; provider: string; salt?: string; hash?: string; iterations?: number }[],
+  userId: string | undefined,
+  password: string,
+): Promise<boolean> {
+  const cred = userId ? credentials.find((c) => c.userId === userId && c.provider === "password") : undefined;
+  const computed = await hashPassword(password, cred?.salt ?? DUMMY_SALT, cred?.iterations ?? PBKDF2_ITERATIONS);
+  return !!cred?.hash && safeEqual(computed, cred.hash);
+}

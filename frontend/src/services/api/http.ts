@@ -27,12 +27,16 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ServiceErrorCode>([
   "INVALID_CREDENTIALS",
   "FORBIDDEN_DOMAIN",
   "PHOTO_INVALID",
+  "ACCOUNT_DISABLED",
+  "TWO_FACTOR_REQUIRED",
   "STORAGE_FULL",
   "RATE_LIMITED",
   "NETWORK",
   "CONFLICT",
   "UNEXPECTED",
 ]);
+
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface HttpOptions {
   /** Endereço da API, sem barra final. */
@@ -60,7 +64,7 @@ export interface RequestOptions {
 export interface HttpClient {
   readonly baseUrl: string;
   /** `T` é o formato que o chamador espera; nada é validado em tempo de execução além do JSON. */
-  request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, options?: RequestOptions): Promise<T>;
+  request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
   getToken(): string | null;
   setToken(token: string): void;
   clearToken(): void;
@@ -172,7 +176,7 @@ export function createHttpClient(options: HttpOptions): HttpClient {
     }
   };
 
-  async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, opts: RequestOptions = {}): Promise<T> {
+  async function request<T>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
     const url = new URL(`${baseUrl}${path}`);
     for (const [key, value] of Object.entries(opts.query ?? {})) {
       if (value !== undefined && value !== "") url.searchParams.set(key, value);

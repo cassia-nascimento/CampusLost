@@ -16,7 +16,7 @@ from app.models import Base
 from tests.conftest import FIXED_NOW, Clock, make_settings
 
 BACKEND = Path(__file__).resolve().parent.parent
-EXPECTED_TABLES = {"users", "sessions", "email_tokens", "login_attempts", "items", "claims", "returns", "alembic_version"}
+EXPECTED_TABLES = {"users", "sessions", "email_tokens", "login_attempts", "items", "claims", "returns", "audit_log", "recovery_codes", "admin_invites", "alembic_version"}
 
 
 def alembic_config(url: str) -> Config:
@@ -69,4 +69,25 @@ def test_dev_and_test_still_use_create_all(tmp_path):
     create_app(make_settings(tmp_path, env="development", database_url=url), clock=Clock(FIXED_NOW))
     engine = create_engine(url)
     assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES - {"alembic_version"}
+    engine.dispose()
+
+
+def test_0002_upgrades_a_0001_database_keeping_users(tmp_path):
+    from sqlalchemy import text
+
+    url = f"sqlite:///{tmp_path / 'old.db'}"
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "0001")
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO users (id, name, email, role, provider, created_at, token_version) "
+            "VALUES ('u1', 'Antiga', 'antiga@exemplo.com', 'student', 'password', '2026-10-01 00:00:00', 0)"
+        ))
+    command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT email, disabled_at, totp_secret, totp_enabled_at FROM users")).one()
+    assert tuple(row) == ("antiga@exemplo.com", None, None, None)
+    command.downgrade(cfg, "0001")
+    assert "audit_log" not in inspect(engine).get_table_names()
     engine.dispose()

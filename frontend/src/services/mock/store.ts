@@ -46,7 +46,11 @@ function isDb(value: unknown): value is Db {
     Array.isArray(v.tokens) &&
     Array.isArray(v.items) &&
     Array.isArray(v.claims) &&
-    Array.isArray(v.returns)
+    Array.isArray(v.returns) &&
+    Array.isArray(v.accounts) &&
+    Array.isArray(v.twoFactor) &&
+    Array.isArray(v.invites) &&
+    Array.isArray(v.audit)
   );
 }
 

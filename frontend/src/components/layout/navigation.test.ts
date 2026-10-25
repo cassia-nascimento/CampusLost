@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_SECTIONS,
   getActiveHref,
   getBottomNavItems,
   getHeaderNavItems,
@@ -45,6 +46,8 @@ describe("item ativo", () => {
     expect(getActiveHref("admin", "/admin")).toBe("/admin");
     expect(getActiveHref("admin", "/admin/devolucoes")).toBe("/admin/devolucoes");
     expect(getActiveHref("admin", "/admin/reivindicacoes/x")).toBe("/admin");
+    // As seções de gestão não têm item próprio na navegação: o Painel continua ativo.
+    expect(getActiveHref("admin", "/admin/usuarios")).toBe("/admin");
   });
 
   it("sem correspondência, nenhum ativo", () => {
@@ -80,6 +83,18 @@ describe("cromo por rota", () => {
     });
     expect(showsBottomNav("/itens/novo")).toBe(false);
     expect(showsBottomNav("/itens/i1")).toBe(false);
+  });
+
+  it("seções de gestão da administração: título e voltar ao painel, sem BottomNav", () => {
+    const titles: Record<string, string> = {
+      "/admin/usuarios": "Usuários",
+      "/admin/convites": "Convites",
+      "/admin/auditoria": "Auditoria",
+    };
+    for (const [path, title] of Object.entries(titles)) {
+      expect(getRouteChrome(path, "?categoria=Chaves")).toEqual({ kind: "detail", title, backHref: "/admin" });
+      expect(showsBottomNav(path)).toBe(false);
+    }
   });
 
   it("minha conta e privacidade: voltar para os itens, sem BottomNav", () => {
@@ -161,5 +176,16 @@ describe("página de origem (?de=) no voltar", () => {
     expect(getRouteChrome("/itens/novo", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens" });
     expect(getRouteChrome("/itens/i1/reivindicar", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens/i1" });
     expect(getRouteChrome("/admin/itens/i1/editar", "", "/admin/devolucoes")).toMatchObject({ backHref: "/itens/i1" });
+  });
+});
+
+describe("seções de gestão", () => {
+  it("lista usuários, convites e auditoria, cada uma com rota de detalhe", () => {
+    expect(ADMIN_SECTIONS.map((s) => s.href)).toEqual(["/admin/usuarios", "/admin/convites", "/admin/auditoria"]);
+    for (const { href } of ADMIN_SECTIONS) expect(getRouteChrome(href).kind).toBe("detail");
+  });
+
+  it("o BottomNav da administração não cresce além de 4 itens", () => {
+    expect(getBottomNavItems("admin")).toHaveLength(4);
   });
 });

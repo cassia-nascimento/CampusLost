@@ -3,7 +3,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
-import type { DeleteAccountConfirmation, GoogleSignInResult, GoogleSignUpInput } from "@/services";
+import type { DeleteAccountConfirmation, GoogleSignInResult, GoogleSignUpInput, SignInResult } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
 import type { User, UserRole } from "@/types/domain";
 
@@ -13,13 +13,21 @@ export type SessionStatus = "loading" | "ready";
 export interface SessionValue {
   user: User | null;
   status: SessionStatus;
-  /** Entra com e-mail e senha. Lança `ServiceError` (`INVALID_CREDENTIALS`, `VALIDATION`). */
-  signIn(input: SignInValues): Promise<User>;
+  /**
+   * Entra com e-mail e senha. Lança `ServiceError` (`INVALID_CREDENTIALS`, `VALIDATION`). Conta com 2FA ligado devolve
+   * `needs_2fa` e NÃO abre sessão: a tela guarda o `challengeToken` e chama `verifyTwoFactor`.
+   */
+  signIn(input: SignInValues): Promise<SignInResult>;
+  /** Conclui o login com 2FA (código do aplicativo OU de recuperação) e abre a sessão. Lança `INVALID_CREDENTIALS`, `UNAUTHENTICATED`, `ACCOUNT_DISABLED`. */
+  verifyTwoFactor(input: { challengeToken: string; code?: string; recoveryCode?: string }): Promise<User>;
+  /** Aceita o convite de administração e abre a sessão. Lança `TOKEN_INVALID`, `VALIDATION`, `EMAIL_TAKEN`. */
+  acceptInvite(input: { token: string; name: string; password: string }): Promise<User>;
   /** Cria a conta com senha e abre a sessão. Lança `ServiceError` (`EMAIL_TAKEN`, `VALIDATION`). */
   signUp(input: SignUpValues): Promise<User>;
   /**
    * "Entrar com Google": recebe o ID token bruto (`credential`); o serviço o verifica no servidor. A sessão só é
-   * adotada quando o resultado é `signed_in`; em `needs_role` nada muda e a tela pede o papel (guardando o `ticket`).
+   * adotada quando o resultado é `signed_in`; em `needs_role`/`needs_terms` nada muda e a tela pede o papel (guardando
+   * o `ticket`); em `needs_2fa` a tela pede o código.
    * Lança `FORBIDDEN_DOMAIN`.
    */
   signInWithGoogle(credential: string): Promise<GoogleSignInResult>;
@@ -82,7 +90,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       status,
-      signIn: async (input) => adopt(await services.auth.signIn(input)),
+      signIn: async (input) => {
+        const result = await services.auth.signIn(input);
+        if (result.status === "signed_in") adopt(result.user);
+        return result;
+      },
+      verifyTwoFactor: async (input) => {
+        const verified = adopt(await services.auth.verifyTwoFactor(input));
+        // Relê a sessão: garante `twoFactorEnabled` mesmo que a resposta do login não o traga.
+        try {
+          const read = ++latestRead.current;
+          const current = await services.auth.getCurrentUser();
+          if (read === latestRead.current && current) setUser(current);
+        } catch {
+          // a sessão já está aberta; a leitura é só um reforço
+        }
+        return verified;
+      },
+      acceptInvite: async (input) => adopt(await services.auth.acceptInvite(input)),
       signUp: async (input) => adopt(await services.auth.signUp(input)),
       signInWithGoogle: async (credential) => {
         const result = await services.auth.signInWithGoogle(credential);

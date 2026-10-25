@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { Brand } from "@/components/layout/Brand";
+import { Notice } from "@/components/ui/Notice";
 import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
 import { DemoProfiles } from "./DemoProfiles";
 import { GoogleRoleStep } from "./GoogleRoleStep";
@@ -11,6 +12,7 @@ import { withNext } from "./next-param";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { useNextPath } from "./use-next-path";
 import { SignInForm } from "./SignInForm";
+import { TwoFactorStep } from "./TwoFactorStep";
 
 /** Painel de marca da tela de entrada (somente a partir de `lg`, DESIGN §9.1): o ciclo em quatro passos. */
 function BrandPanel() {
@@ -59,13 +61,29 @@ function BrandPanel() {
 function SignInContent() {
   const next = useNextPath();
   const [googlePending, setGooglePending] = useState<GooglePending | null>(null);
+  // Desafio do 2FA: só em memória, nunca em armazenamento nem na URL.
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [expiredNotice, setExpiredNotice] = useState<string | null>(null);
+  function startTwoFactor(token: string) {
+    setExpiredNotice(null);
+    setChallengeToken(token);
+  }
   return (
     <RedirectIfAuthenticated>
       <div className="grid flex-1 lg:grid-cols-2">
         <BrandPanel />
         <div className="flex flex-col px-gutter pt-6 pb-10 lg:justify-center lg:py-12">
           <div className="mx-auto flex w-full max-w-md flex-col gap-8">
-            {googlePending ? (
+            {challengeToken ? (
+              <TwoFactorStep
+                challengeToken={challengeToken}
+                onExpired={(message) => {
+                  setChallengeToken(null);
+                  setExpiredNotice(message);
+                }}
+                onCancel={() => setChallengeToken(null)}
+              />
+            ) : googlePending ? (
               <GoogleRoleStep pending={googlePending} onCancel={() => setGooglePending(null)} />
             ) : (
               <>
@@ -76,8 +94,13 @@ function SignInContent() {
                 </div>
 
                 <div className="flex flex-col gap-5">
-                  <SignInForm />
-                  <GoogleSignIn onPending={setGooglePending} />
+                  {expiredNotice ? (
+                    <Notice tone="warning" role="alert">
+                      {expiredNotice}
+                    </Notice>
+                  ) : null}
+                  <SignInForm onNeedsTwoFactor={startTwoFactor} />
+                  <GoogleSignIn onPending={setGooglePending} onNeedsTwoFactor={startTwoFactor} />
                 </div>
                 <DemoProfiles />
               </>

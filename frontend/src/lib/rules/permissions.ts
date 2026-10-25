@@ -11,7 +11,9 @@ export type Capability =
   | "edit_item"
   | "delete_item"
   | "register_return"
-  | "view_returns";
+  | "view_returns"
+  | "manage_users"
+  | "view_audit";
 
 const ALL: readonly UserRole[] = ["student", "teacher", "external", "admin"];
 /** Papéis comuns (não administrativos): aluno, professor e comunidade externa. */
@@ -29,6 +31,8 @@ export const PERMISSIONS: Readonly<Record<Capability, readonly UserRole[]>> = {
   delete_item: ADMIN,
   register_return: ADMIN,
   view_returns: ADMIN,
+  manage_users: ADMIN,
+  view_audit: ADMIN,
 };
 
 /** Capacidades abertas a visitantes (sem sessão): ver a lista e o detalhe dos itens (P26). */

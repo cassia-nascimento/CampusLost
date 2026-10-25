@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { DB_KEY } from "./store";
 import { DEMO_PASSWORD } from "./seed";
-import { createHarness, expectCode, validClaim, validItem, type Harness } from "./test-utils";
+import { createHarness, expectCode, validClaim, validItem, type Harness, userOf } from "./test-utils";
 
 const PW = "uma senha longa 1";
 const base = { name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student" as const, acceptedTerms: true as const };
@@ -120,7 +120,7 @@ describe("forgotPassword / resetPassword", () => {
     const token = tokenOf(devLink);
     await h.services.auth.resetPassword(token, "outra senha longa 2");
     await expectCode(h.services.auth.signIn({ email: base.email, password: PW }), "INVALID_CREDENTIALS");
-    expect((await h.services.auth.signIn({ email: base.email, password: "outra senha longa 2" })).email).toBe(base.email);
+    expect(userOf(await h.services.auth.signIn({ email: base.email, password: "outra senha longa 2" })).email).toBe(base.email);
     await expectCode(h.services.auth.resetPassword(token, "mais uma senha 33"), "TOKEN_INVALID");
   });
 
@@ -249,7 +249,7 @@ describe("exportMyData / deleteMyAccount", () => {
 describe("papel external (seed)", () => {
   it("externo@demo.test é verificado, tem perfil de demonstração e age como aluno/professor", async () => {
     const h = createHarness();
-    const user = await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD });
+    const user = userOf(await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD }));
     expect(user).toMatchObject({ role: "external", emailVerified: true });
     const created = await h.services.items.create(validItem);
     expect(created.createdById).toBe(user.id);

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -32,6 +32,13 @@ class UserRow(Base):
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # LGPD: conta anonimizada (a linha fica para preservar a integridade de itens/reivindicações).
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # B2: conta desativada pela administração (login recusado, sessões revogadas). Reversível.
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # B2: 2FA TOTP. O segredo (base32) fica em claro no banco (limitação documentada); só vale com `totp_enabled_at`.
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Último passo de 30 s aceito: um código TOTP não vale duas vezes.
+    totp_last_step: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class SessionRow(Base):
@@ -123,3 +130,46 @@ class ReturnRow(Base):
     returned_to_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     registered_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     returned_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+class AuditLogRow(Base):
+    """Trilha de auditoria (B2). Sem FK de propósito: o registro sobrevive à remoção do usuário.
+    `meta` nunca recebe senha, token, segredo ou código (ver `app/audit.py`)."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    target_type: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+
+
+class RecoveryCodeRow(Base):
+    """Código de recuperação do 2FA (uso único). Só o hash SHA-256 é guardado."""
+
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class AdminInviteRow(Base):
+    """Convite de administração (uso único, 48 h). Só o hash do token é guardado."""
+
+    __tablename__ = "admin_invites"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(120), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    invited_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
