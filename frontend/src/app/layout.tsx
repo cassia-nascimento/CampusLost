@@ -7,7 +7,8 @@ import { AppProviders } from "@/providers/AppProviders";
 
 export const metadata: Metadata = {
   title: { default: "CampusLost", template: "%s · CampusLost" },
-  description: "Achados e perdidos do campus.",
+  description:
+    "Achados e perdidos do campus: consulte os itens encontrados, reivindique o seu e acompanhe a devolução.",
   icons: { icon: "/brand/icon.svg" },
 };
 
