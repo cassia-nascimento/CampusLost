@@ -19,7 +19,8 @@ from .config import Settings, load_settings
 from .db import make_engine, make_session_factory
 from .errors import ServiceError
 from .models import Base
-from .routers import auth, catalog, claims, demo, items, returns
+from .mailer import Mailer, make_mailer
+from .routers import auth, catalog, claims, demo, items, me, returns
 from .security import RateLimiter
 from .seed import is_empty, seed_database
 
@@ -96,10 +97,14 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, wrapped)
 
 
-def create_app(settings: Settings | None = None, clock: Callable[[], datetime] | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, clock: Callable[[], datetime] | None = None, mailer: Mailer | None = None
+) -> FastAPI:
     settings = settings or load_settings()
     engine = make_engine(settings)
-    Base.metadata.create_all(engine)
+    if not settings.is_production:
+        # Dev/testes: cria as tabelas na hora. Em produção o esquema vem só do Alembic (`alembic upgrade head`).
+        Base.metadata.create_all(engine)
     session_factory = make_session_factory(engine)
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +114,10 @@ def create_app(settings: Settings | None = None, clock: Callable[[], datetime] |
     app.state.session_factory = session_factory
     app.state.clock = clock or utc_now
     app.state.write_lock = threading.RLock()
-    app.state.limiter = RateLimiter(settings.login_rate_limit, settings.login_rate_window_seconds)
+    app.state.mailer = mailer or make_mailer(settings)
+    # Só para rotas de e-mail/medidor de senha, por IP (memória, 1 processo). O limite de LOGIN fica no banco.
+    app.state.mail_limiter = RateLimiter(auth.MAIL_IP_LIMIT, 3600)
+    app.state.strength_limiter = RateLimiter(auth.STRENGTH_IP_LIMIT, 3600)  # medidor chamado enquanto a pessoa digita
 
     if settings.seed_on_startup and settings.demo_mode:
         with session_factory() as s:
@@ -124,8 +132,8 @@ def create_app(settings: Settings | None = None, clock: Callable[[], datetime] |
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
-        allow_credentials=False,
+        allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+        allow_credentials=True,  # cookies de sessão (origens explícitas, nunca "*")
     )
 
     @app.exception_handler(ServiceError)
@@ -165,7 +173,7 @@ def create_app(settings: Settings | None = None, clock: Callable[[], datetime] |
     def health():
         return {"status": "ok"}
 
-    for r in (auth.router, catalog.router, items.router, claims.router, returns.router, demo.router):
+    for r in (auth.router, me.router, catalog.router, items.router, claims.router, returns.router, demo.router):
         app.include_router(r)
 
     app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")

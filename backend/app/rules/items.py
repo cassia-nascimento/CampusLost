@@ -6,7 +6,7 @@ from typing import Any
 from ..models import ItemRow
 from .decision import ALLOW, Decision, deny
 from .item_status import is_item_locked
-from .permissions import has_capability
+from .permissions import email_not_verified, has_capability
 
 
 def is_visible_in_search(item: ItemRow) -> bool:
@@ -18,7 +18,7 @@ def can_register_item(actor: Any) -> Decision:
     if actor is None:
         return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.")
     if has_capability(actor, "register_item"):
-        return ALLOW
+        return email_not_verified(actor) or ALLOW
     return deny("FORBIDDEN", "Você não tem permissão para registrar itens.")
 
 

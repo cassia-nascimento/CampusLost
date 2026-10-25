@@ -12,6 +12,7 @@ from app.errors import ServiceError
 from app.models import UserRow
 from app.rules.google import is_allowed_google_email, parse_allowed_domains
 from app.security import create_profile_token
+from tests.conftest import extract_token
 
 CLIENT_ID = "test-client-id.apps.googleusercontent.com"
 
@@ -55,7 +56,7 @@ def test_new_account_needs_role_then_complete(client, fake_google, app):
     assert "token" not in body
     with app.state.session_factory() as s:  # nada foi criado ainda
         assert s.scalar(select(UserRow).where(UserRow.email == "ana.souza@undb.edu.br")) is None
-    done = client.post("/auth/google/complete", json={"profileToken": body["profileToken"], "role": "teacher"})
+    done = client.post("/auth/google/complete", json={"profileToken": body["profileToken"], "role": "teacher", "acceptTerms": True})
     assert done.status_code == 201
     assert done.json()["user"]["role"] == "teacher" and done.json()["user"]["email"] == "ana.souza@undb.edu.br"
     me = client.get("/auth/me", headers={"Authorization": f"Bearer {done.json()['token']}"})
@@ -63,13 +64,15 @@ def test_new_account_needs_role_then_complete(client, fake_google, app):
     with app.state.session_factory() as s:
         row = s.scalar(select(UserRow).where(UserRow.email == "ana.souza@undb.edu.br"))
         assert row.password_hash is None and row.provider == "google"
+        assert row.email_verified_at is not None and row.terms_accepted_at is not None  # Google nasce verificada
     # a conta Google não tem senha: login por senha dá o erro único
     bad = client.post("/auth/login", json={"email": "ana.souza@undb.edu.br", "password": "qualquer-coisa-1"})
     assert bad.status_code == 401 and bad.json()["code"] == "INVALID_CREDENTIALS"
 
 
-def test_existing_account_signs_in_directly(client, fake_google):
-    client.post("/auth/signup", json={"name": "Ana Souza", "email": "ana.souza@undb.edu.br", "password": "senha-forte-1", "role": "student"})
+def test_existing_verified_account_signs_in_directly(client, fake_google, mailbox):
+    client.post("/auth/signup", json={"name": "Ana Souza", "email": "ana.souza@undb.edu.br", "password": "senha-forte-1", "role": "student", "acceptTerms": True})
+    assert client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])}).status_code == 200
     r = post(client)
     assert r.status_code == 200
     body = r.json()
@@ -78,31 +81,35 @@ def test_existing_account_signs_in_directly(client, fake_google):
 
 def test_second_complete_is_email_taken(client, fake_google):
     ptoken = post(client).json()["profileToken"]
-    assert client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student"}).status_code == 201
-    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student"})
+    assert client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student", "acceptTerms": True}).status_code == 201
+    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student", "acceptTerms": True})
     assert r.status_code == 409 and r.json()["code"] == "EMAIL_TAKEN"
 
 
 @pytest.mark.parametrize(
     "email",
-    [
-        "aluno@gmail.com",
-        "aluno@evilundb.edu.br",
-        "aluno@undb.edu.br.evil.com",
-        "aluno@undb.edu.brx.com",
-        "aluno@evil.com@undb.edu.br",
-        "aluno@@undb.edu.br",
-        "aluno@undb.edu.br.",
-        "aluno@-undb.edu.br",
-        "undb.edu.br",
-        "aluno@edu.br",
-    ],
+    ["aluno@gmail.com", "aluno@evilundb.edu.br", "aluno@undb.edu.br.evil.com", "aluno@undb.edu.brx.com", "aluno@edu.br"],
 )
-def test_other_domains_refused(client, fake_google, email):
+def test_non_institutional_google_email_is_external_not_student(client, fake_google, email, app):
+    """Domínio parecido com o institucional NÃO vira aluno/professor: vira comunidade externa (e só com aceite)."""
+    fake_google["response"] = tokeninfo(email=email)
+    first = post(client).json()
+    assert first["status"] == "needs_terms" and first["profile"]["email"] == email and "token" not in first
+    with app.state.session_factory() as s:
+        assert s.scalar(select(UserRow).where(UserRow.email == email)) is None  # nada criado sem aceite
+    r = client.post("/auth/google", json={"credential": "x", "acceptTerms": True})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "signed_in" and body["user"]["role"] == "external" and body["user"]["emailVerified"] is True
+    again = post(client).json()  # segunda vez: conta existe, entra direto
+    assert again["status"] == "signed_in" and again["user"]["id"] == body["user"]["id"]
+
+
+@pytest.mark.parametrize("email", ["aluno@evil.com@undb.edu.br", "aluno@@undb.edu.br", "aluno@undb.edu.br.", "aluno@-undb.edu.br", "undb.edu.br"])
+def test_malformed_google_email_refused(client, fake_google, email):
     fake_google["response"] = tokeninfo(email=email)
     r = post(client)
-    assert r.status_code == 403
-    assert r.json() == {"code": "FORBIDDEN_DOMAIN", "message": "Use o e-mail institucional da UNDB."}
+    assert r.status_code == 401 and r.json()["code"] == "UNAUTHENTICATED"
 
 
 @pytest.mark.parametrize("email", ["a@undb.edu.br", "A@UNDB.EDU.BR", "aluno@alunos.undb.edu.br", "x@a.b.undb.edu.br"])
@@ -129,7 +136,7 @@ def test_custom_allowed_domains(tmp_path, clock, fake_google):
 
     s = make_settings(tmp_path, google_allowed_domains=("outra.edu.br",))
     with TestClient(create_app(s, clock=clock)) as c:
-        assert post(c).status_code == 403  # undb não está mais na lista
+        assert post(c).json()["status"] == "needs_terms"  # undb não está mais na lista: vira externo, não aluno
         fake_google["response"] = tokeninfo(email="x@outra.edu.br")
         assert post(c).json()["status"] == "needs_role"
 
@@ -194,7 +201,7 @@ def test_missing_or_bad_credential_is_validation(client, fake_google):
 
 
 def test_complete_requires_valid_profile_token(client, fake_google, settings):
-    payload = {"role": "student"}
+    payload = {"role": "student", "acceptTerms": True}
     assert client.post("/auth/google/complete", json=payload).status_code == 401
     assert client.post("/auth/google/complete", json={**payload, "profileToken": "lixo"}).status_code == 401
     good = create_profile_token(settings, "ana@undb.edu.br", "Ana Souza")
@@ -222,11 +229,17 @@ def test_profile_token_lasts_ten_minutes(settings):
 def test_complete_validates_role_and_domain(client, fake_google, settings):
     ptoken = post(client).json()["profileToken"]
     for role in ("admin", "", None, "visitante"):
-        r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": role})
+        r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": role, "acceptTerms": True})
         assert r.status_code == 422 and r.json()["fieldErrors"]["role"] == "Escolha se você é aluno ou professor."
+    # "external" não é escolha do fluxo institucional; e sem aceite dos termos não cria conta
+    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "external", "acceptTerms": True})
+    assert r.status_code == 422 and "role" in r.json()["fieldErrors"]
+    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student"})
+    assert r.status_code == 422 and "acceptTerms" in r.json()["fieldErrors"]
+    # e-mail fora do domínio: o papel é sempre `external`, qualquer que seja o enviado
     outside = create_profile_token(settings, "x@gmail.com", "Fulano")
-    r = client.post("/auth/google/complete", json={"profileToken": outside, "role": "student"})
-    assert r.status_code == 403 and r.json()["code"] == "FORBIDDEN_DOMAIN"
+    r = client.post("/auth/google/complete", json={"profileToken": outside, "role": "teacher", "acceptTerms": True})
+    assert r.status_code == 201 and r.json()["user"]["role"] == "external"
 
 
 def test_google_name_fallback_to_email_local_part(client, fake_google):

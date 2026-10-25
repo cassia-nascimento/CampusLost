@@ -46,7 +46,7 @@ def _list(value: str | None, default: tuple[str, ...]) -> tuple[str, ...]:
 @dataclass(frozen=True)
 class Settings:
     env: str = "development"
-    secret_key: str = DEV_INSECURE_SECRET
+    secret_key: str = field(default=DEV_INSECURE_SECRET, repr=False)
     access_token_expire_minutes: int = 480
     database_url: str = f"sqlite:///{BACKEND_DIR / 'data' / 'campuslost.db'}"
     uploads_dir: Path = BACKEND_DIR / "uploads"
@@ -62,10 +62,37 @@ class Settings:
     bcrypt_rounds: int = 12
     profile_token_minutes: int = 10
     google_tokeninfo_url: str = "https://oauth2.googleapis.com/tokeninfo"
+    # Sessões por cookie (B1/6): acesso curto + refresh rotativo.
+    cookie_access_minutes: int = 15
+    refresh_days: int = 7
+    cookie_secure: bool | None = None  # None: Secure em tudo que não for development/test
+    # E-mail (B1/3). `console` imprime o link no log (só dev); `smtp` envia de verdade.
+    mail_backend: str = "console"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = field(default="", repr=False)
+    smtp_from: str = ""
+    app_base_url: str = "http://localhost:3000"
+    verify_token_hours: int = 24
+    reset_token_minutes: int = 60
+    email_token_hourly_limit: int = 3  # tokens de e-mail por usuário/finalidade por hora
+    # Limite de login persistido (B1/7)
+    login_failure_decay_seconds: int = 900
+    login_lock_max_seconds: int = 3600
+    turnstile_secret: str = field(default="", repr=False)  # vazio = captcha desligado
+    turnstile_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    terms_version: str = "2026-10"
 
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+    @property
+    def use_secure_cookies(self) -> bool:
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        return self.env not in ("development", "test")
 
     @property
     def tz(self) -> tzinfo:
@@ -104,6 +131,16 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
     demo_mode = _bool(environ.get("DEMO_MODE"), default=not production)
     database_url = (environ.get("DATABASE_URL") or "").strip() or Settings.database_url
     uploads = (environ.get("UPLOADS_DIR") or "").strip()
+    mail_backend = (environ.get("MAIL_BACKEND") or ("smtp" if production else "console")).strip().lower()
+    if mail_backend not in ("console", "smtp"):
+        raise ConfigError("MAIL_BACKEND deve ser 'console' ou 'smtp'.")
+    smtp_host = (environ.get("SMTP_HOST") or "").strip()
+    smtp_from = (environ.get("SMTP_FROM") or "").strip()
+    if production and mail_backend == "console":
+        raise ConfigError("MAIL_BACKEND=console imprime links de acesso no log e não é permitido em produção.")
+    if mail_backend == "smtp" and (not smtp_host or not smtp_from):
+        raise ConfigError("MAIL_BACKEND=smtp exige SMTP_HOST e SMTP_FROM.")
+    secure_raw = environ.get("COOKIE_SECURE")
     return Settings(
         env=env,
         secret_key=secret,
@@ -120,6 +157,18 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
         login_rate_window_seconds=_int(environ.get("LOGIN_RATE_WINDOW_SECONDS"), 60),
         max_body_bytes=_int(environ.get("MAX_BODY_BYTES"), 11 * 1024 * 1024),
         bcrypt_rounds=_int(environ.get("BCRYPT_ROUNDS"), 12),
+        cookie_access_minutes=_int(environ.get("COOKIE_ACCESS_MINUTES"), 15),
+        refresh_days=_int(environ.get("REFRESH_DAYS"), 7),
+        cookie_secure=None if secure_raw in (None, "") else _bool(secure_raw, True),
+        mail_backend=mail_backend,
+        smtp_host=smtp_host,
+        smtp_port=_int(environ.get("SMTP_PORT"), 587),
+        smtp_user=(environ.get("SMTP_USER") or "").strip(),
+        smtp_password=environ.get("SMTP_PASSWORD") or "",
+        smtp_from=smtp_from,
+        app_base_url=(environ.get("APP_BASE_URL") or "http://localhost:3000").strip().rstrip("/"),
+        turnstile_secret=(environ.get("TURNSTILE_SECRET") or "").strip(),
+        terms_version=(environ.get("TERMS_VERSION") or "2026-10").strip(),
     )
 
 

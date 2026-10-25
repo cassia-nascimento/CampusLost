@@ -12,10 +12,12 @@ from sqlalchemy.orm import Session
 
 from .config import Settings
 from .errors import ServiceError
-from .models import UserRow
+from .mailer import Mailer
+from .models import SessionRow, UserRow
 from .rules.decision import assert_allowed
 from .rules.permissions import check_capability
-from .security import ACCESS, RateLimiter, decode_token
+from .security import ACCESS, decode_token
+from .session_service import ACCESS_COOKIE
 
 
 def get_settings(request: Request) -> Settings:
@@ -35,35 +37,86 @@ def get_write_lock(request: Request) -> threading.RLock:
     return request.app.state.write_lock
 
 
-def get_limiter(request: Request) -> RateLimiter:
-    return request.app.state.limiter
+def get_mailer(request: Request) -> Mailer:
+    return request.app.state.mailer
+
+
+def client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbDep = Annotated[Session, Depends(get_db)]
 ClockDep = Annotated[Callable[[], datetime], Depends(get_now)]
 LockDep = Annotated[threading.RLock, Depends(get_write_lock)]
+MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 
 EXPIRED = "Sua sessão expirou. Entre novamente."
 
 
-def optional_user(request: Request, settings: SettingsDep, db: DbDep) -> UserRow | None:
-    """Usuário do `Authorization: Bearer`. Sem cabeçalho: `None` (visitante).
-    Token presente mas inválido/expirado/de usuário inexistente: 401 (o cliente deve descartar a sessão)."""
-    header = request.headers.get("authorization")
-    if header is None:
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+CSRF_MESSAGE = "Requisição recusada por segurança. Recarregue a página e tente novamente."
+
+
+def check_csrf(request: Request, settings: Settings) -> None:
+    """Autenticação por cookie + método mutável: exige o cabeçalho `X-Requested-With` (um formulário ou
+    `<img>` de outro site não consegue defini-lo; `fetch` de outra origem dispara preflight, que o CORS
+    restrito recusa) e, se houver `Origin`, que seja uma origem permitida."""
+    if request.method in SAFE_METHODS:
+        return
+    if not request.headers.get("x-requested-with", "").strip():
+        raise ServiceError("CSRF_FAILED", CSRF_MESSAGE)
+    origin = request.headers.get("origin")
+    if origin is not None and origin not in settings.cors_origins:
+        raise ServiceError("CSRF_FAILED", CSRF_MESSAGE)
+
+
+def user_from_claims(db: Session, claims: dict, now: datetime) -> UserRow | None:
+    """Usuário do token, ou `None` se removido/anonimizado, se a senha foi redefinida depois (`tv`) ou se a
+    sessão (`sid`) foi revogada/expirou. Tokens sem `sid` (emitidos antes das sessões) só valem pela assinatura."""
+    user = db.get(UserRow, claims.get("sub"))
+    if user is None or user.deleted_at is not None:
         return None
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        raise ServiceError("UNAUTHENTICATED", EXPIRED)
-    claims = decode_token(settings, token.strip(), ACCESS)
-    if not claims or not isinstance(claims.get("sub"), str):
-        raise ServiceError("UNAUTHENTICATED", EXPIRED)
-    user = db.get(UserRow, claims["sub"])
-    if user is None:
-        raise ServiceError("UNAUTHENTICATED", EXPIRED)
+    if claims.get("tv", 0) != user.token_version:
+        return None
+    sid = claims.get("sid")
+    if sid is not None:
+        sess = db.get(SessionRow, sid)
+        if sess is None or sess.user_id != user.id or sess.revoked_at is not None or sess.expires_at <= now:
+            return None
     return user
+
+
+def optional_user(request: Request, settings: SettingsDep, db: DbDep, now: ClockDep) -> UserRow | None:
+    """Usuário autenticado ou `None` (visitante).
+
+    1. `Authorization: Bearer` (precede o cookie; imune a CSRF). Presente mas inválido/expirado/revogado: 401
+       (o cliente deve descartar a sessão).
+    2. Cookie `cl_access` (HttpOnly). Inválido/expirado: tratado como visitante (listagens públicas continuam
+       funcionando; `/auth/me` e as rotas protegidas respondem 401 e o cliente chama `/auth/refresh`).
+       Métodos mutáveis exigem proteção CSRF (`check_csrf`)."""
+    header = request.headers.get("authorization")
+    if header is not None:
+        scheme, _, token = header.partition(" ")
+        if scheme.lower() != "bearer" or not token.strip():
+            raise ServiceError("UNAUTHENTICATED", EXPIRED)
+        claims = decode_token(settings, token.strip(), ACCESS)
+        if not claims or not isinstance(claims.get("sub"), str):
+            raise ServiceError("UNAUTHENTICATED", EXPIRED)
+        user = user_from_claims(db, claims, now())
+        if user is None:
+            raise ServiceError("UNAUTHENTICATED", EXPIRED)
+        return user
+    cookie = request.cookies.get(ACCESS_COOKIE)
+    if cookie:
+        claims = decode_token(settings, cookie, ACCESS)
+        if claims and isinstance(claims.get("sub"), str):
+            user = user_from_claims(db, claims, now())
+            if user is not None:
+                check_csrf(request, settings)
+                return user
+    return None
 
 
 OptionalUser = Annotated[UserRow | None, Depends(optional_user)]

@@ -11,7 +11,7 @@ from app.models import UserRow
 from app.security import RateLimiter, create_profile_token
 from tests.conftest import DEMO_PASSWORD, Clock, FIXED_NOW, make_settings
 
-SIGNUP = {"name": "Joana Silva", "email": "Joana@Exemplo.com", "password": "senha-forte-1", "role": "student"}
+SIGNUP = {"name": "Joana Silva", "email": "Joana@Exemplo.com", "password": "senha-forte-1", "role": "student", "acceptTerms": True}
 INVALID_MSG = "E-mail ou senha incorretos."
 
 
@@ -25,7 +25,8 @@ def test_signup_creates_account_and_session(client):
     body = r.json()
     assert body["user"]["email"] == "joana@exemplo.com"  # normalizado
     assert body["user"]["role"] == "student"
-    assert set(body["user"]) == {"id", "name", "email", "role"}
+    assert set(body["user"]) == {"id", "name", "email", "role", "emailVerified", "hasPassword"}
+    assert body["user"]["emailVerified"] is False
     assert body["tokenType"] == "bearer" and body["expiresAt"].endswith("Z")
     me = client.get("/auth/me", headers=bearer(body["token"]))
     assert me.status_code == 200 and me.json() == body["user"]
@@ -33,7 +34,7 @@ def test_signup_creates_account_and_session(client):
 
 def test_password_hash_is_never_returned(client):
     r = client.post("/auth/signup", json=SIGNUP)
-    assert "$2" not in r.text and "password" not in r.text.lower().replace("tokentype", "")
+    assert "$2" not in r.text and "password" not in r.text.lower().replace("tokentype", "").replace("haspassword", "")
     h = {"Authorization": f"Bearer {r.json()['token']}"}
     for path in ("/auth/me", "/items", "/items/item-01"):
         assert "$2b$" not in client.get(path, headers=h).text
@@ -63,7 +64,7 @@ def test_signup_cannot_create_admin_or_unknown_role(client):
     for role in ("admin", "root", None, ""):
         r = client.post("/auth/signup", json={**SIGNUP, "role": role})
         assert r.status_code == 422
-        assert r.json()["fieldErrors"]["role"] == "Escolha se você é aluno ou professor."
+        assert r.json()["fieldErrors"]["role"] == "Escolha se você é aluno, professor ou da comunidade externa."
 
 
 @pytest.mark.parametrize(
@@ -74,10 +75,11 @@ def test_signup_cannot_create_admin_or_unknown_role(client):
         ({"name": "x" * 81}, "name", "Use no máximo 80 caracteres."),
         ({"email": "sem-arroba"}, "email", "Esse e-mail não parece válido. Use o formato nome@exemplo.com."),
         ({"email": ""}, "email", "Informe seu e-mail."),
-        ({"password": "curta"}, "password", "Use pelo menos 8 caracteres."),
+        ({"password": "curta"}, "password", "Use pelo menos 10 caracteres."),
         ({"password": ""}, "password", "Crie uma senha."),
         ({"password": "x" * 73}, "password", "Use no máximo 72 caracteres."),
-        ({"password": "é" * 40}, "password", "Use no máximo 72 caracteres."),  # 80 bytes: bcrypt truncaria
+        # 40 caracteres, mas 80 bytes: o bcrypt truncaria em silêncio; recusamos com mensagem clara
+        ({"password": "é" * 40}, "password", "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."),
     ],
 )
 def test_signup_validation_messages(client, payload, field, message):
@@ -88,14 +90,15 @@ def test_signup_validation_messages(client, payload, field, message):
 
 
 def test_signup_boundaries_ok(client):
-    r = client.post("/auth/signup", json={**SIGNUP, "name": "Jo", "password": "x" * 72})
+    r = client.post("/auth/signup", json={**SIGNUP, "name": "Jo", "password": "aB3$" * 18})  # 72 bytes
     assert r.status_code == 201
-    assert client.post("/auth/signup", json={**SIGNUP, "email": "b@exemplo.com", "password": "x" * 8}).status_code == 201
+    assert client.post("/auth/signup", json={**SIGNUP, "email": "b@exemplo.com", "password": "Zq7!mK2#xP"}).status_code == 201  # 10
+    assert client.post("/auth/signup", json={**SIGNUP, "email": "c@exemplo.com", "password": "Zq7!mK2#x"}).status_code == 422  # 9
 
 
 def test_signup_missing_fields_and_bad_json(client):
     r = client.post("/auth/signup", json={})
-    assert r.status_code == 422 and set(r.json()["fieldErrors"]) == {"name", "email", "password", "role"}
+    assert r.status_code == 422 and set(r.json()["fieldErrors"]) == {"name", "email", "password", "role", "acceptTerms"}
     r = client.post("/auth/signup", content=b"not json", headers={"Content-Type": "application/json"})
     assert r.status_code == 422 and r.json()["code"] == "VALIDATION"
 

@@ -8,11 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.mailer import MemoryMailer
 from app.main import create_app
 
 # Quarta-feira, 22/10/2026 15:00 UTC (12:00 em Fortaleza). Relógio fixo ⇒ seed determinístico.
 FIXED_NOW = datetime(2026, 10, 22, 15, 0, 0)
-DEMO_PASSWORD = "demo12345"
+DEMO_PASSWORD = "demonstracao123"
 
 
 class Clock:
@@ -55,8 +56,13 @@ def settings(tmp_path) -> Settings:
 
 
 @pytest.fixture
-def app(settings, clock):
-    return create_app(settings, clock=clock)
+def mailbox() -> MemoryMailer:
+    return MemoryMailer()
+
+
+@pytest.fixture
+def app(settings, clock, mailbox):
+    return create_app(settings, clock=clock, mailer=mailbox)
 
 
 @pytest.fixture
@@ -68,6 +74,7 @@ def client(app):
 def login(client: TestClient, role: str) -> dict[str, str]:
     r = client.post(f"/demo/login/{role}")
     assert r.status_code == 200, r.text
+    client.cookies.clear()  # os testes autenticam por Bearer; cookies deixariam chamadas "de visitante" logadas
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
@@ -89,6 +96,7 @@ def admin(client):
 def password_login(client: TestClient, email: str) -> dict[str, str]:
     r = client.post("/auth/login", json={"email": email, "password": DEMO_PASSWORD})
     assert r.status_code == 200, r.text
+    client.cookies.clear()
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
@@ -105,3 +113,12 @@ ITEM_FORM = {
     "foundDate": "2026-10-21",
     "storedAt": "Portaria",
 }
+
+
+def extract_token(message) -> str:
+    """Token em claro do link enviado por e-mail (`?token=...`)."""
+    import re
+
+    m = re.search(r"token=([A-Za-z0-9_\-]+)", message.link or message.text)
+    assert m, message
+    return m.group(1)

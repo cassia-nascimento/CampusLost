@@ -8,6 +8,7 @@ httpx==0.28.1
 python-multipart==0.0.32
 python-dotenv==1.2.4
 tzdata==2026.5
+alembic==1.20.1
 
 # Testes
 pytest==9.1.1

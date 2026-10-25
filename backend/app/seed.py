@@ -19,13 +19,13 @@ from sqlalchemy.orm import Session
 
 from .clock import add_days_str, local_today, trunc_ms, utc_now
 from .config import Settings, load_settings
-from .models import Base, ClaimRow, ItemRow, ReturnRow, UserRow
+from .models import Base, ClaimRow, EmailTokenRow, ItemRow, LoginAttemptRow, ReturnRow, SessionRow, UserRow
 from .photos import install_seed_images, purge_uploaded_photos
 from .security import hash_password
 
 log = logging.getLogger("campuslost.seed")
 
-DEMO_PASSWORD = "demo12345"  # NÃO é segredo: senha pública das contas @demo.test
+DEMO_PASSWORD = "demonstracao123"  # NÃO é segredo: senha pública das contas @demo.test
 DEMO_DATA_NOTICE = "Dados fictícios de demonstração (pessoas, itens e locais); não representam o campus real."
 
 DEMO_PROFILE_IDS = {"student": "user-marina", "teacher": "user-rafael", "admin": "user-admin"}
@@ -42,6 +42,8 @@ USERS = [
     # Usuários de apoio (autores de reivindicações); não são atalhos de demonstração.
     ("user-lucas", "Lucas Prado", "lucas@demo.test", "student"),
     ("user-beatriz", "Beatriz Nunes", "beatriz@demo.test", "student"),
+    # Comunidade externa (sem vínculo institucional); não é atalho de demonstração.
+    ("user-externo", "Visitante Externo", "externo@demo.test", "external"),
 ]
 
 # (n, createdHoursAgo, foundDaysAgo, title, photo, description, category, foundLocation, storedAt, status, createdById)
@@ -92,14 +94,25 @@ def seed_database(session: Session, settings: Settings, now=None) -> None:
     at = lambda hours_ago: now - timedelta(hours=hours_ago)  # noqa: E731
     pw_hash = _demo_hash(settings.bcrypt_rounds)
 
-    for model in (ReturnRow, ClaimRow, ItemRow, UserRow):
+    # Sessões das contas de demonstração sobrevivem ao reset (quem está logado como perfil demo não é deslogado).
+    seed_ids = [u[0] for u in USERS]
+    kept_sessions = [
+        {c.name: getattr(s, c.name) for c in SessionRow.__table__.columns}
+        for s in session.scalars(select(SessionRow).where(SessionRow.user_id.in_(seed_ids)))
+    ]
+    for model in (ReturnRow, ClaimRow, ItemRow, SessionRow, EmailTokenRow, LoginAttemptRow, UserRow):
         session.execute(delete(model))
 
     created = at(24 * 30)
     for uid, name, email, role in USERS:
         session.add(
-            UserRow(id=uid, name=name, email=email, role=role, provider="password", password_hash=pw_hash, created_at=created)
+            UserRow(id=uid, name=name, email=email, role=role, provider="password", password_hash=pw_hash, created_at=created,
+                email_verified_at=created, terms_accepted_at=created, terms_version=settings.terms_version,
+            )
         )
+    session.flush()
+    for cols in kept_sessions:
+        session.add(SessionRow(**cols))
     session.flush()
 
     for n, created_h, found_d, title, photo, desc, cat, loc, stored, status, by in ITEMS:
@@ -150,17 +163,18 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = load_settings()
     if settings.is_production and not args.force:
-        print("Recusado: ENV=production. O seed cria contas com senha pública (demo12345). Use --force só se souber o que faz.", file=sys.stderr)
+        print("Recusado: ENV=production. O seed cria contas com senha pública (demonstracao123). Use --force só se souber o que faz.", file=sys.stderr)
         return 2
     engine = make_engine(settings)
-    Base.metadata.create_all(engine)
+    if not settings.is_production:
+        Base.metadata.create_all(engine)
     with make_session_factory(engine)() as session:
         if args.if_empty and not is_empty(session):
             print("Banco já tem dados; nada a fazer (--if-empty).")
             return 0
         seed_database(session, settings)
     print(f"Seed aplicado em {settings.database_url}. {DEMO_DATA_NOTICE}")
-    print("Contas: marina@demo.test (aluno), rafael@demo.test (professor), admin@demo.test (administração); senha demo12345.")
+    print("Contas: marina@demo.test (aluno), rafael@demo.test (professor), externo@demo.test (externo), admin@demo.test (administração); senha demonstracao123.")
     return 0
 
 

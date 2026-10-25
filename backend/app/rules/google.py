@@ -39,3 +39,8 @@ def parse_allowed_domains(raw: str | None) -> tuple[str, ...]:
     parsed = [d for d in parsed if _DOMAIN_RE.match(d)]
     unique = tuple(dict.fromkeys(parsed))
     return unique or DEFAULT_GOOGLE_ALLOWED_DOMAINS
+
+
+def is_well_formed_email(email: object) -> bool:
+    """Formato `parte-local@dominio.tld` (rótulos válidos). Não diz nada sobre o domínio ser institucional."""
+    return isinstance(email, str) and _EMAIL_RE.match(email.strip().lower()) is not None
