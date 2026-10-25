@@ -225,12 +225,116 @@ describe("foto em multipart", () => {
   });
 });
 
+describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
+  it("verifyEmail, resendVerification, forgotPassword e resetPassword chamam as rotas combinadas", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { verified: true } });
+    expect(await services.auth.verifyEmail("tok")).toBeUndefined();
+    expect(api.calls[0]).toMatchObject({ method: "POST" });
+    expect(api.calls[0].url.pathname).toBe("/auth/verify-email");
+    expect(JSON.parse(String(api.calls[0].body))).toEqual({ token: "tok" });
+    expect(api.calls[0].headers.Authorization).toBeUndefined();
+
+    api.reply({ status: 202, json: { status: "accepted", message: "ok" } });
+    expect(await services.auth.resendVerification()).toEqual({});
+    expect(api.calls[1].url.pathname).toBe("/auth/resend-verification");
+
+    api.reply({ status: 202, json: { status: "accepted", message: "ok" } });
+    expect(await services.auth.forgotPassword("a@b.co")).toEqual({});
+    expect(api.calls[2].url.pathname).toBe("/auth/forgot-password");
+    expect(JSON.parse(String(api.calls[2].body))).toEqual({ email: "a@b.co" });
+
+    api.reply({ json: { status: "ok", message: "Senha redefinida." } });
+    await services.auth.resetPassword("tok2", "uma senha longa 1");
+    expect(api.calls[3].url.pathname).toBe("/auth/reset-password");
+    expect(JSON.parse(String(api.calls[3].body))).toEqual({ token: "tok2", password: "uma senha longa 1" });
+  });
+
+  it("exportMyData (GET /me/export) e deleteMyAccount (DELETE /me, descarta o token)", async () => {
+    const { api, storage, services } = createHarness();
+    api.reply({ json: rawSession });
+    await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
+    api.reply({
+      json: {
+        format: "campuslost-export-v1",
+        exportedAt: "2026-10-25T10:00:00.000Z",
+        account: { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", provider: "password" },
+        itemsRegistered: [rawItem],
+        claims: [{ ...rawClaim, itemTitle: "Chaveiro" }],
+        returns: [],
+        sessions: [],
+      },
+    });
+    const data = await services.auth.exportMyData();
+    expect(api.calls[1]).toMatchObject({ method: "GET" });
+    expect(api.calls[1].url.pathname).toBe("/me/export");
+    expect(data.account.provider).toBe("password");
+    expect(data.itemsRegistered[0].photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(data.claims).toHaveLength(1);
+
+    api.reply({ status: 204 });
+    await services.auth.deleteMyAccount({ password: "demonstracao123" });
+    expect(api.calls[2]).toMatchObject({ method: "DELETE" });
+    expect(api.calls[2].url.pathname).toBe("/me");
+    expect(JSON.parse(String(api.calls[2].body))).toEqual({ password: "demonstracao123" });
+    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("códigos novos do servidor viram ServiceError tipado; INVALID_TOKEN vira TOKEN_INVALID", async () => {
+    const { api, services } = createHarness();
+    const cases: [string, number, string][] = [
+      ["EMAIL_NOT_VERIFIED", 403, "EMAIL_NOT_VERIFIED"],
+      ["INVALID_TOKEN", 400, "TOKEN_INVALID"],
+      ["CSRF_FAILED", 403, "CSRF_FAILED"],
+      ["CAPTCHA_FAILED", 400, "CAPTCHA_FAILED"],
+      ["RATE_LIMITED", 429, "RATE_LIMITED"],
+    ];
+    for (const [code, status, expected] of cases) {
+      api.reply({ status, json: { code, message: "x" } });
+      expect((await failure(services.auth.verifyEmail("t"))).code).toBe(expected);
+    }
+  });
+
+  it("mutações enviam X-Requested-With: CampusLost; leituras não precisam", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { verified: true } }, { status: 204 }, { json: [] });
+    await services.auth.verifyEmail("tok");
+    await services.auth.deleteMyAccount({ password: "demonstracao123" });
+    await services.items.list();
+    expect(api.calls[0].headers["X-Requested-With"]).toBe("CampusLost");
+    expect(api.calls[1].headers["X-Requested-With"]).toBe("CampusLost");
+    expect(api.calls[2].headers["X-Requested-With"]).toBeUndefined();
+  });
+
+  it("signUp envia acceptTerms (nome da API) e turnstileToken; Google: needs_terms e acceptTerms", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: rawSession });
+    await services.auth.signUp({ name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", role: "external", acceptedTerms: true, turnstileToken: "cf" });
+    expect(JSON.parse(String(api.calls[0].body))).toEqual({
+      name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", role: "external", acceptTerms: true, turnstileToken: "cf",
+    });
+    const profile = { email: "ana@gmail.com", name: "Ana" };
+    api.reply({ json: { status: "needs_terms", profile, profileToken: "pt-1" } });
+    expect(await services.auth.signInWithGoogle("idt")).toEqual({ status: "needs_terms", profile, ticket: "pt-1" });
+    expect(JSON.parse(String(api.calls[1].body))).toEqual({ credential: "idt" });
+    api.reply({ json: { status: "signed_in", ...rawSession } });
+    await services.auth.signInWithGoogle("idt", { acceptedTerms: true });
+    expect(JSON.parse(String(api.calls[2].body))).toEqual({ credential: "idt", acceptTerms: true });
+    api.reply({ status: 201, json: rawSession });
+    await services.auth.completeGoogleSignUp({ ticket: "pt-1", acceptedTerms: true });
+    expect(JSON.parse(String(api.calls[3].body))).toEqual({ profileToken: "pt-1", acceptTerms: true });
+    api.reply({ status: 204 });
+    await services.auth.deleteMyAccount({ credential: "idt2" });
+    expect(JSON.parse(String(api.calls[4].body))).toEqual({ credential: "idt2" });
+  });
+});
+
 describe("autenticação e token", () => {
   it("login guarda o token, envia o Bearer nas chamadas seguintes e NÃO o envia no login", async () => {
     const { api, storage, services } = createHarness();
     storage.setItem(TOKEN_STORAGE_KEY, "antigo");
     api.reply({ json: rawSession }, { json: [] });
-    const user = await services.auth.signIn({ email: "marina@demo.test", password: "demo12345" });
+    const user = await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
     expect(user).toEqual(rawUser);
     expect(api.calls[0].headers.Authorization).toBeUndefined();
     expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
@@ -248,7 +352,7 @@ describe("autenticação e token", () => {
   it("signUp, demo e Google guardam o token", async () => {
     const { api, storage, services } = createHarness();
     api.reply({ status: 201, json: rawSession });
-    await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demo12345", role: "student" });
+    await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demonstracao123", role: "student", acceptedTerms: true });
     expect(api.calls[0].url.pathname).toBe("/auth/signup");
     storage.removeItem(TOKEN_STORAGE_KEY);
     api.reply({ json: { ...rawSession, token: "tok-demo" } });
@@ -269,8 +373,8 @@ describe("autenticação e token", () => {
     expect(result).toEqual({ status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, ticket: "ptok" });
     expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
     api.reply({ status: 201, json: { ...rawSession, token: "tok-new" } });
-    await services.auth.completeGoogleSignUp({ ticket: "ptok", role: "teacher" });
-    expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", role: "teacher" });
+    await services.auth.completeGoogleSignUp({ ticket: "ptok", role: "teacher", acceptedTerms: true });
+    expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", role: "teacher", acceptTerms: true });
     expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-new");
   });
 
@@ -353,22 +457,22 @@ describe("erros", () => {
     const validation = await failure(services.claims.create("item-03", { proofDetails: "", lostWhereWhen: "" }));
     expect(validation.fieldErrors).toEqual({ title: "Use pelo menos 3 caracteres." });
     api.reply({ status: 409, json: { code: "EMAIL_TAKEN", message: "Este e-mail já está cadastrado.", fieldErrors: { email: "Este e-mail já está cadastrado." } } });
-    const taken = await failure(services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "demo12345", role: "student" }));
+    const taken = await failure(services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "demonstracao123", role: "student", acceptedTerms: true }));
     expect(taken).toMatchObject({ code: "EMAIL_TAKEN", fieldErrors: { email: "Este e-mail já está cadastrado." } });
   });
 
   it("429 RATE_LIMITED usa o Retry-After na mensagem", async () => {
     const { api, services } = createHarness();
     api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" }, headers: { "Retry-After": "42" } });
-    const error = await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }));
+    const error = await failure(services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" }));
     expect(error.code).toBe("RATE_LIMITED");
     expect(error.message).toBe("Muitas tentativas. Tente de novo em 42 segundos.");
     api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" } });
-    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }))).message).toBe(
+    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" }))).message).toBe(
       "Muitas tentativas. Aguarde um instante e tente de novo.",
     );
     api.reply({ status: 429, json: { code: "RATE_LIMITED", message: "x" }, headers: { "Retry-After": "120" } });
-    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demo12345" }))).message).toBe(
+    expect((await failure(services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" }))).message).toBe(
       "Muitas tentativas. Tente de novo em 2 minutos.",
     );
   });

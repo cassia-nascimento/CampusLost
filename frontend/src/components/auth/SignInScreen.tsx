@@ -6,7 +6,7 @@ import { Brand } from "@/components/layout/Brand";
 import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
 import { DemoProfiles } from "./DemoProfiles";
 import { GoogleRoleStep } from "./GoogleRoleStep";
-import { GoogleSignIn, type GoogleRolePending } from "./GoogleSignIn";
+import { GoogleSignIn, type GooglePending } from "./GoogleSignIn";
 import { withNext } from "./next-param";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
 import { useNextPath } from "./use-next-path";
@@ -58,7 +58,7 @@ function BrandPanel() {
 
 function SignInContent() {
   const next = useNextPath();
-  const [googlePending, setGooglePending] = useState<GoogleRolePending | null>(null);
+  const [googlePending, setGooglePending] = useState<GooglePending | null>(null);
   return (
     <RedirectIfAuthenticated>
       <div className="grid flex-1 lg:grid-cols-2">
@@ -77,7 +77,7 @@ function SignInContent() {
 
                 <div className="flex flex-col gap-5">
                   <SignInForm />
-                  <GoogleSignIn onNeedsRole={setGooglePending} />
+                  <GoogleSignIn onPending={setGooglePending} />
                 </div>
                 <DemoProfiles />
               </>

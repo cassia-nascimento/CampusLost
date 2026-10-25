@@ -82,6 +82,13 @@ describe("cromo por rota", () => {
     expect(showsBottomNav("/itens/i1")).toBe(false);
   });
 
+  it("minha conta e privacidade: voltar para os itens, sem BottomNav", () => {
+    expect(getRouteChrome("/conta")).toEqual({ kind: "detail", title: "Minha conta", backHref: "/itens" });
+    expect(getRouteChrome("/privacidade")).toEqual({ kind: "detail", title: "Privacidade", backHref: "/itens" });
+    expect(showsBottomNav("/conta")).toBe(false);
+    expect(showsBottomNav("/privacidade")).toBe(false);
+  });
+
   it("voltar do detalhe e do registro reabre a última busca; as demais rotas ignoram", () => {
     const search = "?categoria=Chaves&de=2026-10-01";
     expect(getRouteChrome("/itens/i1", search)).toMatchObject({ backHref: `/itens${search}` });

@@ -3,12 +3,16 @@
  * Identificadores em inglês; os rótulos em português vivem nas constantes `*_LABEL`.
  */
 
-export const USER_ROLES = ["student", "teacher", "admin"] as const;
+export const USER_ROLES = ["student", "teacher", "external", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 /** Papéis que podem ser escolhidos no cadastro (administração só existe por seed). */
-export const SIGNUP_ROLES = ["student", "teacher"] as const;
+export const SIGNUP_ROLES = ["student", "teacher", "external"] as const;
 export type SignupRole = (typeof SIGNUP_ROLES)[number];
+
+/** Papéis escolhíveis no passo do Google (domínio institucional): comunidade externa entra direto, sem escolher. */
+export const GOOGLE_SIGNUP_ROLES = ["student", "teacher"] as const;
+export type GoogleSignupRole = (typeof GOOGLE_SIGNUP_ROLES)[number];
 
 export const ITEM_STATUSES = ["available", "under_claim", "returned"] as const;
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
@@ -19,6 +23,7 @@ export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 export const ROLE_LABEL: Record<UserRole, string> = {
   student: "Aluno",
   teacher: "Professor",
+  external: "Comunidade externa",
   admin: "Administração",
 };
 
@@ -43,6 +48,13 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** E-mail confirmado. Conta por senha nasce `false`; Google nasce `true`. */
+  emailVerified: boolean;
+  /**
+   * `true` se a conta tem senha (define qual confirmação pedir ao excluir: senha ou, só-Google, nova credencial
+   * do Google). Opcional: a API só o envia quando o backend o expõe; ausente = a UI assume conta com senha.
+   */
+  hasPassword?: boolean;
 }
 
 /** Dados de um usuário que qualquer pessoa logada pode ver (sem e-mail). */
@@ -105,6 +117,18 @@ export type ServiceErrorCode =
   | "CLAIM_BLOCKED"
   | "ITEM_RETURNED"
   | "EMAIL_TAKEN"
+  /** Ação que exige e-mail verificado (cadastrar item, reivindicar). */
+  | "EMAIL_NOT_VERIFIED"
+  /** Token de verificação/redefinição inexistente ou já usado. */
+  | "TOKEN_INVALID"
+  /** Token de verificação/redefinição expirado. */
+  | "TOKEN_EXPIRED"
+  /** Token inválido ou expirado, como a API o nomeia. O cliente REST o normaliza para `TOKEN_INVALID`. */
+  | "INVALID_TOKEN"
+  /** Cabeçalho anti-CSRF ausente/origem recusada (só na API). */
+  | "CSRF_FAILED"
+  /** Captcha (Turnstile) ausente ou recusado (só na API, quando ligado). */
+  | "CAPTCHA_FAILED"
   /** E-mail inexistente OU senha errada (mensagem única, P29). */
   | "INVALID_CREDENTIALS"
   /** Login com Google fora do(s) domínio(s) institucional(is) permitido(s) (P30). */

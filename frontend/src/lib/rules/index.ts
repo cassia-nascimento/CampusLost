@@ -6,3 +6,4 @@ export * from "./claims";
 export * from "./items";
 export * from "./returns";
 export * from "./google-auth";
+export * from "./password";

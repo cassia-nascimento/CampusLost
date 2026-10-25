@@ -133,6 +133,8 @@ const DETAIL_ROUTES: {
     back: (_, __, origin) => (origin?.startsWith("/itens/") ? origin : "/admin"),
   },
   { pattern: /^\/admin\/itens\/([^/]+)\/editar$/, title: "Editar item", back: (m) => `/itens/${m[1]}` },
+  { pattern: /^\/conta$/, title: "Minha conta", back: () => "/itens" },
+  { pattern: /^\/privacidade$/, title: "Privacidade", back: () => "/itens" },
 ];
 
 /**

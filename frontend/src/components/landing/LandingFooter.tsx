@@ -17,6 +17,7 @@ const COLUMNS = [
     links: [
       { href: "/entrar", text: "Entrar" },
       { href: "/cadastro", text: "Criar conta" },
+      { href: "/privacidade", text: "Privacidade" },
     ],
   },
 ] as const;

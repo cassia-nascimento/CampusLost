@@ -3,25 +3,39 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
 import { RadioCard, RadioGroup } from "@/components/ui/RadioCard";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
-import { PASSWORD_MAX, PASSWORD_MIN, signUpSchema, type SignUpValues } from "@/lib/validation";
-import { ROLE_LABEL, SIGNUP_ROLES, isServiceError } from "@/types/domain";
+import { signUpSchema, type SignUpValues } from "@/lib/validation";
+import { ROLE_LABEL, SIGNUP_ROLES, isServiceError, type User } from "@/types/domain";
+import { accountErrorMessage } from "./error-messages";
+import { PASSWORD_HINT } from "./password-strength";
 import { PasswordInput } from "./PasswordInput";
+import { PasswordStrengthMeter } from "./PasswordStrengthMeter";
 import { withNext } from "./next-param";
 import { useNextPath } from "./use-next-path";
 
 const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
-/** Cadastro de aluno ou professor (RF01 / AC01.1). Com senha. */
-export function SignUpForm() {
+/**
+ * Cadastro com senha (RF01 / AC01.1) de aluno, professor ou comunidade externa, com aceite dos termos.
+ * `onCreatingChange` avisa a tela quando o envio começa/termina (segura o redirecionamento da sessão nova)
+ * e `onCreated` entrega a conta criada, para a tela mostrar "Confirme seu e-mail".
+ */
+export function SignUpForm({
+  onCreatingChange,
+  onCreated,
+}: {
+  onCreatingChange(creating: boolean): void;
+  onCreated(user: User): void;
+}) {
   const { signUp } = useSession();
   const toast = useToast();
   const next = useNextPath();
@@ -32,20 +46,25 @@ export function SignUpForm() {
     handleSubmit,
     setError,
     setFocus,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     mode: "onTouched",
     defaultValues: { name: "", email: "", password: "" },
   });
+  const password = useWatch({ control, name: "password" }) ?? "";
 
   async function onSubmit(values: SignUpValues) {
     setFormError(null);
     setAnnouncement("");
+    onCreatingChange(true);
     try {
-      await signUp(values);
-      toast.success("Conta criada. Você já entrou no CampusLost.");
+      const user = await signUp(values);
+      toast.success("Conta criada. Falta confirmar seu e-mail.");
+      onCreated(user);
     } catch (error) {
+      onCreatingChange(false);
       if (isServiceError(error) && error.code === "EMAIL_TAKEN") {
         setError("email", { type: "server", message: EMAIL_TAKEN });
         setFocus("email");
@@ -60,7 +79,9 @@ export function SignUpForm() {
           return;
         }
       }
-      setFormError("Não foi possível criar a conta. Tente de novo em instantes. Suas respostas foram mantidas.");
+      setFormError(
+        accountErrorMessage(error, "Não foi possível criar a conta. Tente de novo em instantes. Suas respostas foram mantidas."),
+      );
     }
   }
 
@@ -91,9 +112,12 @@ export function SignUpForm() {
             {...register("email")}
           />
         </Field>
-        <Field label="Senha" hint={`De ${PASSWORD_MIN} a ${PASSWORD_MAX} caracteres`} error={errors.password?.message}>
-          <PasswordInput autoComplete="new-password" {...register("password")} />
-        </Field>
+        <div>
+          <Field label="Senha" hint={PASSWORD_HINT} error={errors.password?.message}>
+            <PasswordInput autoComplete="new-password" {...register("password")} />
+          </Field>
+          <PasswordStrengthMeter password={password} className="mt-3" />
+        </div>
         <RadioGroup
           legend="Você é"
           hint="O papel é informado por você no cadastro e não é verificado."
@@ -103,6 +127,19 @@ export function SignUpForm() {
             <RadioCard key={role} label={ROLE_LABEL[role]} value={role} {...register("role")} />
           ))}
         </RadioGroup>
+        <Checkbox
+          error={errors.acceptedTerms?.message}
+          label={
+            <>
+              Li e aceito os termos de uso e a{" "}
+              <Link href="/privacidade" target="_blank" rel="noopener" className="link font-semibold">
+                Política de privacidade<span className="sr-only"> (abre em nova aba)</span>
+              </Link>
+              .
+            </>
+          }
+          {...register("acceptedTerms")}
+        />
         <p className="text-body text-ink-muted">
           Já tem conta?{" "}
           <Link href={withNext("/entrar", next)} className="link touch-target inline-flex items-center font-semibold">

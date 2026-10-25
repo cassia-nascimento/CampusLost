@@ -18,6 +18,12 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ServiceErrorCode>([
   "CLAIM_BLOCKED",
   "ITEM_RETURNED",
   "EMAIL_TAKEN",
+  "EMAIL_NOT_VERIFIED",
+  "TOKEN_INVALID",
+  "TOKEN_EXPIRED",
+  "INVALID_TOKEN",
+  "CSRF_FAILED",
+  "CAPTCHA_FAILED",
   "INVALID_CREDENTIALS",
   "FORBIDDEN_DOMAIN",
   "PHOTO_INVALID",
@@ -125,7 +131,8 @@ async function readBody(response: Response): Promise<unknown> {
 function buildError(response: Response, body: unknown): ServiceError {
   const record = isRecord(body) ? body : {};
   const declared = typeof record.code === "string" && KNOWN_CODES.has(record.code) ? (record.code as ServiceErrorCode) : null;
-  const code = declared ?? statusToCode(response.status);
+  // A API chama de INVALID_TOKEN (link inválido OU expirado); a UI trata um código só: TOKEN_INVALID.
+  const code: ServiceErrorCode = declared === "INVALID_TOKEN" ? "TOKEN_INVALID" : (declared ?? statusToCode(response.status));
   let message =
     typeof record.message === "string" && record.message.trim() !== ""
       ? record.message
@@ -174,6 +181,8 @@ export function createHttpClient(options: HttpOptions): HttpClient {
     const headers: Record<string, string> = { Accept: "application/json" };
     const token = opts.auth === false ? null : getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
+    // Anti-CSRF: o backend exige este cabeçalho em mutações (obrigatório quando a auth é por cookie; inofensivo com Bearer).
+    if (method !== "GET") headers["X-Requested-With"] = "CampusLost";
     let body: BodyInit | undefined;
     if (opts.form) {
       body = opts.form; // o navegador define o Content-Type com o boundary

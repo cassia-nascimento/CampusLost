@@ -3,7 +3,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
-import type { GoogleSignInResult, GoogleSignUpInput } from "@/services";
+import type { DeleteAccountConfirmation, GoogleSignInResult, GoogleSignUpInput } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
 import type { User, UserRole } from "@/types/domain";
 
@@ -28,6 +28,13 @@ export interface SessionValue {
   /** Perfis de demonstração (AC01.3). */
   signInAsDemo(role: UserRole): Promise<User>;
   signOut(): Promise<void>;
+  /** Relê a sessão no serviço (ex.: depois de confirmar o e-mail, que não devolve o usuário). */
+  refreshUser(): Promise<void>;
+  /**
+   * Exclui a conta atual (LGPD) e encerra a sessão. Conta por senha exige `password`; conta só-Google, `credential`
+   * (`INVALID_CREDENTIALS` se errada). Administração não pode (`FORBIDDEN`; a única administração, `CONFLICT`).
+   */
+  deleteAccount(confirmation?: DeleteAccountConfirmation): Promise<void>;
 }
 
 export const SessionContext = createContext<SessionValue | null>(null);
@@ -88,6 +95,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await services.auth.signOut();
         latestRead.current++;
         forgetItemsSearch(); // a próxima pessoa não herda os filtros desta
+        setUser(null);
+      },
+      refreshUser: async () => {
+        const read = ++latestRead.current;
+        const current = await services.auth.getCurrentUser();
+        if (read === latestRead.current) setUser(current);
+      },
+      deleteAccount: async (confirmation) => {
+        await services.auth.deleteMyAccount(confirmation);
+        latestRead.current++;
+        forgetItemsSearch();
         setUser(null);
       },
     }),

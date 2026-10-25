@@ -1,6 +1,6 @@
 import type { Item, ItemStatus, User } from "@/types/domain";
 import { ALLOW, deny, type Decision } from "./decision";
-import { hasCapability } from "./permissions";
+import { checkEmailVerified, hasCapability } from "./permissions";
 import { isItemLocked } from "./item-status";
 
 export type ItemSort = "registered" | "found";
@@ -25,9 +25,10 @@ export function isVisibleInSearch(item: Pick<Item, "status">): boolean {
 
 export function canRegisterItem(actor: User | null | undefined): Decision {
   if (actor == null) return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.");
-  return hasCapability(actor, "register_item")
-    ? ALLOW
-    : deny("FORBIDDEN", "Você não tem permissão para registrar itens.");
+  if (!hasCapability(actor, "register_item")) {
+    return deny("FORBIDDEN", "Você não tem permissão para registrar itens.");
+  }
+  return checkEmailVerified(actor);
 }
 
 function checkMutable(

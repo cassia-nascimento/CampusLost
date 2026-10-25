@@ -20,6 +20,11 @@ export function newSalt(): string {
   return toHex(crypto.getRandomValues(new Uint8Array(16)));
 }
 
+/** Token opaco aleatório (32 hex) para links de verificação/redefinição simulados. */
+export function newToken(): string {
+  return toHex(crypto.getRandomValues(new Uint8Array(16)));
+}
+
 export async function hashPassword(
   password: string,
   saltHex: string,

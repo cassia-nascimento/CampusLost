@@ -43,6 +43,7 @@ function isDb(value: unknown): value is Db {
     v.version === DB_VERSION &&
     Array.isArray(v.users) &&
     Array.isArray(v.credentials) &&
+    Array.isArray(v.tokens) &&
     Array.isArray(v.items) &&
     Array.isArray(v.claims) &&
     Array.isArray(v.returns)

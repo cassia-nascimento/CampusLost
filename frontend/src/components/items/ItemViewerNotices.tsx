@@ -9,6 +9,9 @@ import type { Claim, ClaimStatus } from "@/types/domain";
 
 const MY_CLAIMS_HREF = "/minhas-reivindicacoes";
 
+/** Motivo do bloqueio de "É meu" → tom do aviso. E-mail não confirmado pede ação da pessoa (a faixa global oferece o reenvio). */
+const CLAIM_BLOCK_TONE: Partial<Record<string, Tone>> = { FORBIDDEN: "neutral", EMAIL_NOT_VERIFIED: "warning" };
+
 const CLAIM_NOTICE_TONE: Record<ClaimStatus, Tone> = { pending: "info", accepted: "success", rejected: "danger" };
 
 function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) {
@@ -79,7 +82,7 @@ export function ItemViewerNotices({ detail, visitor = false }: { detail: ItemDet
       ) : myClaim ? (
         <MyClaimNotice claim={myClaim} detail={detail} />
       ) : !viewer.claim.allowed && !returned ? (
-        <Notice tone={viewer.claim.code === "FORBIDDEN" ? "neutral" : "info"}>{viewer.claim.message}</Notice>
+        <Notice tone={CLAIM_BLOCK_TONE[viewer.claim.code] ?? "info"}>{viewer.claim.message}</Notice>
       ) : null}
     </>
   );

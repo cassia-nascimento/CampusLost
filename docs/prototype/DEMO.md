@@ -20,7 +20,7 @@ Abra `http://localhost:3000` (a raiz redireciona para `/entrar` ou `/itens`). Pa
 
 ## 2. Perfis de demonstração (tela `/entrar`)
 
-Na tela de entrada há três botões de um toque, sem digitar senha (as contas também aceitam e-mail e a senha de demonstração `demo12345`, ex.: `marina@demo.test`):
+Na tela de entrada há três botões de um toque, sem digitar senha (as contas também aceitam e-mail e a senha de demonstração `demonstracao123`, ex.: `marina@demo.test`):
 
 | Botão na tela | Quem é | Pode |
 |---|---|---|

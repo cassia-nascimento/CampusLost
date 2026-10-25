@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { canClaim, canReviewClaim, canViewClaim, reviewClaim, submitClaim } from "./claims";
-import { admin, makeClaim, makeItem, NOW, otherStudent, student, teacher } from "./test-fixtures";
+import { admin, externalUser, makeClaim, makeItem, NOW, otherStudent, student, teacher, unverified } from "./test-fixtures";
 
 const input = { proofDetails: "Detalhe secreto do objeto.", lostWhereWhen: "Biblioteca, segunda." };
+
+describe("canClaim: external e e-mail verificado", () => {
+  it("comunidade externa verificada reivindica como aluno/professor", () => {
+    expect(canClaim(externalUser, makeItem(), [])).toEqual({ allowed: true });
+  });
+  it("conta não verificada: EMAIL_NOT_VERIFIED, mesmo em item Disponível", () => {
+    expect(canClaim(unverified, makeItem(), [])).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
+    expect(() => submitClaim({ actor: unverified, item: makeItem(), itemClaims: [], input, now: NOW, id: "c1" })).toThrow(
+      expect.objectContaining({ code: "EMAIL_NOT_VERIFIED" }),
+    );
+  });
+});
 
 describe("canClaim (AC04.1, P8)", () => {
   it("usuário comum pode reivindicar item Disponível", () => {

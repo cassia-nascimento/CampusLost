@@ -36,6 +36,10 @@ export function DemoProfiles() {
       <h2 id="demo-profiles-title" className="text-meta font-semibold text-ink-muted font-sans tracking-normal">
         Ou entre com um perfil de demonstração
       </h2>
+      <p className="mt-1 text-meta text-ink-muted">
+        As contas <span className="font-semibold">@demo.test</span> usam a senha{" "}
+        <code className="rounded-sm bg-sunken px-1 font-semibold text-ink">demonstracao123</code>.
+      </p>
 
       {profiles.status === "loading" ? (
         <LoadingRegion label="Carregando perfis de demonstração…" className="mt-3 flex flex-col gap-3">

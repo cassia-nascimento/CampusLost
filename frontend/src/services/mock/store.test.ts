@@ -176,7 +176,7 @@ describe("store: persistência", () => {
 
   it("reiniciar a demonstração encerra a sessão de usuário que não está no seed", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", password: "senha-segura-1", role: "student" });
+    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", password: "senha-segura-1", role: "student", acceptedTerms: true });
     expect(await h.services.auth.getCurrentUser()).not.toBeNull();
     await h.services.demo.reset();
     expect(await h.services.auth.getCurrentUser()).toBeNull();
