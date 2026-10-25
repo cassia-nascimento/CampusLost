@@ -46,17 +46,17 @@ export function Faq() {
           <h2 id="perguntas-titulo">Perguntas frequentes</h2>
           <p className="mt-2 text-lead font-normal text-ink-muted">O essencial antes de começar.</p>
         </div>
-        <div className="flex flex-col gap-3 lg:col-span-8">
+        <div className="reveal flex flex-col gap-3 lg:col-span-8">
           {FAQ.map(({ question, answer }) => (
-            <details key={question} className="group rounded-lg border border-line bg-paper">
-              <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg p-4 text-body font-semibold [&::-webkit-details-marker]:hidden">
+            <details key={question} className="group rounded-lg border border-line bg-paper transition-colors open:bg-surface open:shadow-card">
+              <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg p-4 text-body font-semibold transition-colors hover:bg-primary-soft [&::-webkit-details-marker]:hidden">
                 <span>{question}</span>
                 <ChevronDown
                   aria-hidden="true"
                   className="size-5 shrink-0 text-primary transition-transform group-open:rotate-180"
                 />
               </summary>
-              <p className="px-4 pb-4 text-body text-ink-muted">{answer}</p>
+              <p className="px-4 pb-4 text-body text-ink-muted group-open:animate-fade">{answer}</p>
             </details>
           ))}
         </div>

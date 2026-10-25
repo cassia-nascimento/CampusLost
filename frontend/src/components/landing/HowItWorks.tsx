@@ -16,7 +16,7 @@ export function HowItWorks() {
       {/* `role="list"`: o reset de listas do Tailwind faz o Safari/VoiceOver deixar de anunciar a lista. */}
       <ol role="list" className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         {HOW_IT_WORKS_STEPS.map(({ title, text, icon: Icon }, index) => (
-          <li key={title} className="flex flex-col gap-3 rounded-lg bg-surface p-6 shadow-card">
+          <li key={title} className="reveal flex flex-col gap-3 rounded-lg bg-surface p-6 shadow-card">
             <div className="flex items-center justify-between gap-3">
               <span
                 aria-hidden="true"

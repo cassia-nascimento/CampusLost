@@ -12,22 +12,27 @@ export type ButtonSize = "md" | "lg";
 export type ButtonWidth = "auto" | "full" | "mobile-full";
 
 const BASE =
-  "relative inline-flex items-center justify-center rounded-md px-4 text-body font-semibold " +
-  "transition-colors select-none disabled:cursor-not-allowed";
+  "group/btn relative inline-flex items-center justify-center rounded-md px-4 text-body font-semibold select-none " +
+  "transition-[background-color,border-color,color,box-shadow,translate,scale] duration-150 ease-standard " +
+  "disabled:cursor-not-allowed motion-safe:not-disabled:active:scale-[0.98]";
+
+/** Elevação sutil ao passar o mouse (só em dispositivos com hover; nunca em botão desabilitado nem com movimento reduzido). */
+const LIFT = "motion-safe:not-disabled:hover:-translate-y-px motion-safe:not-disabled:active:translate-y-0";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-pressed " +
-    "disabled:bg-disabled-bg disabled:text-disabled-fg",
+    "bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-pressed not-disabled:hover:shadow-raised " +
+    LIFT + " disabled:bg-disabled-bg disabled:text-disabled-fg",
   secondary:
     "border-[1.5px] border-primary bg-surface text-primary hover:bg-primary-soft active:bg-primary-softer " +
+    "not-disabled:hover:shadow-card " + LIFT + " " +
     "disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-fg",
   ghost:
     "bg-transparent text-primary hover:bg-primary-soft active:bg-primary-softer " +
     "disabled:bg-transparent disabled:text-disabled-fg",
   danger:
     "bg-danger-solid text-on-danger hover:bg-danger-solid-hover active:bg-danger-solid-hover " +
-    "disabled:bg-disabled-bg disabled:text-disabled-fg",
+    "not-disabled:hover:shadow-raised " + LIFT + " disabled:bg-disabled-bg disabled:text-disabled-fg",
   "danger-quiet":
     "border-[1.5px] border-danger-border bg-surface text-danger-fg hover:bg-danger-bg active:bg-danger-bg " +
     "disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-fg",

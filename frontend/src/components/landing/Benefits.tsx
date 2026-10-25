@@ -33,7 +33,7 @@ export function Benefits() {
       </h2>
       <ul role="list" className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3 lg:gap-6">
         {BENEFITS.map(({ title, text, icon: Icon }) => (
-          <li key={title} className="flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card">
+          <li key={title} className="reveal flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card">
             <span
               aria-hidden="true"
               className="grid size-12 shrink-0 place-items-center rounded-md bg-primary-soft text-primary"
