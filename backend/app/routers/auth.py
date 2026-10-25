@@ -9,18 +9,20 @@ from fastapi import APIRouter, BackgroundTasks, Body, Request, Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
-from .. import email_tokens, login_throttle
+from .. import audit, email_tokens, login_throttle
 from ..config import random_id
 from ..deps import ClockDep, DbDep, LockDep, MailerDep, OptionalUser, SettingsDep, check_csrf, client_ip, require_session
 from ..errors import ServiceError
 from ..google_auth import GENERIC_FAIL, verify_google_credential
+from ..login_flow import complete_login
 from ..mailer import deliver, reset_email, verification_email
-from ..models import ClaimRow, EmailTokenRow, ItemRow, ReturnRow, SessionRow, UserRow
+from ..models import AdminInviteRow, ClaimRow, EmailTokenRow, ItemRow, ReturnRow, SessionRow, UserRow
 from ..rules.google import is_allowed_google_email, is_well_formed_email
 from ..rules.password import password_error, password_strength
 from ..rules.validation import (
     normalize_email,
     validate_email_only,
+    validate_accept_invite,
     validate_google_complete,
     validate_signin,
     validate_signup,
@@ -112,6 +114,10 @@ def signup(
             db.rollback()
             raise _email_taken() from None
         token = email_tokens.issue_token(db, settings, user, email_tokens.VERIFY, instant)
+    audit.record(
+        db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
+        metadata={"role": user.role, "provider": "password"},
+    )
     background.add_task(deliver, mailer, verification_email(settings, user.email, user.name, token))
     return issue_session(db, settings, user, instant, response)
 
@@ -125,7 +131,13 @@ def login(
     key_email = raw_email.strip().lower() if isinstance(raw_email, str) else ""
     ip = client_ip(request)
     instant = now()
-    login_throttle.check_login_allowed(db, key_email, ip, instant)
+    try:
+        login_throttle.check_login_allowed(db, key_email, ip, instant)
+    except ServiceError:
+        audit.record(
+            db, instant, audit.LOGIN_BLOCKED, actor_id=None, ip=ip, metadata={"emailRef": audit.email_fingerprint(key_email)}
+        )
+        raise
     verify_turnstile(settings, payload, ip)
 
     data = validate_signin(payload)
@@ -135,10 +147,15 @@ def login(
     if user is None or not ok or user.deleted_at is not None:
         with lock:
             login_throttle.register_failure(db, settings, data["email"], ip, instant)
+            audit.record(
+                db, instant, audit.LOGIN_FAILURE, actor_id=user.id if user else None, target_type="user" if user else None,
+                target_id=user.id if user else None, ip=ip,
+                metadata={"method": "password", "emailRef": audit.email_fingerprint(data["email"])},
+            )
         raise ServiceError("INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE)
     with lock:
         login_throttle.register_success(db, data["email"], ip)
-    return issue_session(db, settings, user, instant, response)
+    return complete_login(request, response, db, settings, user, instant, "password")
 
 
 @router.get("/me")
@@ -198,8 +215,15 @@ def logout(request: Request, *, db: DbDep, settings: SettingsDep, now: ClockDep,
             sess = db.scalar(select(SessionRow).where(SessionRow.refresh_hash == hash_token(cookie_refresh)))
             if sess:
                 sessions[sess.id] = sess
+        instant = now()
         for sess in sessions.values():
-            revoke_session(db, sess, now())
+            was_active = sess.revoked_at is None
+            revoke_session(db, sess, instant)
+            if was_active:
+                audit.record(
+                    db, instant, audit.LOGOUT, actor_id=sess.user_id, target_type="session", target_id=sess.id,
+                    ip=client_ip(request),
+                )
     out = Response(status_code=204)
     clear_auth_cookies(out, settings)
     return out
@@ -209,7 +233,7 @@ def logout(request: Request, *, db: DbDep, settings: SettingsDep, now: ClockDep,
 
 
 @router.post("/verify-email")
-def verify_email(payload: dict[str, Any] = Body(...), *, db: DbDep, now: ClockDep, lock: LockDep):
+def verify_email(request: Request, payload: dict[str, Any] = Body(...), *, db: DbDep, now: ClockDep, lock: LockDep):
     token = _opaque_token(payload)
     instant = now()
     with lock:
@@ -222,6 +246,10 @@ def verify_email(payload: dict[str, Any] = Body(...), *, db: DbDep, now: ClockDe
             raise ServiceError("INVALID_TOKEN", INVALID_TOKEN_MESSAGE)
         if user.email_verified_at is None:
             user.email_verified_at = instant
+        audit.record(
+            db, instant, audit.VERIFY_EMAIL, actor_id=user.id, target_type="user", target_id=user.id,
+            ip=client_ip(request), commit=False,
+        )
         db.commit()
     return {"verified": True}
 
@@ -272,7 +300,9 @@ def forgot_password(
 
 
 @router.post("/reset-password")
-def reset_password(payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep):
+def reset_password(
+    request: Request, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
+):
     """Define a senha nova com o token do e-mail. Invalida TODAS as sessões e tokens de acesso anteriores
     (Bearer inclusive). Quem prova controlar a caixa de entrada também fica com o e-mail verificado."""
     token = _opaque_token(payload)
@@ -300,6 +330,10 @@ def reset_password(payload: dict[str, Any] = Body(...), *, db: DbDep, settings: 
             .values(used_at=instant)
         )
         login_throttle.clear_for_email(db, user.email)
+        audit.record(
+            db, instant, audit.PASSWORD_RESET, actor_id=user.id, target_type="user", target_id=user.id,
+            ip=client_ip(request), commit=False,
+        )
         db.commit()
     return {"status": "ok", "message": "Senha redefinida. Entre com a nova senha."}
 
@@ -350,7 +384,7 @@ def _commit_new_user(db, user: UserRow) -> None:
 
 @router.post("/google")
 def google_sign_in(
-    response: Response, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
+    request: Request, response: Response, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
 ):
     credential = payload.get("credential")
     if not isinstance(credential, str) or not credential.strip() or len(credential) > 8192:
@@ -372,7 +406,8 @@ def google_sign_in(
             if user.email_verified_at is None:
                 user.email_verified_at = instant
                 db.commit()
-            return {"status": "signed_in", **issue_session(db, settings, user, instant, response)}
+            result = complete_login(request, response, db, settings, user, instant, "google")
+            return result if result.get("status") == "needs_2fa" else {"status": "signed_in", **result}
         profile_token = create_profile_token(settings, profile["email"], profile["name"])
         if institutional:
             return {"status": "needs_role", "profile": profile, "profileToken": profile_token}
@@ -382,12 +417,16 @@ def google_sign_in(
             return {"status": "needs_terms", "profile": profile, "profileToken": profile_token}
         user = _new_google_user(settings, profile, "external", instant)
         _commit_new_user(db, user)
+        audit.record(
+            db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
+            metadata={"role": user.role, "provider": "google"},
+        )
     return {"status": "signed_in", **issue_session(db, settings, user, instant, response)}
 
 
 @router.post("/google/complete", status_code=201)
 def google_complete(
-    response: Response, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
+    request: Request, response: Response, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
 ):
     token = payload.get("profileToken")
     claims = decode_token(settings, token, GOOGLE_PROFILE) if isinstance(token, str) else None
@@ -403,4 +442,57 @@ def google_complete(
             raise _email_taken()
         user = _new_google_user(settings, profile, role, instant)
         _commit_new_user(db, user)
+        audit.record(
+            db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
+            metadata={"role": user.role, "provider": "google"},
+        )
+    return issue_session(db, settings, user, instant, response)
+
+
+# --- convite de administração ---------------------------------------------------------------------------------
+
+
+@router.post("/accept-invite", status_code=201)
+def accept_invite(
+    request: Request, response: Response, payload: dict[str, Any] = Body(...), *,
+    db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep,
+):
+    """Cria a conta de administração (e-mail verificado: o link chegou na caixa de entrada) a partir do convite.
+    Uso único. A conta nasce SEM 2FA: nas rotas `/admin/*` o 2FA passa a ser exigido (`TWO_FACTOR_REQUIRED`)."""
+    request.app.state.mail_limiter.hit(f"{client_ip(request)}|invite")
+    token = _opaque_token(payload)
+    instant = now()
+    invite = db.scalar(select(AdminInviteRow).where(AdminInviteRow.token_hash == hash_token(token)))
+    if (
+        invite is None or invite.used_at is not None or invite.revoked_at is not None or invite.expires_at <= instant
+    ):
+        raise ServiceError("INVALID_TOKEN", INVALID_TOKEN_MESSAGE)
+    data = validate_accept_invite(payload, invite.email)
+    pw_hash = hash_password(data["password"], settings.bcrypt_rounds)
+    with lock:
+        claimed = db.execute(
+            AdminInviteRow.__table__.update()
+            .where(AdminInviteRow.id == invite.id, AdminInviteRow.used_at.is_(None), AdminInviteRow.revoked_at.is_(None))
+            .values(used_at=instant)
+        )
+        if claimed.rowcount != 1:
+            db.rollback()
+            raise ServiceError("INVALID_TOKEN", INVALID_TOKEN_MESSAGE)
+        if _find_by_email(db, invite.email):
+            db.rollback()
+            raise _email_taken()
+        user = UserRow(
+            id=random_id("user"), name=data["name"], email=invite.email, role="admin", provider="password",
+            password_hash=pw_hash, created_at=instant, email_verified_at=instant,
+        )
+        db.add(user)
+        audit.record(
+            db, instant, audit.INVITE_ACCEPT, actor_id=user.id, target_type="invite", target_id=invite.id,
+            ip=client_ip(request), commit=False,
+        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise _email_taken() from None
     return issue_session(db, settings, user, instant, response)

@@ -99,3 +99,14 @@ def reset_email(settings: Settings, to: str, name: str, token: str) -> OutgoingE
         "Se não foi você, ignore esta mensagem: sua senha continua a mesma."
     )
     return OutgoingEmail(to, "Redefinição de senha no CampusLost", text, link)
+
+
+def admin_invite_email(settings: Settings, to: str, inviter: str, token: str) -> OutgoingEmail:
+    link = f"{settings.app_base_url}/aceitar-convite?token={quote(token)}"
+    text = (
+        f"Olá!\n\n{inviter} convidou você para a administração do CampusLost. Crie sua conta pelo link:\n{link}\n\n"
+        f"O link vale por {settings.invite_token_hours} horas e só pode ser usado uma vez.\n"
+        "Depois de entrar, você precisará ativar a verificação em duas etapas.\n"
+        "Se você não esperava este convite, ignore esta mensagem."
+    )
+    return OutgoingEmail(to, "Convite para a administração do CampusLost", text, link)

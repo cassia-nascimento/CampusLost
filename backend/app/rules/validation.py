@@ -155,6 +155,17 @@ def validate_signup(data: Any) -> dict[str, Any]:
     )
 
 
+def validate_accept_invite(data: Any, email: str) -> dict[str, Any]:
+    src = data if isinstance(data, dict) else {}
+    return _run(
+        data,
+        {
+            "name": lambda v: _bounded_text(v, "seu nome", 2, 80),
+            "password": lambda v: _new_password(v, email, src.get("name")),
+        },
+    )
+
+
 def validate_email_only(data: Any) -> dict[str, str]:
     return _run(data, {"email": _email})
 

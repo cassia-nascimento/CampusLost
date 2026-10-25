@@ -76,7 +76,7 @@ def user_from_claims(db: Session, claims: dict, now: datetime) -> UserRow | None
     """Usuário do token, ou `None` se removido/anonimizado, se a senha foi redefinida depois (`tv`) ou se a
     sessão (`sid`) foi revogada/expirou. Tokens sem `sid` (emitidos antes das sessões) só valem pela assinatura."""
     user = db.get(UserRow, claims.get("sub"))
-    if user is None or user.deleted_at is not None:
+    if user is None or user.deleted_at is not None or user.disabled_at is not None:
         return None
     if claims.get("tv", 0) != user.token_version:
         return None
@@ -140,6 +140,32 @@ def current_user(actor: OptionalUser) -> UserRow:
 
 
 CurrentUser = Annotated[UserRow, Depends(current_user)]
+
+
+DEMO_ADMIN_ID = "user-admin"
+
+
+def admin_two_factor_ok(settings: Settings, user: UserRow) -> bool:
+    """Administração precisa de 2FA ligado. Isenções (documentadas): `ADMIN_REQUIRE_2FA=false`, o modo demo
+    (`DEMO_MODE=true`, quando a flag não foi definida) e a conta admin do seed demo (`user-admin`) em modo demo."""
+    if user.totp_enabled_at is not None or not settings.enforce_admin_2fa:
+        return True
+    return settings.demo_mode and user.id == DEMO_ADMIN_ID
+
+
+def require_admin(actor: OptionalUser, settings: SettingsDep) -> UserRow:
+    """Rotas `/admin/*`: sessão + papel admin + 2FA (403 `TWO_FACTOR_REQUIRED` até ativar)."""
+    user = require_session(actor)
+    if user.role != "admin":
+        raise ServiceError("FORBIDDEN", "Você não tem permissão para realizar esta ação.")
+    if not admin_two_factor_ok(settings, user):
+        raise ServiceError(
+            "TWO_FACTOR_REQUIRED", "A administração precisa ativar a verificação em duas etapas antes de continuar."
+        )
+    return user
+
+
+AdminUser = Annotated[UserRow, Depends(require_admin)]
 
 
 def demo_guard(settings: SettingsDep) -> None:

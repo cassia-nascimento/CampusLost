@@ -5,7 +5,7 @@ import type { z } from "zod";
 import { verifyGoogleCredentialViaRoute, type GoogleCredentialVerifier } from "./google";
 import { createDelay, type LatencyOption } from "./latency";
 import { processPhotoInBrowser, type PhotoProcessor } from "./photo";
-import type { Db } from "./seed";
+import { TWO_FACTOR_EXEMPT_USER_IDS, type Db } from "./seed";
 import { MockStore } from "./store";
 import type { KeyValueStorage } from "./storage";
 
@@ -25,6 +25,13 @@ export interface MockServicesOptions {
   allowedGoogleDomains?: readonly string[];
   /** Verifica o ID token do Google. Padrão: rota de servidor `/api/auth/google`. Testes injetam um falso. */
   verifyGoogleCredential?: GoogleCredentialVerifier;
+  /**
+   * Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend com `DEMO_MODE`).
+   * Padrão: `TWO_FACTOR_EXEMPT_USER_IDS`. Contas criadas por convite NUNCA são isentas.
+   */
+  twoFactorExemptUserIds?: readonly string[];
+  /** Bytes aleatórios (segredo TOTP, códigos de recuperação). Padrão: `crypto.getRandomValues`. Testes injetam fixos. */
+  randomBytes?: (length: number) => Uint8Array;
   /** Padrão: redimensiona no navegador (canvas). Testes injetam um falso. */
   photoProcessor?: PhotoProcessor;
   /**
@@ -39,6 +46,8 @@ export interface MockContext {
   now(): Date;
   newId(prefix: string): string;
   allowedGoogleDomains: readonly string[];
+  twoFactorExemptUserIds: readonly string[];
+  randomBytes(length: number): Uint8Array;
   photo: PhotoProcessor;
   verifyGoogleCredential: GoogleCredentialVerifier;
   /**
@@ -72,6 +81,8 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
     now,
     newId: generateId,
     allowedGoogleDomains: options.allowedGoogleDomains ?? parseAllowedDomains(),
+    twoFactorExemptUserIds: options.twoFactorExemptUserIds ?? TWO_FACTOR_EXEMPT_USER_IDS,
+    randomBytes: options.randomBytes ?? ((length) => crypto.getRandomValues(new Uint8Array(length))),
     photo: options.photoProcessor ?? processPhotoInBrowser,
     verifyGoogleCredential: options.verifyGoogleCredential ?? verifyGoogleCredentialViaRoute,
     async run(operation, fn, opts) {
@@ -93,8 +104,20 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
 
 /* ---------- Helpers de leitura/validação compartilhados ---------- */
 
+/** Conta desativada pela administração? (a sessão dela deixa de valer na hora) */
+export function isDisabled(db: Db, userId: string): boolean {
+  return !!db.accounts.find((a) => a.userId === userId)?.disabledAt;
+}
+
+/** Conta ativa: nem desativada pela administração nem excluída (LGPD). */
+export function isActiveAccount(db: Db, userId: string): boolean {
+  const meta = db.accounts.find((a) => a.userId === userId);
+  return !meta?.disabledAt && !meta?.deletedAt;
+}
+
 export function currentUser(sessionUserId: string | null, db: Db): User | null {
-  return (sessionUserId && db.users.find((u) => u.id === sessionUserId)) || null;
+  const user = sessionUserId ? db.users.find((u) => u.id === sessionUserId) : undefined;
+  return user && !isDisabled(db, user.id) ? user : null;
 }
 
 /**
@@ -107,7 +130,7 @@ export function requireSession(db: Db, actor: User | null): User {
     throw new ServiceError("UNAUTHENTICATED", "Entre na sua conta para continuar.");
   }
   const fresh = db.users.find((u) => u.id === actor.id);
-  if (!fresh) throw new ServiceError("UNAUTHENTICATED", "Sua sessão expirou. Entre novamente.");
+  if (!fresh || isDisabled(db, fresh.id)) throw new ServiceError("UNAUTHENTICATED", "Sua sessão expirou. Entre novamente.");
   return fresh;
 }
 

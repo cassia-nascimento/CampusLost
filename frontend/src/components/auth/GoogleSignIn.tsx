@@ -21,7 +21,14 @@ const GENERIC_ERROR = "Não foi possível entrar com o Google. Tente de novo ou 
  * Quando a conta é nova, avisa `onPending` para a tela pedir o papel e/ou o aceite dos termos.
  * A verificação do ID token é do serviço: no mock, a rota `/api/auth/google` do Next; na API, o FastAPI.
  */
-export function GoogleSignIn({ onPending }: { onPending(pending: GooglePending): void }) {
+export function GoogleSignIn({
+  onPending,
+  onNeedsTwoFactor,
+}: {
+  onPending(pending: GooglePending): void;
+  /** Conta com 2FA: recebe o desafio e a tela pede o código. */
+  onNeedsTwoFactor(challengeToken: string): void;
+}) {
   const { signInWithGoogle } = useSession();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +40,11 @@ export function GoogleSignIn({ onPending }: { onPending(pending: GooglePending):
     setSending(true);
     try {
       const result = await signInWithGoogle(credential);
-      if (result.status !== "signed_in") onPending(result);
+      if (result.status === "needs_2fa") onNeedsTwoFactor(result.challengeToken);
+      else if (result.status !== "signed_in") onPending(result);
       // `signed_in`: RedirectIfAuthenticated leva a pessoa ao destino (mesmo caminho do login normal).
     } catch (e) {
-      if (isServiceError(e) && (e.code === "FORBIDDEN_DOMAIN" || e.code === "NETWORK" || e.code === "RATE_LIMITED")) setError(e.message);
+      if (isServiceError(e) && (e.code === "FORBIDDEN_DOMAIN" || e.code === "NETWORK" || e.code === "RATE_LIMITED" || e.code === "ACCOUNT_DISABLED")) setError(e.message);
       else setError(accountErrorMessage(e, GENERIC_ERROR));
     } finally {
       setSending(false);

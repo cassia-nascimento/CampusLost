@@ -1,5 +1,5 @@
 import { ServiceError, type User, type UserRole } from "@/types/domain";
-import { isAllowedGoogleEmail, passwordIssue, PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
+import { emailFingerprint, isAllowedGoogleEmail, passwordIssue, PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
 import {
   forgotPasswordSchema,
   googleSignUpSchema,
@@ -12,12 +12,14 @@ import {
 } from "@/lib/validation";
 import type { AuthService, DemoProfile, EmailDispatch, GoogleProfile, GoogleSignInResult, MyDataExport } from "../contracts";
 import { decodeGoogleTicket, encodeGoogleTicket } from "./google";
-import { findUser, parseInput, requireSession, type MockContext } from "./context";
-import { hashPassword, newSalt, newToken, PBKDF2_ITERATIONS, safeEqual } from "./password";
+import { recordAudit, recordAuditSafely } from "./audit";
+import { createAcceptInvite } from "./admin-service";
+import { findUser, isActiveAccount, parseInput, requireSession, type MockContext } from "./context";
+import { completeLogin, createTwoFactorMethods } from "./two-factor";
+import { hashPassword, newSalt, newToken, PBKDF2_ITERATIONS, verifyAccountPassword } from "./password";
 import { DEMO_PROFILE_IDS, DEMO_PROFILE_LABELS, type Db, type TokenKind, type TokenRecord } from "./seed";
 
 export const INVALID_CREDENTIALS_MESSAGE = "E-mail ou senha incorretos.";
-const DUMMY_SALT = "00".repeat(16);
 
 /** Rotas da UI que recebem o token (o link simulado aponta para elas). */
 export const VERIFY_EMAIL_PATH = "/verificar-email";
@@ -84,6 +86,13 @@ function createGoogleUser(ctx: MockContext, profile: GoogleProfile, role: UserRo
     };
     db.users.push(created);
     db.credentials.push({ userId: created.id, provider: "google" });
+    db.accounts.push({ userId: created.id, createdAt: ctx.now().toISOString() });
+    recordAudit(ctx, db, {
+      actorId: created.id,
+      action: "signup",
+      target: ["user", created.id],
+      metadata: { role, provider: "google" },
+    });
     return created;
   });
 }
@@ -130,6 +139,13 @@ export function createAuthService(ctx: MockContext): AuthService {
             hash,
             iterations: PBKDF2_ITERATIONS,
           });
+          db.accounts.push({ userId: created.id, createdAt: ctx.now().toISOString() });
+          recordAudit(ctx, db, {
+            actorId: created.id,
+            action: "signup",
+            target: ["user", created.id],
+            metadata: { role: created.role, provider: "password" },
+          });
           issueToken(ctx, db, created.id, "verify_email");
           return created;
         });
@@ -142,28 +158,25 @@ export function createAuthService(ctx: MockContext): AuthService {
         const data = parseInput(signInSchema, input);
         const db = store.read();
         const user = db.users.find((u) => normalizeEmail(u.email) === data.email);
-        const cred = user && db.credentials.find((c) => c.userId === user.id && c.provider === "password");
         // Sempre calcula um hash (mesmo sem conta/senha) para não distinguir os casos pelo tempo.
-        const computed = await hashPassword(
-          data.password,
-          cred?.salt ?? DUMMY_SALT,
-          cred?.iterations ?? PBKDF2_ITERATIONS,
-        );
-        if (!user || !cred?.hash || !safeEqual(computed, cred.hash)) {
+        const ok = await verifyAccountPassword(db.credentials, user?.id, data.password);
+        if (!user || !ok) {
+          recordAuditSafely(ctx, {
+            actorId: user?.id ?? null,
+            action: "login.failure",
+            ...(user ? { target: ["user", user.id] as [string, string] } : {}),
+            metadata: { method: "password", emailRef: emailFingerprint(data.email) },
+          });
           throw new ServiceError("INVALID_CREDENTIALS", INVALID_CREDENTIALS_MESSAGE);
         }
-        store.setSessionUserId(user.id);
-        return user;
+        return completeLogin(ctx, user.id, "password");
       }),
 
     signInWithGoogle: (credential, options) =>
       ctx.run("auth.signInWithGoogle", async (): Promise<GoogleSignInResult> => {
         const normalized = normalizeGoogleProfile(await ctx.verifyGoogleCredential(credential));
         const existing = store.read().users.find((u) => normalizeEmail(u.email) === normalized.email);
-        if (existing) {
-          store.setSessionUserId(existing.id);
-          return { status: "signed_in", user: existing };
-        }
+        if (existing) return completeLogin(ctx, existing.id, "google");
         const ticket = encodeGoogleTicket(normalized);
         if (isAllowedGoogleEmail(normalized.email, ctx.allowedGoogleDomains)) {
           return { status: "needs_role", profile: normalized, ticket };
@@ -194,6 +207,7 @@ export function createAuthService(ctx: MockContext): AuthService {
     signInAsDemo: (role: UserRole) =>
       ctx.run("auth.signInAsDemo", () => {
         const user = findUser(store.read(), DEMO_PROFILE_IDS[role]);
+        recordAuditSafely(ctx, { actorId: user.id, action: "login.success", target: ["user", user.id], metadata: { method: "demo" } });
         store.setSessionUserId(user.id);
         return user;
       }),
@@ -216,6 +230,7 @@ export function createAuthService(ctx: MockContext): AuthService {
           const user = db.users.find((u) => u.id === record.userId);
           if (!user) throw new ServiceError("TOKEN_INVALID", TOKEN_INVALID_MESSAGE);
           user.emailVerified = true;
+          recordAudit(ctx, db, { actorId: user.id, action: "email.verify", target: ["user", user.id] });
         });
       }),
 
@@ -254,6 +269,7 @@ export function createAuthService(ctx: MockContext): AuthService {
           const cred = db.credentials.find((c) => c.userId === user.id && c.provider === "password");
           if (cred) Object.assign(cred, { salt, hash, iterations: PBKDF2_ITERATIONS });
           else db.credentials.push({ userId: user.id, provider: "password", salt, hash, iterations: PBKDF2_ITERATIONS });
+          recordAudit(ctx, db, { actorId: user.id, action: "password.reset", target: ["user", user.id] });
         });
       }),
 
@@ -295,8 +311,7 @@ export function createAuthService(ctx: MockContext): AuthService {
         let confirmed = false;
         if (cred?.hash) {
           const password = confirmation?.password;
-          const computed = await hashPassword(String(password ?? ""), cred.salt ?? DUMMY_SALT, cred.iterations ?? PBKDF2_ITERATIONS);
-          confirmed = !!password && safeEqual(computed, cred.hash);
+          confirmed = !!password && (await verifyAccountPassword(db0.credentials, user0.id, password));
         } else if (confirmation?.credential?.trim()) {
           const profile = normalizeGoogleProfile(await ctx.verifyGoogleCredential(confirmation.credential.trim()));
           confirmed = profile.email === normalizeEmail(user0.email);
@@ -310,7 +325,8 @@ export function createAuthService(ctx: MockContext): AuthService {
           const id = user0.id;
           const user = db.users.find((u) => u.id === id);
           if (!user) return;
-          if (user.role === "admin" && db.users.filter((u) => u.role === "admin").length <= 1) {
+          const activeAdmins = db.users.filter((u) => u.role === "admin" && isActiveAccount(db, u.id));
+          if (user.role === "admin" && activeAdmins.length <= 1) {
             throw new ServiceError("CONFLICT", "Você é a única conta de administração. Crie outra antes de excluir esta.");
           }
           const nowIso = ctx.now().toISOString();
@@ -334,8 +350,13 @@ export function createAuthService(ctx: MockContext): AuthService {
           user.email = `removido-${id}@excluido.invalid`;
           user.emailVerified = false;
           user.hasPassword = false;
+          user.twoFactorEnabled = false;
           db.credentials = db.credentials.filter((c) => c.userId !== id);
           db.tokens = db.tokens.filter((t) => t.userId !== id);
+          db.twoFactor = db.twoFactor.filter((t) => t.userId !== id);
+          const meta = db.accounts.find((a) => a.userId === id);
+          if (meta) meta.deletedAt = nowIso;
+          recordAudit(ctx, db, { actorId: id, action: "account.delete", target: ["user", id] });
         });
         store.setSessionUserId(null);
       }),
@@ -355,6 +376,17 @@ export function createAuthService(ctx: MockContext): AuthService {
         { instant: true },
       ),
 
-    signOut: () => ctx.run("auth.signOut", () => store.setSessionUserId(null), { instant: true }),
+    ...createTwoFactorMethods(ctx),
+    acceptInvite: createAcceptInvite(ctx),
+
+    signOut: () =>
+      ctx.run(
+        "auth.signOut",
+        (actor) => {
+          if (actor) recordAuditSafely(ctx, { actorId: actor.id, action: "logout", target: ["user", actor.id] });
+          store.setSessionUserId(null);
+        },
+        { instant: true },
+      ),
   };
 }

@@ -122,3 +122,15 @@ def extract_token(message) -> str:
     m = re.search(r"token=([A-Za-z0-9_\-]+)", message.link or message.text)
     assert m, message
     return m.group(1)
+
+
+# --- B2: 2FA de administração exigido (modo demo mantém o seed, mas a isenção só vale para `user-admin`) ----------
+@pytest.fixture
+def strict_app(tmp_path, clock, mailbox):
+    return create_app(make_settings(tmp_path, admin_require_2fa=True), clock=clock, mailer=mailbox)
+
+
+@pytest.fixture
+def strict_client(strict_app):
+    with TestClient(strict_app) as c:
+        yield c

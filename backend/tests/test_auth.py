@@ -25,7 +25,7 @@ def test_signup_creates_account_and_session(client):
     body = r.json()
     assert body["user"]["email"] == "joana@exemplo.com"  # normalizado
     assert body["user"]["role"] == "student"
-    assert set(body["user"]) == {"id", "name", "email", "role", "emailVerified", "hasPassword"}
+    assert set(body["user"]) == {"id", "name", "email", "role", "emailVerified", "hasPassword", "twoFactorEnabled"}
     assert body["user"]["emailVerified"] is False
     assert body["tokenType"] == "bearer" and body["expiresAt"].endswith("Z")
     me = client.get("/auth/me", headers=bearer(body["token"]))

@@ -55,6 +55,11 @@ export interface User {
    * do Google). Opcional: a API só o envia quando o backend o expõe; ausente = a UI assume conta com senha.
    */
   hasPassword?: boolean;
+  /**
+   * Verificação em duas etapas (TOTP) ligada. Opcional: a API só o envia quando o backend o expõe; ausente =
+   * a UI trata como desligada e confirma pelo resultado de `setupTwoFactor`/`enableTwoFactor`.
+   */
+  twoFactorEnabled?: boolean;
 }
 
 /** Dados de um usuário que qualquer pessoa logada pode ver (sem e-mail). */
@@ -134,6 +139,10 @@ export type ServiceErrorCode =
   /** Login com Google fora do(s) domínio(s) institucional(is) permitido(s) (P30). */
   | "FORBIDDEN_DOMAIN"
   | "PHOTO_INVALID"
+  /** Conta desativada pela administração tentou entrar (ou concluir o 2FA). */
+  | "ACCOUNT_DISABLED"
+  /** Administração sem 2FA ligado chamou uma operação de `/admin/*` (usuários, convites, auditoria). */
+  | "TWO_FACTOR_REQUIRED"
   | "STORAGE_FULL"
   /** Muitas tentativas de login (HTTP 429, só na API). */
   | "RATE_LIMITED"

@@ -10,9 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.datastructures import UploadFile
 
+from .. import audit
 from ..clock import local_today
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, find_item, require_session, require_user
+from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, find_item, require_session, require_user
 from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow, ReturnRow, UserRow
 from ..photos import delete_photo_file, save_photo
@@ -175,7 +176,7 @@ def update_item(item_id: str, form: ItemFormDep, db: DbDep, actor: OptionalUser,
 
 
 @router.delete("/{item_id}", status_code=204)
-def delete_item(item_id: str, db: DbDep, actor: OptionalUser, settings: SettingsDep, lock: LockDep):
+def delete_item(item_id: str, request: Request, db: DbDep, actor: OptionalUser, settings: SettingsDep, lock: LockDep, now: ClockDep):
     user = require_session(actor)
     with lock:
         item = find_item(db, item_id)
@@ -185,6 +186,10 @@ def delete_item(item_id: str, db: DbDep, actor: OptionalUser, settings: Settings
         for c in db.scalars(select(ClaimRow).where(ClaimRow.item_id == item_id)).all():
             db.delete(c)
         db.flush()
+        audit.record(
+            db, now(), audit.ITEM_DELETE, actor_id=user.id, target_type="item", target_id=item_id, ip=client_ip(request),
+            metadata={"title": item.title, "status": item.status}, commit=False,
+        )
         db.delete(item)
         db.commit()
         delete_photo_file(settings, photo)

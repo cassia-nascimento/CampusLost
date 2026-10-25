@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
 import { DEMO_PASSWORD } from "./seed";
 import { DB_KEY, SESSION_KEY } from "./store";
-import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness } from "./test-utils";
+import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness, userOf } from "./test-utils";
 
 async function as(h: Harness, role: "student" | "teacher" | "admin") {
   return h.services.auth.signInAsDemo(role);
@@ -50,7 +50,7 @@ describe("RF01 — autenticação simulada", () => {
 
   it("AC01.2: login por e-mail + senha cria sessão; e-mail inexistente e senha errada dão o mesmo erro", async () => {
     const h = createHarness();
-    const user = await h.services.auth.signIn({ email: " MARINA@demo.test ", password: DEMO_PASSWORD });
+    const user = userOf(await h.services.auth.signIn({ email: " MARINA@demo.test ", password: DEMO_PASSWORD }));
     expect(user.id).toBe("user-marina");
     await h.services.auth.signOut();
     const noUser = await expectCode(

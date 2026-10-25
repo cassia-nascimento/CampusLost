@@ -1,4 +1,5 @@
 import type { Services } from "../contracts";
+import { createAdminService } from "./admin-service";
 import { createAuthService } from "./auth-service";
 import { createClaimService } from "./claim-service";
 import { createContext, type MockServicesOptions } from "./context";
@@ -17,6 +18,7 @@ export function createMockServices(options: MockServicesOptions = {}): Services 
     items: createItemService(ctx),
     claims: createClaimService(ctx),
     returns: createReturnService(ctx),
+    admin: createAdminService(ctx),
     demo: {
       reset: () => ctx.run("demo.reset", () => ctx.store.reset()),
       persistence: () => ctx.store.persistence(),

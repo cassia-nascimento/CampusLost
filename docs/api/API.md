@@ -17,9 +17,9 @@ Rótulos usados: **[Contrato]** vem de `contracts.ts`/`types/domain.ts`; **[Prem
 | Campos ausentes | `reviewedAt` é **omitido** enquanto a reivindicação não foi analisada (como `reviewedAt?: string`). `photoUrl` é sempre presente: string ou `null`. |
 | IDs | Strings opacas. Seed: `user-marina`, `item-01`, `claim-01`, `return-01`… Novos: `item-<10 hex>` etc. |
 | Corpo máximo | 11 MB (`MAX_BODY_BYTES`). Acima disso: 413. |
-| CORS | Apenas as origens de `CORS_ORIGINS` (padrão `http://localhost:3000`, nunca `*`). Métodos GET/POST/PUT/DELETE; cabeçalhos `Authorization`, `Content-Type`, `X-Requested-With`. `Access-Control-Allow-Credentials: true` (cookies). No `fetch`, use `credentials: "include"` para o modo cookie. |
+| CORS | Apenas as origens de `CORS_ORIGINS` (padrão `http://localhost:3000`, nunca `*`). Métodos GET/POST/PUT/PATCH/DELETE; cabeçalhos `Authorization`, `Content-Type`, `X-Requested-With`. `Access-Control-Allow-Credentials: true` (cookies). No `fetch`, use `credentials: "include"` para o modo cookie. |
 | CSRF (modo cookie) | Requisição **autenticada por cookie** com método mutável (POST/PUT/DELETE) exige o cabeçalho `X-Requested-With` (qualquer valor não vazio, ex. `fetch`) e, se houver `Origin`, que esteja em `CORS_ORIGINS`; senão **403 `CSRF_FAILED`**. Com Bearer não é necessário. Mande o cabeçalho em **todas** as chamadas mutáveis do modo cookie (inclusive `refresh`, `logout`, `resend-verification`). |
-| Segurança | O hash de senha nunca sai da API. Todos os textos devolvidos estão em pt-BR. Respostas têm `X-Content-Type-Options: nosniff`. |
+| Segurança | O hash de senha nunca sai da API. Todos os textos devolvidos estão em pt-BR. Toda resposta traz `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy: no-referrer`; `/auth/*`, `/me/*` e `/admin/*` também `Cache-Control: no-store`; fora de development/test, `Strict-Transport-Security: max-age=31536000; includeSubDomains`. Para o Next, veja §7. |
 
 ### 1.1 Formato de erro
 
@@ -50,8 +50,10 @@ Toda falha tem este corpo (mesmo para 404 de rota, 405, 413 e 500):
 | `CLAIM_BLOCKED` | 409 | Reivindicação recusada antes (sem reenviar) ou item já com reivindicação aceita (P14). |
 | `ITEM_RETURNED` | 409 | Item devolvido é somente leitura. |
 | `RATE_LIMITED` | 429 | **Novo, não existe em `ServiceErrorCode`** — adicionar ao tipo. Login (e confirmação de `DELETE /me`): 10 falhas por IP+e-mail bloqueiam por 60 s, depois 2 min, 4 min… até 1 h (§4.2.5). Rotas de e-mail/medidor: 20 pedidos/h por IP. Traz `Retry-After` (segundos). |
+| `ACCOUNT_DISABLED` | 403 | **Novo.** Conta desativada pela administração tentou entrar (senha ou Google; só depois de a senha estar certa) ou concluir o 2FA. Sessões e tokens de acesso da conta são revogados na hora da desativação. |
+| `TWO_FACTOR_REQUIRED` | 403 | **Novo.** Administração sem 2FA ligado chamou `/admin/*` (§4.2.7). As rotas `/auth/2fa/*` continuam liberadas. |
 | `UNEXPECTED` | 500 / 502 / 503 | Erro interno (sem detalhes), Google inacessível (502) ou não configurado (503). |
-| `CONFLICT` | 409 | `DELETE /me` da única conta de administração. |
+| `CONFLICT` | 409 | `DELETE /me` da única conta de administração; `PATCH /admin/users/{id}` em si mesmo ou no último admin ativo; 2FA já ativo/inativo; convite já aceito. |
 | `NETWORK`, `STORAGE_FULL` | — | O servidor não os emite. `NETWORK` é do cliente (sem resposta/timeout). |
 
 Ordem de verificação (igual à do mock): sessão → existência do recurso → permissão/estado → validação de campos → foto. Exceção: **criar reivindicação valida o corpo antes de checar sessão/papel**, como o mock.
@@ -102,7 +104,7 @@ Itens sem equivalente: o catálogo (`DEMO_CATEGORIES`/`DEMO_LOCATIONS`) também 
 ```
 `role`: `"student" | "teacher" | "external" | "admin"` (`external` = comunidade externa; mesmas permissões de `student`/`teacher`).
 
-### `AccountUser` = `User` + `"emailVerified": boolean` + `"hasPassword": boolean`
+### `AccountUser` = `User` + `"emailVerified": boolean` + `"hasPassword": boolean` + `"twoFactorEnabled": boolean` (2FA TOTP ligado; §4.2.7)
 `hasPassword` = a conta tem senha (`false` em conta criada só pelo Google; o cliente usa para escolher a confirmação de `DELETE /me`: `password` ou `credential`). Devolvido **só para a própria pessoa** (`user` em `Session`, `GET /auth/me`). `false` = conta de senha que ainda não confirmou o e-mail (pode entrar, mas não cadastra item nem reivindica: `EMAIL_NOT_VERIFIED`). O `User` que aparece em reivindicações/devoluções não tem esse campo.
 
 ### `PublicUser`
@@ -245,6 +247,8 @@ Corpo: `{ "name": "Joana Silva", "email": "joana@exemplo.com", "password": "senh
 #### `POST /auth/login` — público
 Corpo: `{ "email": "marina@demo.test", "password": "demonstracao123" }` (+ `turnstileToken` se ligado). A senha de login só é limitada a 72 caracteres: contas antigas com senha curta continuam entrando.
 - **200** `Session` (+ cookies). Conta não verificada **entra** normalmente.
+- **200** `{ "status": "needs_2fa", "challengeToken": "..." }` se a conta tem 2FA ligado: **nenhuma sessão nem cookie ainda**; o cliente pede o código e chama `POST /auth/2fa/verify` (§4.2.7). O mesmo vale para `POST /auth/google` (ramo `signed_in` vira `needs_2fa`).
+- 403 `ACCOUNT_DISABLED` se a conta foi desativada (§4.8).
 - 401 `INVALID_CREDENTIALS` "E-mail ou senha incorretos." (e-mail inexistente, senha errada, conta só-Google e conta excluída são indistinguíveis).
 - 422 `VALIDATION` para formato inválido (não conta como falha de login).
 - 429 `RATE_LIMITED` (§4.2.5), 400 `CAPTCHA_FAILED`.
@@ -317,6 +321,25 @@ Persistido na tabela `login_attempts` (chave: e-mail normalizado + IP; sobrevive
 #### 4.2.6 Política de senha (senhas **novas**: signup e reset)
 
 Mínimo **10 caracteres**; no máximo **72 bytes em UTF-8** (limite do bcrypt: recusa em vez de truncar; "é" vale 2 bytes, emoji 4); não pode estar na lista de senhas comuns (~300 entradas em `backend/app/rules/common_passwords.txt`, também com sufixo/prefixo numérico ou simbólico: `Password1234`), nem ser composta de 1–2 caracteres repetidos ou sequência óbvia, nem igual ao e-mail, à parte local do e-mail ou ao nome. Mensagens (`fieldErrors.password`): "Crie uma senha." · "Use pelo menos 10 caracteres." · "Use no máximo 72 caracteres." · "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta." · "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar." · "A senha não pode ser igual ao seu e-mail ou ao seu nome." · "Evite repetições e sequências óbvias (como aaaaaaaaaa ou 1234567890)."
+
+#### 4.2.7 Verificação em duas etapas (TOTP, RFC 6238)
+
+SHA-1, 6 dígitos, passo de 30 s, tolerância de ±1 passo; um código **não vale duas vezes** (o último passo aceito é guardado). Implementado com `hmac`/`hashlib`/`base64`, sem dependência nova (testado com os vetores da RFC). Todas as rotas abaixo exigem sessão (exceto `verify`).
+
+- `POST /auth/2fa/setup` → **200** `{ "secret": "<base32, 32 car.>", "otpauthUri": "otpauth://totp/CampusLost%3Aemail?secret=...&issuer=CampusLost&algorithm=SHA1&digits=6&period=30" }`. O segredo fica pendente (inativo) até `enable`; chamar de novo troca o pendente. 409 `CONFLICT` se o 2FA já está ativo. O cliente desenha o QR a partir do `otpauthUri`.
+- `POST /auth/2fa/enable` `{ "code": "123456" }` → **200** `{ "enabled": true, "recoveryCodes": ["abcde-fghjk", ... 8 códigos] }`. Os códigos de recuperação aparecem **só nesta resposta** (no banco só o hash SHA-256) e valem uma vez cada. Código errado: 422 `VALIDATION` `fieldErrors.code`. 409 sem `setup` prévio ou já ativo.
+- `POST /auth/2fa/disable` `{ "password": "...", "code": "123456" }` → **200** `{ "enabled": false }`. `code` aceita um TOTP atual **ou** um código de recuperação; `password` é exigido se a conta tiver senha (conta só-Google confirma só com o código). Falha: 403 `INVALID_CREDENTIALS` (`fieldErrors.password`). Apaga segredo e códigos de recuperação.
+- `POST /auth/2fa/verify` `{ "challengeToken": "...", "code": "123456" }` ou `{ "challengeToken": "...", "recoveryCode": "abcde-fghjk" }` → **200** `Session` (+ cookies). O `challengeToken` é um JWT de 5 min (`typ` próprio; não serve como Bearer). Código errado: 401 `INVALID_CREDENTIALS` com `fieldErrors.code`; desafio inválido/expirado: 401 `UNAUTHENTICATED` "A verificação expirou. Entre novamente."
+- **Limite de tentativas**: `setup`/`enable`/`disable`/`verify` usam o mesmo mecanismo do login (§4.2.5) com chave própria por conta + IP: 10 erros bloqueiam (429 `RATE_LIMITED`, `Retry-After`, progressivo) e, bloqueado, nem o código certo passa.
+- **Administração exige 2FA.** Admin sem 2FA consegue entrar, mas toda rota `/admin/*` responde **403 `TWO_FACTOR_REQUIRED`** até ele concluir `setup` + `enable`. **Isenções** (configuração `ADMIN_REQUIRE_2FA`): vazia = exigido, **exceto com `DEMO_MODE=true`**; `false` desliga; `true` liga mesmo em demo (a conta `user-admin` do seed continua isenta em modo demo, para a demonstração funcionar).
+- **Escopo da exigência**: vale só para `/admin/*` (como pedido). As rotas administrativas anteriores (`/claims/*/accept|reject`, `PUT|DELETE /items/{id}`, `POST /items/{id}/return`, `GET /returns`) continuam acessíveis a um admin sem 2FA; estender a exigência a elas é uma decisão em aberto (o frontend precisaria tratar `TWO_FACTOR_REQUIRED` em todo o painel).
+- **Limitação**: o segredo TOTP fica **em claro** na coluna `users.totp_secret` (não há biblioteca de cifra no projeto e não implementamos cifra caseira). Quem lê o arquivo do banco ou um backup consegue gerar códigos: proteja `data/` e `data/backups/`.
+- Perda do dispositivo: use um código de recuperação. Sem eles não há redefinição self-service (decisão em aberto; um admin não consegue zerar o 2FA de outra pessoa nesta versão).
+
+#### 4.2.8 Aceitar convite de administração
+
+##### `POST /auth/accept-invite` — público
+Corpo: `{ "token": "<do e-mail>", "name": "Nome Completo", "password": "..." }`. Nome 2–80; senha pela política do §4.2.6 (não pode ser igual ao e-mail do convite). **201** `Session` de uma conta `admin` com e-mail **verificado** (o link chegou à caixa de entrada). Uso único; vale 48 h (`INVITE_TOKEN_HOURS`); revogado ou reemitido para o mesmo e-mail = inválido. Erros: 400 `INVALID_TOKEN`, 422 `VALIDATION`, 409 `EMAIL_TAKEN` (alguém se cadastrou com o e-mail depois do convite), 429 (por IP, junto dos pedidos de e-mail). A conta nasce **sem 2FA**: não há exigência no primeiro uso, mas `/admin/*` responde `TWO_FACTOR_REQUIRED` até ela ativar (§4.2.7). Não grava aceite de termos (o convite não os apresenta): `termsAcceptedAt` fica nulo.
 
 ### 4.3 Itens
 
@@ -434,6 +457,45 @@ Exclui (**anonimiza**) a conta. Corpo de confirmação: conta com senha ⇒ `{ "
 #### `POST /demo/reset` — público
 Restaura o seed (datas relativas a hoje) e apaga as fotos enviadas. **204**. Tokens (e sessões) dos usuários do seed continuam válidos; os de usuários criados depois passam a dar 401.
 
+### 4.8 Administração (`/admin/*`) — admin com 2FA (§4.2.7)
+
+Sem sessão: 401; papel diferente de `admin`: 403 `FORBIDDEN`; admin sem 2FA: 403 `TWO_FACTOR_REQUIRED`. Listas paginadas devolvem `{ "items": [...], "page": 1, "pageSize": 20, "total": 57, "totalPages": 3 }`; `?page=` (≥ 1) e `?pageSize=` (1–100, padrão 20) inválidos ⇒ 422.
+
+#### `GET /admin/audit` — trilha de auditoria
+Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`. Mais recentes primeiro. Cada item: `{ id, at, actorId|null, actorName|null, action, targetType|null, targetId|null, ip|null, metadata|null }`. `metadata` nunca contém senha, token, segredo TOTP nem código (as chaves com esses nomes são descartadas na gravação; falhas de login guardam só `emailRef`, 12 hex de um SHA-256 do e-mail digitado).
+
+| `action` | Quando | `target` | `metadata` |
+|---|---|---|---|
+| `login.success` | Login concluído (senha, Google ou 2FA) | user | `method` (`password`/`google`/`2fa`), `second` |
+| `login.failure` | Senha errada, conta desativada, código 2FA errado no login | user (se existir) | `method`, `reason`, `emailRef` |
+| `login.blocked` | Tentativa recusada por 429 | — | `emailRef` |
+| `logout` | Sessão revogada por `POST /auth/logout` | session | — |
+| `signup` | Cadastro (senha ou Google) | user | `role`, `provider` |
+| `email.verify` | Confirmação de e-mail | user | — |
+| `password.reset` | Senha redefinida por link | user | — |
+| `user.role_change` | `PATCH /admin/users/{id}` mudou o papel | user | `from`, `to` |
+| `user.disable` / `user.enable` | Desativação / reativação | user | — |
+| `claim.accept` / `claim.reject` | Decisão sobre reivindicação | claim | `itemId`, `autoRejected` |
+| `return.register` | Devolução registrada | item | `returnId`, `claimId` |
+| `item.delete` | Item excluído | item | `title`, `status` |
+| `account.delete` | Conta excluída (LGPD, `DELETE /me`) | user | — |
+| `2fa.enable` / `2fa.disable` / `2fa.failure` | Ligado / desligado / código errado em `enable` ou `disable` | user | `stage`, `with` |
+| `invite.create` / `invite.revoke` / `invite.accept` | Convites de administração | invite | `emailRef` |
+
+O registro não tem chave estrangeira (sobrevive a contas removidas). A limpeza não apaga auditoria por padrão (`python -m app.maintenance --audit-days N` apaga a mais antiga que N dias). Não cobre: edição de item (`PUT /items/{id}`), criação de item/reivindicação, e leituras.
+
+#### `GET /admin/users` — usuários
+Filtros: `?q=` (trecho do nome ou e-mail, sem distinguir maiúsculas; `%` e `_` são literais), `?role=student|teacher|external|admin`, `?status=active|disabled`. Contas excluídas (LGPD) não aparecem. Item: `{ id, name, email, role, provider, active, disabledAt|null, emailVerified, twoFactorEnabled, createdAt }` (nunca hash nem segredo).
+
+#### `PATCH /admin/users/{id}`
+Corpo: `{ "role": "teacher" }` e/ou `{ "active": false }`. **200** o usuário atualizado. Desativar (`active:false`): `disabledAt` é gravado, **todas as sessões são revogadas e os tokens de acesso emitidos caem** (próxima chamada ⇒ 401), e o login passa a responder 403 `ACCOUNT_DISABLED`; `active:true` reativa (a pessoa precisa entrar de novo). Erros: 422 (`role` fora da lista, `active` não booleano, corpo vazio), 404, **409 `CONFLICT`** ao mexer na própria conta ou ao rebaixar/desativar o último admin ativo. Registra `user.role_change` / `user.disable` / `user.enable`.
+
+#### Convites de administração
+- `POST /admin/invites` `{ "email": "nova@undb.edu.br" }` → **201** `{ id, email, status:"pending", createdAt, expiresAt, invitedById }`. Gera token aleatório (256 bits), guarda só o hash, vale **48 h**, uso único, e envia o link `APP_BASE_URL/aceitar-convite?token=...` pelo mailer em segundo plano (com `MAIL_BACKEND=console` o link aparece no log). **O token nunca é devolvido pela API.** Um novo convite para o mesmo e-mail revoga o anterior. 409 `EMAIL_TAKEN` se já existe conta com o e-mail.
+- `GET /admin/invites` → lista paginada; `status` ∈ `pending | accepted | revoked | expired`.
+- `DELETE /admin/invites/{id}` → **204**; revoga (idempotente). 404 se não existe; 409 se já foi aceito.
+- Quem recebe usa `POST /auth/accept-invite` (§4.2.8).
+
 ## 5. Dados de demonstração (seed)
 
 Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (aluno, `user-marina`), `rafael@` (professor, `user-rafael`), `admin@` (administração, `user-admin`), `lucas@`, `beatriz@` (alunos de apoio), `externo@` (comunidade externa, `user-externo`). Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<slug>.svg`.
@@ -445,7 +507,46 @@ Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (aluno, 
 3. **Google**: `signInWithGoogle` recebe `credential` (não o perfil) e `completeGoogleSignUp` recebe `profileToken` + `role`. A rota `/api/auth/google` do Next deixa de ser necessária.
 4. **`subscribe`**: não existe push. Releitura manual/periódica.
 5. **Foto**: `photoUrl` (caminho relativo à API) no lugar de `photoDataUrl`; upload em `multipart`; sem redimensionamento no servidor.
-6. **Códigos novos** que o tipo `ServiceErrorCode` do frontend ainda não tem: `RATE_LIMITED`, `EMAIL_NOT_VERIFIED`, `CSRF_FAILED`, `INVALID_TOKEN`, `CAPTCHA_FAILED`. Também novos: papel `external`, `emailVerified` no usuário da sessão, `acceptTerms` no cadastro e o ramo `needs_terms` do Google.
+6. **Códigos novos** que o tipo `ServiceErrorCode` do frontend ainda não tem: `RATE_LIMITED`, `EMAIL_NOT_VERIFIED`, `CSRF_FAILED`, `INVALID_TOKEN`, `CAPTCHA_FAILED`, `ACCOUNT_DISABLED`, `TWO_FACTOR_REQUIRED`. Também novos: papel `external`, `emailVerified` no usuário da sessão, `acceptTerms` no cadastro e o ramo `needs_terms` do Google.
 7. **Latência/falha simulada** do mock não existem; erros de rede são `NETWORK` no cliente.
 8. **Concorrência**: o servidor serializa as escritas (um processo); duas reivindicações simultâneas do mesmo usuário no mesmo item resultam em uma 201 e uma 409 `DUPLICATE_CLAIM`.
 9. **`createdBy`** continua no `ItemDetail` do visitante como `null` (contrato), sem nenhum dado do autor.
+
+## 7. Cabeçalhos de segurança no Next (recomendação; arquivo do frontend)
+
+O backend só protege as respostas da API. A página do Next deve enviar os próprios cabeçalhos; `frontend/next.config.ts` é do frontend, então aqui vai apenas o snippet sugerido (**não testado** contra o build do projeto; ajuste `connect-src` à URL real da API e libere `https://challenges.cloudflare.com` e `https://accounts.google.com` somente se Turnstile/Google estiverem ligados):
+
+```ts
+// next.config.ts (trecho)
+const api = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const csp = [
+  "default-src 'self'",
+  `connect-src 'self' ${api}`,
+  `img-src 'self' data: blob: ${api}`,
+  "style-src 'self' 'unsafe-inline'",           // Next/Tailwind injetam estilos
+  "script-src 'self' 'unsafe-inline'",           // produção: trocar por nonce (middleware) se possível; dev precisa de 'unsafe-eval'
+  "font-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+const nextConfig: NextConfig = {
+  async headers() {
+    return [{
+      source: "/(.*)",
+      headers: [
+        { key: "Content-Security-Policy", value: csp },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }, // só em HTTPS de produção
+      ],
+    }];
+  },
+};
+```
+
+Notas: `script-src 'unsafe-inline'` enfraquece a CSP contra XSS; o ideal é CSP com nonce via middleware do Next. `frame-ancestors 'none'` e `X-Frame-Options: DENY` evitam clickjacking. O HSTS só deve ir ao ar depois de o domínio servir HTTPS de forma estável.

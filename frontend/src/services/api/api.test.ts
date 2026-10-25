@@ -334,8 +334,8 @@ describe("autenticação e token", () => {
     const { api, storage, services } = createHarness();
     storage.setItem(TOKEN_STORAGE_KEY, "antigo");
     api.reply({ json: rawSession }, { json: [] });
-    const user = await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
-    expect(user).toEqual(rawUser);
+    const result = await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
+    expect(result).toEqual({ status: "signed_in", user: rawUser });
     expect(api.calls[0].headers.Authorization).toBeUndefined();
     expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
     await services.items.list();

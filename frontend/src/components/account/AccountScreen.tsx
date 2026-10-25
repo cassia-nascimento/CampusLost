@@ -2,6 +2,7 @@
 
 import { Download, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ResendVerification } from "@/components/auth/ResendVerification";
 import { Container } from "@/components/layout/Container";
@@ -15,6 +16,9 @@ import { checkEmailVerified, isAdmin } from "@/lib/rules";
 import { services } from "@/services";
 import { ROLE_LABEL } from "@/types/domain";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
+import { TwoFactorSection } from "./TwoFactorSection";
+import { AdminTwoFactorNotice } from "./TwoFactorNotice";
+import { adminNeedsTwoFactor, effectiveTwoFactor, parseAccountReason } from "./two-factor";
 import { exportFileName, serializeExport } from "./export-file";
 
 function downloadJson(fileName: string, text: string) {
@@ -28,9 +32,10 @@ function downloadJson(fileName: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-/** `/conta`: seus dados, "Baixar meus dados" (LGPD) e "Excluir minha conta" (escondido para a administração). */
+/** `/conta`: seus dados, verificação em duas etapas, "Baixar meus dados" (LGPD) e "Excluir minha conta" (escondido para a administração). */
 export function AccountScreen() {
   const { user } = useSession();
+  const reason = parseAccountReason(useSearchParams().get("motivo"));
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
@@ -54,9 +59,21 @@ export function AccountScreen() {
 
   const verified = checkEmailVerified(user).allowed;
 
+  // Aviso para a administração sem 2FA. `?motivo=` explica por que a pessoa veio parar aqui.
+  const needsTwoFactor = adminNeedsTwoFactor(user) && !effectiveTwoFactor(user.twoFactorEnabled, null);
+
   return (
     <Container size="form">
       <PageHeader title="Minha conta" />
+
+      {reason === "convite" && needsTwoFactor ? (
+        <Notice tone="success" title="Convite aceito" className="mb-6">
+          Sua conta de administração foi criada. Falta um passo: ative a verificação em duas etapas abaixo para liberar usuários, convites e auditoria.
+        </Notice>
+      ) : null}
+      {needsTwoFactor && reason !== "convite" ? (
+        <AdminTwoFactorNotice className="mb-6" />
+      ) : null}
 
       <section aria-labelledby="account-data" className="flex flex-col gap-4">
         <h2 id="account-data" className="text-h3">
@@ -77,6 +94,8 @@ export function AccountScreen() {
           </Notice>
         )}
       </section>
+
+      <TwoFactorSection user={user} />
 
       <section aria-labelledby="account-privacy" className="mt-8 flex flex-col gap-3 border-t border-line pt-6">
         <h2 id="account-privacy" className="text-h3">

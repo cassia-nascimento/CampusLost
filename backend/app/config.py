@@ -83,6 +83,15 @@ class Settings:
     turnstile_secret: str = field(default="", repr=False)  # vazio = captcha desligado
     turnstile_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
     terms_version: str = "2026-10"
+    # B2: 2FA obrigatório para administração nas rotas /admin/*. None = automático (exigido, exceto em DEMO_MODE).
+    admin_require_2fa: bool | None = None
+    invite_token_hours: int = 48
+    twofa_challenge_minutes: int = 5
+    backup_dir: Path = BACKEND_DIR / "data" / "backups"
+
+    @property
+    def enforce_admin_2fa(self) -> bool:
+        return self.admin_require_2fa if self.admin_require_2fa is not None else not self.demo_mode
 
     @property
     def is_production(self) -> bool:
@@ -169,6 +178,9 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
         app_base_url=(environ.get("APP_BASE_URL") or "http://localhost:3000").strip().rstrip("/"),
         turnstile_secret=(environ.get("TURNSTILE_SECRET") or "").strip(),
         terms_version=(environ.get("TERMS_VERSION") or "2026-10").strip(),
+        admin_require_2fa=None if (environ.get("ADMIN_REQUIRE_2FA") or "") == "" else _bool(environ.get("ADMIN_REQUIRE_2FA"), True),
+        invite_token_hours=_int(environ.get("INVITE_TOKEN_HOURS"), 48),
+        backup_dir=Path(environ["BACKUP_DIR"]).resolve() if (environ.get("BACKUP_DIR") or "").strip() else BACKEND_DIR / "data" / "backups",
     )
 
 

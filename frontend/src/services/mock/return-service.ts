@@ -2,6 +2,7 @@ import type { ReturnRecord } from "@/types/domain";
 import { filterReturnsByPeriod, registerReturn, sortReturns } from "@/lib/rules";
 import { periodSchema } from "@/lib/validation";
 import type { ReturnService, ReturnView } from "../contracts";
+import { recordAudit } from "./audit";
 import {
   findItem,
   findUser,
@@ -38,6 +39,12 @@ export function createReturnService(ctx: MockContext): ReturnService {
           });
           db.items = db.items.map((i) => (i.id === itemId ? nextItem : i));
           db.returns.push(record);
+          recordAudit(ctx, db, {
+            actorId: actor.id,
+            action: "return.register",
+            target: ["item", itemId],
+            metadata: { returnId: record.id, claimId: record.claimId },
+          });
           return toView(db, record);
         }),
       ),

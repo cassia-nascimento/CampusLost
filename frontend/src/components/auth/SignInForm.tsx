@@ -16,8 +16,11 @@ import { isServiceError } from "@/types/domain";
 
 const INVALID_CREDENTIALS = "E-mail ou senha incorretos.";
 
-/** Login por e-mail e senha (AC01.2). O redirecionamento é feito por `RedirectIfAuthenticated`. */
-export function SignInForm() {
+/**
+ * Login por e-mail e senha (AC01.2). O redirecionamento é feito por `RedirectIfAuthenticated`.
+ * Conta com 2FA: `onNeedsTwoFactor` recebe o desafio e a tela pede o código.
+ */
+export function SignInForm({ onNeedsTwoFactor }: { onNeedsTwoFactor(challengeToken: string): void }) {
   const { signIn } = useSession();
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -37,12 +40,17 @@ export function SignInForm() {
     setFormError(null);
     setAnnouncement("");
     try {
-      await signIn(values);
+      const result = await signIn(values);
+      if (result.status === "needs_2fa") onNeedsTwoFactor(result.challengeToken);
     } catch (error) {
       if (isServiceError(error) && error.code === "INVALID_CREDENTIALS") {
         // Erro geral, sem apontar qual campo errou (AC01.2).
         setFormError(INVALID_CREDENTIALS);
         setFocus("email");
+        return;
+      }
+      if (isServiceError(error) && (error.code === "ACCOUNT_DISABLED" || error.code === "RATE_LIMITED" || error.code === "NETWORK")) {
+        setFormError(error.message);
         return;
       }
       if (isServiceError(error) && error.code === "VALIDATION" && error.fieldErrors) {

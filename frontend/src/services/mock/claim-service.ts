@@ -2,6 +2,7 @@ import { ServiceError, type Claim } from "@/types/domain";
 import { assertAllowed, canViewClaim, reviewClaim, submitClaim } from "@/lib/rules";
 import { claimSchema } from "@/lib/validation";
 import type { ClaimDecisionResult, ClaimService, ClaimView } from "../contracts";
+import { recordAudit } from "./audit";
 import { findItem, findUser, parseInput, requireSession, requireUser, type MockContext } from "./context";
 import type { Db } from "./seed";
 
@@ -29,6 +30,12 @@ export function createClaimService(ctx: MockContext): ClaimService {
         });
         db.claims = db.claims.map((c) => result.claims.find((u) => u.id === c.id) ?? c);
         db.items = db.items.map((i) => (i.id === item.id ? result.item : i));
+        recordAudit(ctx, db, {
+          actorId: actor.id,
+          action: decision === "accept" ? "claim.accept" : "claim.reject",
+          target: ["claim", claimId],
+          metadata: { itemId: item.id, autoRejected: result.autoRejectedIds.length },
+        });
         return { claim: result.claim, item: result.item, autoRejectedIds: result.autoRejectedIds };
       }),
     );

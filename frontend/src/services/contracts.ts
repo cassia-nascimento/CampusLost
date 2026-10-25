@@ -16,8 +16,8 @@
  * Específicos do protótipo: `Services.demo` (reiniciar demonstração), `AuthService.signInAsDemo` e
  * `AuthService.listDemoProfiles`. Uma API real pode omiti-los ou implementá-los à parte
  * (por exemplo, atrás de uma flag de ambiente).
- * Códigos `NETWORK`, `CONFLICT` e `RATE_LIMITED` de `ServiceError` são reservados para a API; o mock só lança
- * `NETWORK` na verificação do Google (rota de servidor inacessível).
+ * Código `RATE_LIMITED` de `ServiceError` é reservado para a API (o mock não limita tentativas); o mock só lança
+ * `NETWORK` na verificação do Google (rota de servidor inacessível) e `CONFLICT` nas regras de 2FA/administração.
  */
 import type {
   Claim,
@@ -28,8 +28,26 @@ import type {
   User,
   UserRole,
 } from "@/types/domain";
+import type {
+  AdminInvite,
+  AdminUserRow,
+  UserStatusFilter,
+  AuditEntry,
+  CreatedInvite,
+  Page,
+  TwoFactorChallenge,
+  TwoFactorEnabled,
+  TwoFactorSetup,
+} from "@/types/admin";
 import type { Decision, ItemFilters, PeriodFilter } from "@/lib/rules";
-import type { ClaimFormValues, ItemFormValues, ResetPasswordValues, SignInValues, SignUpValues } from "@/lib/validation";
+import type {
+  ClaimFormValues,
+  ItemFormValues,
+  ResetPasswordValues,
+  SignInValues,
+  SignUpValues,
+  UserPatchValues,
+} from "@/lib/validation";
 
 /* ---------- Visões (dados já "juntados" para a UI) ---------- */
 
@@ -105,8 +123,13 @@ export interface GoogleProfile {
   name: string;
 }
 
+/** Resultado de `signIn`: sessão aberta ou, com 2FA ligado, desafio (nenhuma sessão ainda). */
+export type SignInResult = { status: "signed_in"; user: User } | TwoFactorChallenge;
+
 export type GoogleSignInResult =
   | { status: "signed_in"; user: User }
+  /** Conta com 2FA ligado: nenhuma sessão ainda. A UI pede o código e chama `verifyTwoFactor`. */
+  | TwoFactorChallenge
   /**
    * Conta nova com e-mail FORA do domínio institucional: nada foi criado. A UI mostra os termos e chama
    * `signInWithGoogle(credential, { acceptedTerms: true })` OU `completeGoogleSignUp({ ticket, acceptedTerms: true })`.
@@ -212,8 +235,40 @@ export interface AuthService {
   /**
    * Entra com e-mail + senha (P29). E-mail inexistente, senha errada ou conta criada só pelo Google
    * lançam o MESMO erro `INVALID_CREDENTIALS` ("E-mail ou senha incorretos."), sem revelar qual (AC01.2).
+   * Conta desativada (e senha certa): `ACCOUNT_DISABLED`. Conta com 2FA ligado: `{ status: "needs_2fa",
+   * challengeToken }` e NENHUMA sessão; a UI pede o código e chama `verifyTwoFactor`.
    */
-  signIn(input: SignInValues): Promise<User>;
+  signIn(input: SignInValues): Promise<SignInResult>;
+  /**
+   * Conclui o login do 2FA (POST /auth/2fa/verify): `challengeToken` + `code` (6 dígitos do aplicativo) OU
+   * `recoveryCode` (`xxxxx-xxxxx`, uso único). Código errado: `INVALID_CREDENTIALS` com `fieldErrors.code`;
+   * desafio expirado (5 min) ou inválido: `UNAUTHENTICATED` (a UI volta ao login); conta desativada:
+   * `ACCOUNT_DISABLED`. Abre a sessão e devolve o usuário.
+   */
+  verifyTwoFactor(input: { challengeToken: string; code?: string; recoveryCode?: string }): Promise<User>;
+  /**
+   * Gera um segredo novo, ainda INATIVO (POST /auth/2fa/setup); chamar de novo troca o pendente. A UI desenha
+   * o QR a partir de `otpauthUri` e mostra `secret` para digitação manual. `CONFLICT` se o 2FA já está ligado.
+   */
+  setupTwoFactor(): Promise<TwoFactorSetup>;
+  /**
+   * Confere o primeiro código e liga o 2FA (POST /auth/2fa/enable). Devolve os códigos de recuperação, que
+   * aparecem SÓ desta vez. Código errado: `VALIDATION` com `fieldErrors.code`; `CONFLICT` sem `setup` prévio
+   * ou já ligado. Depois, releia o usuário (`twoFactorEnabled`).
+   */
+  enableTwoFactor(code: string): Promise<TwoFactorEnabled>;
+  /**
+   * Desliga o 2FA (POST /auth/2fa/disable). `password` é exigida só de conta com senha; `code` aceita um TOTP
+   * atual OU um código de recuperação. Falha: `INVALID_CREDENTIALS` (`fieldErrors.password`), 2FA continua ligado.
+   */
+  disableTwoFactor(input: { password?: string; code: string }): Promise<void>;
+  /**
+   * Aceita o convite de administração (POST /auth/accept-invite): cria uma conta `admin` com e-mail verificado e
+   * SEM 2FA (o `/admin/*` exigirá ativá-lo: `TWO_FACTOR_REQUIRED`) e abre a sessão. `TOKEN_INVALID` (usado,
+   * revogado, expirado ou desconhecido), `VALIDATION` (nome/senha), `EMAIL_TAKEN`. `acceptedTerms` é aceito
+   * mas ignorado: o convite não apresenta os termos.
+   */
+  acceptInvite(input: { token: string; name: string; password: string; acceptedTerms?: boolean }): Promise<User>;
   /**
    * "Entrar com Google" (P30). Recebe o ID token BRUTO (`credential`) do Google Identity Services; a
    * verificação (assinatura, `aud`, `iss`, `exp`, `email_verified`) é feita no servidor (FastAPI; no mock, pela
@@ -308,11 +363,53 @@ export interface DemoService {
   persistence(): DemoPersistence;
 }
 
+/** Filtros de `AdminService.listUsers`. `status`: `active` | `disabled`. */
+export interface ListUsersFilters {
+  q?: string;
+  role?: UserRole;
+  status?: UserStatusFilter;
+  page?: number;
+  pageSize?: number;
+}
+export interface ListAuditFilters {
+  action?: string;
+  actor?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Administração (`/admin/*`, API.md §4.8). Exige papel `admin` (`FORBIDDEN`) E 2FA ligado
+ * (`TWO_FACTOR_REQUIRED`; no mock, a conta demo da administração é isenta, como o backend em `DEMO_MODE`).
+ * Listas paginadas: `page` a partir de 1, `pageSize` 1-100 (padrão 20); parâmetro inválido = `VALIDATION`.
+ */
+export interface AdminService {
+  /** `q` (trecho de nome ou e-mail), `role`, `status`. Mais recentes primeiro. Contas excluídas (LGPD) não aparecem. */
+  listUsers(filters?: ListUsersFilters): Promise<Page<AdminUserRow>>;
+  /**
+   * PATCH /admin/users/{id}: `role` e/ou `active`. `CONFLICT` ao mexer na própria conta ou ao rebaixar/desativar o
+   * último admin ativo; `NOT_FOUND`; `VALIDATION`. Desativar derruba as sessões da pessoa na hora.
+   */
+  updateUser(id: string, patch: UserPatchValues): Promise<AdminUserRow>;
+  /**
+   * Cria um convite de uso único (48 h). Um novo convite para o mesmo e-mail revoga o anterior. `EMAIL_TAKEN` se já
+   * há conta. O token só vai no e-mail: a API não o devolve; o mock devolve o link simulado em `devLink`.
+   */
+  createInvite(email: string): Promise<CreatedInvite>;
+  /** Mais recentes primeiro; `status` ∈ pending | accepted | revoked | expired. */
+  listInvites(filters?: { page?: number; pageSize?: number }): Promise<Page<AdminInvite>>;
+  /** Revoga (idempotente). `NOT_FOUND`; `CONFLICT` se já foi aceito. */
+  revokeInvite(id: string): Promise<void>;
+  /** Trilha de auditoria, mais recentes primeiro. Filtros: `action` (exato), `actor` (id do usuário). Sem dados sensíveis. */
+  listAuditLog(filters?: ListAuditFilters): Promise<Page<AuditEntry>>;
+}
+
 export interface Services {
   auth: AuthService;
   items: ItemService;
   claims: ClaimService;
   returns: ReturnService;
+  admin: AdminService;
   /** [Somente protótipo] Uma API real pode omitir. */
   demo: DemoService;
   /**

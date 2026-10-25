@@ -6,7 +6,7 @@ API REST em **FastAPI + SQLite (SQLAlchemy 2)** que reproduz o comportamento dos
 
 ## Requisitos
 
-Python 3.13 (testado) e `pip`.
+Python 3.13 (testado localmente) e `pip`. O CI usa Python 3.12.
 
 ## Instalação
 
@@ -52,7 +52,7 @@ alembic revision --autogenerate -m "descricao"   # após mudar app/models.py; RE
 alembic upgrade head --sql           # só imprime o SQL (modo offline)
 ```
 
-- `0001_initial_schema` cria o esquema completo (usuários, sessões, tokens de e-mail, tentativas de login, itens, reivindicações, devoluções). Um teste (`tests/test_migrations.py`) compara a migração com os modelos e falha se divergirem.
+- `0001_initial_schema` cria o esquema completo (usuários, sessões, tokens de e-mail, tentativas de login, itens, reivindicações, devoluções). `0002_audit_2fa_invites` acrescenta `audit_log`, `recovery_codes`, `admin_invites` e as colunas `users.disabled_at`, `totp_secret`, `totp_enabled_at`, `totp_last_step` (bancos em 0001 sobem sem perder dados; há teste). Um teste (`tests/test_migrations.py`) compara a migração com os modelos e falha se divergirem.
 - Com `ENV=production` a aplicação **não** chama `create_all`: rode `alembic upgrade head` no deploy, antes de subir.
 - Bancos de desenvolvimento criados antes desta versão (por `create_all`) não têm as colunas/tabelas novas: apague `data/campuslost.db` (o seed recria) ou use `alembic stamp` só se o esquema já for idêntico. Não há migração de dados antigos.
 - SQLite não altera tabelas no lugar: o `env.py` usa `render_as_batch`, então as próximas migrações usam `batch_alter_table`.
@@ -91,6 +91,9 @@ Veja `.env.example`. Nenhum valor real é versionado.
 | `TERMS_VERSION` | `2026-10` | Versão dos termos gravada no aceite. |
 | `MAX_BODY_BYTES` | `11534336` | Corpo máximo da requisição (foto até 10 MB). |
 | `BCRYPT_ROUNDS` | `12` | Custo do bcrypt. |
+| `ADMIN_REQUIRE_2FA` | vazio | Exige 2FA da administração em `/admin/*`. Vazio = exigido, **exceto com `DEMO_MODE=true`**; `true`/`false` força. Em modo demo a conta `user-admin` do seed fica sempre isenta. |
+| `INVITE_TOKEN_HOURS` | `48` | Validade do convite de administração. |
+| `BACKUP_DIR` | `<backend>/data/backups` | Destino de `python -m app.backup`. |
 
 ## Estrutura
 
@@ -110,6 +113,11 @@ backend/
     mailer.py      e-mail: console | smtp
     turnstile.py   captcha opcional
     routers/me.py  LGPD: exportar e excluir conta
+    audit.py       trilha de auditoria (`audit_log`), sem dados sensíveis
+    totp.py        TOTP RFC 6238 (stdlib) e códigos de recuperação
+    twofa_service.py / login_flow.py  segundo fator e conclusão de login
+    maintenance.py limpeza de expirados (CLI)
+    backup.py      backup do SQLite (CLI)
     deps.py        sessão de banco, usuário atual
     errors.py      ServiceError + status por código
     photos.py      fotos em disco
@@ -117,9 +125,28 @@ backend/
     create_admin.py
     rules/         regras puras: máquina de estados, permissões, validações, política de senha (porte de frontend/src/lib)
   alembic/         migrações (env.py, versions/)
-    routers/       auth, items, claims, returns, catalog, demo
+    routers/       auth, twofa, admin, items, claims, returns, catalog, demo
   tests/
 ```
+
+## Administração, auditoria e 2FA (B2)
+
+- **Auditoria**: tabela `audit_log` (quem, o quê, alvo, IP, `metadata` sem dados sensíveis). Lista em `GET /admin/audit?action=&actor=&page=`. Eventos e campos: `docs/api/API.md` §4.8.
+- **Usuários**: `GET /admin/users`, `PATCH /admin/users/{id}` (papel e ativar/desativar). Desativar revoga sessões e tokens na hora; login responde `ACCOUNT_DISABLED`. Ninguém altera a si mesmo, e o último admin ativo não é rebaixado nem desativado.
+- **Convites de administração**: `POST/GET/DELETE /admin/invites` e `POST /auth/accept-invite`. Link de uso único, 48 h, só o hash no banco, enviado pelo mailer. Em desenvolvimento (`MAIL_BACKEND=console`) o link aparece no log. O script `python -m app.create_admin` continua sendo a forma de criar o **primeiro** admin.
+- **2FA TOTP** (`/auth/2fa/*`): RFC 6238 em stdlib, 8 códigos de recuperação (só hash). Admin sem 2FA entra, mas recebe 403 `TWO_FACTOR_REQUIRED` em `/admin/*` até ativar. **Isenção**: `ADMIN_REQUIRE_2FA` vazio + `DEMO_MODE=true` (padrão de desenvolvimento) não exige, e o admin do seed demo (`user-admin`) é sempre isento em modo demo. Em produção (`DEMO_MODE=false`) é exigido. A exigência cobre só `/admin/*`, não as rotas administrativas antigas (itens, reivindicações, devoluções).
+- **Cabeçalhos**: middleware envia `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` em `/auth`, `/me`, `/admin` e HSTS fora de development/test. CSP e cabeçalhos do Next: `docs/api/API.md` §7 (snippet para o frontend; não testado).
+
+### Rotinas operacionais
+
+```bash
+python -m app.maintenance                  # apaga sessões/tokens/tentativas/convites expirados; imprime contagens
+python -m app.maintenance --audit-days 365 # também apaga auditoria com mais de 365 dias (padrão: mantém tudo)
+python -m app.backup                       # data/backups/campuslost-AAAAMMDD-HHMMSS.db (API de backup do sqlite3), mantém 7
+python -m app.backup --keep 14 --dest /var/backups/campuslost
+```
+
+Agende ambos (cron/systemd timer), por exemplo limpeza diária e backup diário. O backup tem **todos** os dados (hashes de senha, segredos TOTP, auditoria): proteja o diretório. Fotos (`uploads/`) não entram no backup. Restaurar: pare a API e copie o arquivo sobre o banco. Não foi testada a restauração em outro host.
 
 ## Segurança (resumo)
 
@@ -131,6 +158,8 @@ Senhas com bcrypt (nunca devolvidas; política: 10+ caracteres, <= 72 bytes, lis
 - A trava de escrita e o limite por IP das rotas de e-mail/medidor de senha são **em memória, por processo**: rode com um único worker (`uvicorn` padrão). O limite de **login** é persistido no banco.
 - Atrás de proxy reverso, rode `uvicorn --proxy-headers --forwarded-allow-ips=<ip do proxy>`; senão todo login parece vir do IP do proxy.
 - O envio de e-mail roda em segundo plano na própria requisição (sem fila): se o SMTP falhar, só há log e a pessoa usa "reenviar". Residual: quem clica no link de verificação de uma conta que não criou valida a conta de outra pessoa (pre-hijack pelo link); o e-mail avisa para ignorar.
-- Sessões expiradas/revogadas não são removidas automaticamente da tabela `sessions`.
+- Sessões expiradas/revogadas, tokens e tentativas de login vencidas só saem do banco quando `python -m app.maintenance` roda (agende-o).
+- O segredo TOTP fica **em claro** em `users.totp_secret` (sem biblioteca de cifra no projeto): quem lê o banco ou um backup gera códigos. Proteja `data/` e os backups. Não há reset de 2FA por outra pessoa nesta versão.
+- Convites e 2FA dependem do envio de e-mail/relógio corretos: o envio real (SMTP), o Google e o captcha **não foram testados**.
 - `POST /demo/reset` não exige login (como no mock): mantenha `DEMO_MODE=false` fora de demonstrações.
 - O papel aluno/professor é autodeclarado (limitação do documento de decisões).

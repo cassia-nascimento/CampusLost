@@ -20,7 +20,7 @@ from .db import make_engine, make_session_factory
 from .errors import ServiceError
 from .models import Base
 from .mailer import Mailer, make_mailer
-from .routers import auth, catalog, claims, demo, items, me, returns
+from .routers import admin, auth, catalog, claims, demo, items, me, returns, twofa
 from .security import RateLimiter
 from .seed import is_empty, seed_database
 
@@ -79,9 +79,17 @@ class BodyLimitMiddleware:
             await too_large()
 
 
+NO_STORE_PREFIXES = ("/auth", "/me", "/admin")
+
+
 class SecurityHeadersMiddleware:
-    def __init__(self, app) -> None:
+    """Cabeçalhos de segurança em toda resposta: nosniff, X-Frame-Options DENY, Referrer-Policy, `Cache-Control:
+    no-store` em /auth, /me e /admin (respostas com sessão/dados pessoais) e HSTS fora de dev/teste. Nunca sobrescreve
+    um cabeçalho que a rota já definiu."""
+
+    def __init__(self, app, hsts: bool = False) -> None:
         self.app = app
+        self.hsts = hsts
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -90,7 +98,18 @@ class SecurityHeadersMiddleware:
         async def wrapped(message):
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
-                headers.append((b"x-content-type-options", b"nosniff"))
+                present = {k.lower() for k, _ in headers}
+                path = scope.get("path", "")
+                extra = [
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"x-frame-options", b"DENY"),
+                    (b"referrer-policy", b"no-referrer"),
+                ]
+                if any(path == p or path.startswith(p + "/") for p in NO_STORE_PREFIXES):
+                    extra.append((b"cache-control", b"no-store"))
+                if self.hsts:
+                    extra.append((b"strict-transport-security", b"max-age=31536000; includeSubDomains"))
+                headers += [(k, v) for k, v in extra if k not in present]
                 message = {**message, "headers": headers}
             await send(message)
 
@@ -126,12 +145,12 @@ def create_app(
                 log.info("Banco vazio: seed de demonstração aplicado.")
 
     # Ordem: o último adicionado fica mais externo.
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, hsts=settings.env not in ("development", "test"))
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
         allow_credentials=True,  # cookies de sessão (origens explícitas, nunca "*")
     )
@@ -173,7 +192,7 @@ def create_app(
     def health():
         return {"status": "ok"}
 
-    for r in (auth.router, me.router, catalog.router, items.router, claims.router, returns.router, demo.router):
+    for r in (auth.router, twofa.router, admin.router, me.router, catalog.router, items.router, claims.router, returns.router, demo.router):
         app.include_router(r)
 
     app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")

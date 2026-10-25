@@ -34,6 +34,50 @@ export interface TokenRecord {
   usedAt?: string;
 }
 
+/** Metadados da conta (fora de `User`, que é o que a UI recebe): criação, desativação e exclusão (LGPD). */
+export interface AccountMeta {
+  userId: string;
+  createdAt: string;
+  /** Preenchido quando a administração desativou a conta (não entra; sessões caem). */
+  disabledAt?: string;
+  /** Preenchido quando a conta foi excluída/anonimizada (`DELETE /me`); some da lista de usuários. */
+  deletedAt?: string;
+}
+
+/** Estado do 2FA de um usuário (segredo em claro: é um mock; o backend também guarda o segredo no banco). */
+export interface TwoFactorRecord {
+  userId: string;
+  secret: string;
+  /** Ausente = segredo pendente (após `setup`, antes de `enable`). */
+  enabledAt?: string;
+  /** Último passo de 30 s aceito (anti-reuso). */
+  lastStep?: number;
+  /** SHA-1 (hex) dos códigos de recuperação; `usedAt` quando consumido. */
+  recoveryCodes: { hash: string; usedAt?: string }[];
+}
+
+export interface InviteRecord {
+  id: string;
+  email: string;
+  /** Token do link (guardado em claro só porque é mock; a API guarda o hash). */
+  token: string;
+  invitedById: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+  revokedAt?: string;
+}
+
+export interface AuditRecord {
+  id: string;
+  at: string;
+  actorId: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, string | number | boolean | null> | null;
+}
+
 export interface Db {
   /** Versão do formato persistido; muda junto com a chave do store. */
   version: number;
@@ -44,7 +88,15 @@ export interface Db {
   items: Item[];
   claims: Claim[];
   returns: ReturnRecord[];
+  accounts: AccountMeta[];
+  twoFactor: TwoFactorRecord[];
+  invites: InviteRecord[];
+  /** Trilha de auditoria (mais antigos primeiro; limitada a `AUDIT_LIMIT`). */
+  audit: AuditRecord[];
 }
+
+/** O mock guarda só os eventos mais recentes (cota do `localStorage`). */
+export const AUDIT_LIMIT = 500;
 
 /**
  * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). v3: login por senha e Google (P29/P30;
@@ -52,8 +104,12 @@ export interface Db {
  * seed antigo receberem o novo (o antigo é removido).
  * v4: papel `external`, `emailVerified` no usuário, política de senha nova (senha demo `demonstracao123`) e `tokens`
  * (verificação de e-mail e redefinição de senha).
+ * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
+
+/** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
+export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
 
 /** Senha de demonstração das 6 contas `@demo.test` (P29). NÃO é segredo: é dado fictício. */
 export const DEMO_PASSWORD = "demonstracao123";
@@ -103,6 +159,8 @@ const USERS: User[] = [
   // Usuários de apoio (autores de reivindicações); não aparecem como perfis de demonstração.
   { id: "user-lucas", name: "Lucas Prado", email: "lucas@demo.test", role: "student", emailVerified: true, hasPassword: true },
   { id: "user-beatriz", name: "Beatriz Nunes", email: "beatriz@demo.test", role: "student", emailVerified: true, hasPassword: true },
+  // Conta desativada (só Google): aparece na administração com status "desativada".
+  { id: "user-tiago", name: "Tiago Rocha", email: "tiago@demo.test", role: "student", emailVerified: true, hasPassword: false },
 ];
 
 export function buildSeed(now: Date): Db {
@@ -308,8 +366,48 @@ export function buildSeed(now: Date): Db {
     },
   ];
 
+  const accounts: AccountMeta[] = USERS.map((u, i) => ({
+    userId: u.id,
+    createdAt: at(24 * (60 - i * 4)),
+    ...(u.id === "user-tiago" ? { disabledAt: at(24 * 3) } : {}),
+  }));
+
+  const invites: InviteRecord[] = [
+    // Convites antigos só para a tela mostrar estados diferentes (o pendente nasce quando a demo cria um).
+    { id: "invite-01", email: "coordenacao@demo.test", token: "seed-invite-expired-0000000000000001", invitedById: "user-admin", createdAt: at(24 * 6), expiresAt: at(24 * 4) },
+    { id: "invite-02", email: "secretaria@demo.test", token: "seed-invite-revoked-0000000000000002", invitedById: "user-admin", createdAt: at(30), expiresAt: at(-18), revokedAt: at(20) },
+  ];
+
+  const event = (
+    n: number,
+    hoursAgo: number,
+    actorId: string | null,
+    action: string,
+    target: [string, string] | null,
+    metadata: AuditRecord["metadata"] = null,
+  ): AuditRecord => ({
+    id: `audit-${String(n).padStart(2, "0")}`,
+    at: at(hoursAgo),
+    actorId,
+    action,
+    targetType: target ? target[0] : null,
+    targetId: target ? target[1] : null,
+    metadata,
+  });
+  const audit: AuditRecord[] = [
+    event(1, 290, "user-admin", "return.register", ["item", "item-11"], { returnId: "return-02", claimId: "claim-09" }),
+    event(2, 130, "user-admin", "return.register", ["item", "item-10"], { returnId: "return-01", claimId: "claim-08" }),
+    event(3, 72, null, "login.failure", null, { method: "password", emailRef: "0a1b2c3d4e5f" }),
+    event(4, 72, "user-admin", "user.disable", ["user", "user-tiago"]),
+    event(5, 40, "user-admin", "claim.accept", ["claim", "claim-04"], { itemId: "item-05", autoRejected: 1 }),
+    event(6, 30, "user-admin", "invite.create", ["invite", "invite-02"], { emailRef: "5f4e3d2c1b0a" }),
+    event(7, 20, "user-admin", "invite.revoke", ["invite", "invite-02"]),
+    event(8, 2, "user-admin", "login.success", ["user", "user-admin"], { method: "demo" }),
+  ];
+
   return { version: DB_VERSION, users: USERS.map((u) => ({ ...u })),
-    credentials: DEMO_CREDENTIALS.map((c) => ({ ...c })),
+    credentials: [...DEMO_CREDENTIALS.map((c) => ({ ...c })), { userId: "user-tiago", provider: "google" as const }],
     tokens: [],
-    items, claims, returns };
+    items, claims, returns,
+    accounts, twoFactor: [], invites, audit };
 }

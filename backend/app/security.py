@@ -19,6 +19,7 @@ from .errors import ServiceError
 
 ACCESS = "access"
 GOOGLE_PROFILE = "google_profile"
+TWOFA_CHALLENGE = "2fa_challenge"
 ALGORITHM = "HS256"
 
 
@@ -81,6 +82,12 @@ def create_profile_token(settings: Settings, email: str, name: str) -> str:
         {"typ": GOOGLE_PROFILE, "email": email, "name": name},
         timedelta(minutes=settings.profile_token_minutes),
     )
+    return token
+
+
+def create_challenge_token(settings: Settings, user_id: str) -> str:
+    """Desafio de 2FA (curto). Só serve em `/auth/2fa/verify`; NÃO é token de sessão (`typ` diferente)."""
+    token, _ = _encode(settings, {"sub": user_id, "typ": TWOFA_CHALLENGE}, timedelta(minutes=settings.twofa_challenge_minutes))
     return token
 
 
