@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { homePathFor } from "@/components/auth/home-path";
@@ -38,13 +38,6 @@ function LandingLoading() {
   );
 }
 
-/** Garantias reais do produto (SPEC §2, AC03.1, AC07), em linhas curtas sob os botões. */
-const HERO_ASSURANCES = [
-  "Consulta aberta, sem cadastro",
-  "Toda reivindicação é conferida",
-  "Feito para usar no celular",
-] as const;
-
 /**
  * Prévia do produto: a ilustração da marca em um cartão, com os três status que todo item percorre. Os selos são os
  * componentes reais (`ItemStatusBadge`), então o vocabulário é o mesmo da busca. Decorativa: o texto ao lado diz tudo.
@@ -75,26 +68,22 @@ function Hero() {
             Recupere o que você perdeu no campus.
           </h1>
           <p className="mt-4 max-w-form text-lead font-normal text-ink-muted">
-            Veja o que já foi encontrado, sem criar conta. Achou o seu? Reivindique em poucos passos e a administração
-            cuida da devolução.
+            Os objetos encontrados no campus ficam reunidos aqui. Localize o seu, comprove que é seu e receba de volta
+            com segurança.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <LinkButton href="/itens" size="lg" width="mobile-full">
-              Buscar itens encontrados
+              Procurar meu item
               <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
             </LinkButton>
             <LinkButton href="/entrar" variant="secondary" size="lg" width="mobile-full">
               Entrar
             </LinkButton>
           </div>
-          <ul role="list" className="mt-8 flex flex-col gap-2 text-meta text-ink sm:flex-row sm:flex-wrap sm:gap-x-6">
-            {HERO_ASSURANCES.map((text) => (
-              <li key={text} className="flex items-center gap-1.5">
-                <Check aria-hidden="true" className="size-4 shrink-0 text-success-fg" />
-                {text}
-              </li>
-            ))}
-          </ul>
+          <p className="mt-8 flex max-w-form items-start gap-2 text-meta text-ink">
+            <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+            Cada devolução é conferida e registrada pela administração do campus.
+          </p>
         </div>
         <div className="lg:col-span-5">
           <HeroPreview />
@@ -111,8 +100,7 @@ function FinalCall() {
         <div className="max-w-xl">
           <h2 id="chamada-final-titulo">Achou algo ou perdeu algo?</h2>
           <p className="mt-2 text-body text-ink">
-            Crie sua conta para registrar o que encontrou e reivindicar o que é seu. Consultar a lista continua sem
-            cadastro.
+            Crie sua conta para registrar o que encontrou ou reivindicar o que é seu.
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row">

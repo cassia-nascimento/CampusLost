@@ -30,7 +30,7 @@ export function LandingFooter() {
           <div className="md:col-span-6">
             <Brand href="/" />
             <p className="mt-2 max-w-sm text-body text-ink-muted">
-              Achados e perdidos do campus: registre, busque, reivindique e acompanhe a devolução em um só lugar.
+              Achados e perdidos do campus. Os objetos encontrados, de volta para quem os perdeu.
             </p>
           </div>
           {COLUMNS.map(({ label, links }) => (
