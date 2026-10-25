@@ -27,15 +27,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--email", required=True)
     p.add_argument("--name", required=True)
     args = p.parse_args(argv)
-    password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Senha (8 a 72 caracteres): ")
+    password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Senha (10 a 72 bytes): ")
     try:
-        data = validate_signup({"name": args.name, "email": args.email, "password": password, "role": "student"})
+        data = validate_signup({"name": args.name, "email": args.email, "password": password, "role": "student", "acceptTerms": True})
     except ServiceError as exc:
         print("Dados inválidos:", exc.field_errors, file=sys.stderr)
         return 2
     settings = load_settings()
     engine = make_engine(settings)
-    Base.metadata.create_all(engine)
+    if not settings.is_production:
+        Base.metadata.create_all(engine)
     with make_session_factory(engine)() as s:
         email = normalize_email(data["email"])
         if s.scalar(select(UserRow).where(UserRow.email == email)):
@@ -44,7 +45,8 @@ def main(argv: list[str] | None = None) -> int:
         s.add(
             UserRow(
                 id=random_id("user"), name=data["name"], email=email, role="admin", provider="password",
-                password_hash=hash_password(data["password"], settings.bcrypt_rounds), created_at=utc_now(),
+                password_hash=hash_password(data["password"], settings.bcrypt_rounds), created_at=utc_now(), email_verified_at=utc_now(),
+                terms_accepted_at=utc_now(), terms_version=settings.terms_version,
             )
         )
         s.commit()

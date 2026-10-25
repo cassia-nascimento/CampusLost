@@ -30,13 +30,13 @@ def snapshot(client):
 def test_seed_counts_and_status_coverage(app):
     with app.state.session_factory() as s:
         count = lambda m: s.scalar(select(func.count()).select_from(m))  # noqa: E731
-        assert (count(UserRow), count(ItemRow), count(ClaimRow), count(ReturnRow)) == (5, 11, 9, 2)
+        assert (count(UserRow), count(ItemRow), count(ClaimRow), count(ReturnRow)) == (6, 11, 9, 2)
         statuses = {i.status for i in s.scalars(select(ItemRow))}
         assert statuses == {"available", "under_claim", "returned"}
         claim_statuses = {c.status for c in s.scalars(select(ClaimRow))}
         assert claim_statuses == {"pending", "accepted", "rejected"}
         users = {u.id: u for u in s.scalars(select(UserRow))}
-        assert set(users) == {"user-marina", "user-rafael", "user-admin", "user-lucas", "user-beatriz"}
+        assert set(users) == {"user-marina", "user-rafael", "user-admin", "user-lucas", "user-beatriz", "user-externo"}
         assert users["user-admin"].role == "admin" and users["user-admin"].email == "admin@demo.test"
         assert all(u.email.endswith("@demo.test") for u in users.values())
 
@@ -83,7 +83,7 @@ def test_all_demo_accounts_use_the_demo_password(client):
     for email in ("marina", "rafael", "admin", "lucas", "beatriz"):
         r = client.post("/auth/login", json={"email": f"{email}@demo.test", "password": DEMO_PASSWORD})
         assert r.status_code == 200, email
-    assert client.post("/auth/login", json={"email": "marina@demo.test", "password": "demo123456"}).status_code == 401
+    assert client.post("/auth/login", json={"email": "marina@demo.test", "password": "demonstracao1236"}).status_code == 401
 
 
 def test_demo_profiles_and_login(client):
@@ -107,7 +107,7 @@ def test_demo_reset_restores_seed_and_removes_uploads(client, student, admin, se
     created = client.post("/items", data=ITEM_FORM, files={"photo": ("a.jpg", JPEG, "image/jpeg")}, headers=student).json()
     client.post("/claims/claim-01/accept", headers=admin)
     client.delete("/items/item-02", headers=admin)
-    new_user = client.post("/auth/signup", json={"name": "Nova Pessoa", "email": "nova@exemplo.com", "password": "senha-forte-1", "role": "student"}).json()
+    new_user = client.post("/auth/signup", json={"name": "Nova Pessoa", "email": "nova@exemplo.com", "password": "senha-forte-1", "role": "student", "acceptTerms": True}).json()
     photo = settings.uploads_dir / created["photoUrl"].split("/")[-1]
     assert photo.exists()
 
@@ -150,12 +150,17 @@ def test_demo_endpoints_are_off_in_production(tmp_path):
         assert c.get("/docs").status_code == 404 and c.get("/openapi.json").status_code == 404
 
 
+SMTP_ENV = {"SMTP_HOST": "smtp.exemplo.test", "SMTP_FROM": "CampusLost <nao-responda@exemplo.test>"}
+
+
 def test_production_refuses_to_start_without_secret():
     with pytest.raises(ConfigError):
         load_settings({"ENV": "production"}, read_dotenv=False)
     with pytest.raises(ConfigError):
         load_settings({"ENV": "production", "SECRET_KEY": "curta"}, read_dotenv=False)
-    ok = load_settings({"ENV": "production", "SECRET_KEY": "x" * 40}, read_dotenv=False)
+    with pytest.raises(ConfigError):  # produção sem e-mail real (SMTP) não sobe: links de acesso iriam para o log
+        load_settings({"ENV": "production", "SECRET_KEY": "x" * 40}, read_dotenv=False)
+    ok = load_settings({"ENV": "production", "SECRET_KEY": "x" * 40, **SMTP_ENV}, read_dotenv=False)
     assert ok.is_production and ok.demo_mode is False and ok.seed_on_startup is False
 
 
@@ -176,7 +181,7 @@ def test_env_overrides():
     assert s.demo_mode is False and s.cors_origins == ("https://a.com", "https://b.com")
     assert s.google_allowed_domains == ("x.edu.br", "y.edu.br") and s.access_token_expire_minutes == 5
     assert s.database_url == "sqlite:///foo.db" and s.google_client_id == "abc"
-    prod_demo = load_settings({"ENV": "production", "SECRET_KEY": "x" * 40, "DEMO_MODE": "true"}, read_dotenv=False)
+    prod_demo = load_settings({"ENV": "production", "SECRET_KEY": "x" * 40, "DEMO_MODE": "true", **SMTP_ENV}, read_dotenv=False)
     assert prod_demo.demo_mode is True  # explícito vence o padrão
 
 

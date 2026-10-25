@@ -9,7 +9,7 @@ from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow
 from .decision import ALLOW, Decision, assert_allowed, deny
 from .item_status import assert_transition
-from .permissions import has_capability
+from .permissions import email_not_verified, has_capability
 
 
 def is_active_claim(claim: ClaimRow) -> bool:
@@ -35,6 +35,9 @@ def can_claim(actor: Any, item: ItemRow, item_claims: Sequence[ClaimRow]) -> Dec
         return deny("UNAUTHENTICATED", "Entre para reivindicar este item.")
     if not has_capability(actor, "claim_item"):
         return deny("FORBIDDEN", "A administração analisa reivindicações, mas não reivindica itens.")
+    unverified = email_not_verified(actor)
+    if unverified:
+        return unverified
     if item.status == "returned":
         return deny("ITEM_RETURNED", "Este item já foi devolvido.")
     mine = [c for c in item_claims if c.claimant_id == actor.id]

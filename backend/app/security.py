@@ -1,7 +1,9 @@
-"""Senhas (bcrypt), tokens (JWT HS256) e limite de tentativas de login."""
+"""Senhas (bcrypt), tokens (JWT HS256, opacos com hash) e um limitador de janela em memória (só IPs de rotas de e-mail)."""
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import threading
 import time
 from collections import deque
@@ -46,10 +48,30 @@ def _encode(settings: Settings, claims: dict[str, Any], lifetime: timedelta) -> 
     return token, exp
 
 
-def create_access_token(settings: Settings, user_id: str) -> tuple[str, datetime]:
-    return _encode(
-        settings, {"sub": user_id, "typ": ACCESS}, timedelta(minutes=settings.access_token_expire_minutes)
-    )
+def create_access_token(
+    settings: Settings,
+    user_id: str,
+    *,
+    sid: str | None = None,
+    token_version: int = 0,
+    minutes: int | None = None,
+) -> tuple[str, datetime]:
+    """JWT de acesso. `sid` liga o token à linha de `sessions` (revogável); `tv` à versão de tokens do usuário."""
+    claims: dict[str, Any] = {"sub": user_id, "typ": ACCESS, "tv": token_version}
+    if sid:
+        claims["sid"] = sid
+    lifetime = timedelta(minutes=minutes if minutes is not None else settings.access_token_expire_minutes)
+    return _encode(settings, claims, lifetime)
+
+
+def new_opaque_token() -> str:
+    """Token aleatório (256 bits) para refresh, verificação de e-mail e redefinição de senha."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """SHA-256 em hex. Tokens de alta entropia dispensam sal/KDF; só o hash vai para o banco."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def create_profile_token(settings: Settings, email: str, name: str) -> str:

@@ -12,9 +12,9 @@ from typing import Any
 from .. import catalog
 from ..clock import is_future_date, is_valid_iso_date
 from ..errors import ServiceError
+from .password import PASSWORD_MAX_BYTES as PASSWORD_MAX
+from .password import password_error
 
-PASSWORD_MIN = 8
-PASSWORD_MAX = 72
 ITEM_TITLE_MAX = 80
 ITEM_DESCRIPTION_MAX = 500
 ITEM_STORED_AT_MAX = 120
@@ -22,7 +22,9 @@ CLAIM_PROOF_MAX = 500
 CLAIM_WHERE_WHEN_MAX = 300
 PHOTO_MAX_BYTES = 10 * 1024 * 1024
 
-SIGNUP_ROLES = ("student", "teacher")
+SIGNUP_ROLES = ("student", "teacher", "external")
+GOOGLE_ROLES = ("student", "teacher")  # Google institucional: aluno/professor; demais e-mails Google nascem `external`
+TERMS_MESSAGE = "Aceite os termos de uso e a política de privacidade para continuar."
 
 # Mesma expressão do `z.email()` do zod 4.
 _EMAIL_RE = re.compile(r"^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$")
@@ -62,14 +64,15 @@ def _email(value: Any) -> str:
     return v
 
 
-def _new_password(value: Any) -> str:
-    if not isinstance(value, str) or len(value) < 1:
-        raise _Fail("Crie uma senha.")
-    if len(value) < PASSWORD_MIN:
-        raise _Fail(f"Use pelo menos {PASSWORD_MIN} caracteres.")
-    # bcrypt só considera 72 BYTES; recusa em vez de truncar em silêncio.
-    if len(value) > PASSWORD_MAX or len(value.encode("utf-8")) > PASSWORD_MAX:
-        raise _Fail(f"Use no máximo {PASSWORD_MAX} caracteres.")
+def _new_password(value: Any, email: Any = None, name: Any = None) -> str:
+    """Política de senha completa (`rules/password.py`): 10+ caracteres, <= 72 bytes, não comum, não pessoal."""
+    error = password_error(
+        value,
+        email=email if isinstance(email, str) else None,
+        name=name if isinstance(name, str) else None,
+    )
+    if error:
+        raise _Fail(error)
     return value
 
 
@@ -83,8 +86,26 @@ def _login_password(value: Any) -> str:
 
 def _signup_role(value: Any) -> str:
     if value not in SIGNUP_ROLES:
+        raise _Fail("Escolha se você é aluno, professor ou da comunidade externa.")
+    return value
+
+
+def _google_role(value: Any) -> str:
+    if value not in GOOGLE_ROLES:
         raise _Fail("Escolha se você é aluno ou professor.")
     return value
+
+
+def _accept_terms(value: Any) -> bool:
+    if value is not True:
+        raise _Fail(TERMS_MESSAGE)
+    return True
+
+
+def _opaque_token(value: Any) -> str:
+    if not isinstance(value, str) or not (16 <= len(value.strip()) <= 200):
+        raise _Fail("Link inválido ou expirado.")
+    return value.strip()
 
 
 def _enum(value: Any, options: tuple[str, ...], message: str) -> str:
@@ -120,16 +141,31 @@ def normalize_email(value: str) -> str:
     return value.strip().lower()
 
 
-def validate_signup(data: Any) -> dict[str, str]:
+def validate_signup(data: Any) -> dict[str, Any]:
+    src = data if isinstance(data, dict) else {}
     return _run(
         data,
         {
             "name": lambda v: _bounded_text(v, "seu nome", 2, 80),
             "email": _email,
-            "password": _new_password,
+            "password": lambda v: _new_password(v, src.get("email"), src.get("name")),
             "role": _signup_role,
+            "acceptTerms": _accept_terms,
         },
     )
+
+
+def validate_email_only(data: Any) -> dict[str, str]:
+    return _run(data, {"email": _email})
+
+
+def validate_token(data: Any) -> dict[str, str]:
+    return _run(data, {"token": _opaque_token})
+
+
+def validate_reset_request(data: Any) -> dict[str, str]:
+    """Token + senha nova. A política completa (e-mail/nome) é reaplicada no servidor depois de achar o usuário."""
+    return _run(data, {"token": _opaque_token, "password": lambda v: _new_password(v)})
 
 
 def validate_signin(data: Any) -> dict[str, str]:
@@ -143,8 +179,12 @@ def validate_google_signup(data: Any) -> dict[str, str]:
     )
 
 
-def validate_google_role(data: Any) -> dict[str, str]:
-    return _run(data, {"role": _signup_role})
+def validate_google_complete(data: Any, *, needs_role: bool) -> dict[str, Any]:
+    """Conclusão do cadastro Google: papel (só no domínio institucional) + aceite dos termos."""
+    fields: dict[str, Any] = {"acceptTerms": _accept_terms}
+    if needs_role:
+        fields = {"role": _google_role, **fields}
+    return _run(data, fields)
 
 
 def validate_claim(data: Any) -> dict[str, str]:
