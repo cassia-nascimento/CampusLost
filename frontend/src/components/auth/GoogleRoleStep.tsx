@@ -109,7 +109,7 @@ export function GoogleRoleStep({ pending, onCancel }: { pending: GooglePending; 
           <>
             Li e aceito os{" "}
             <Link href="/termos" target="_blank" rel="noopener" className="link font-semibold">
-              termos de uso<span className="sr-only"> (abre em nova aba)</span>
+              Termos de uso<span className="sr-only"> (abre em nova aba)</span>
             </Link>{" "}
             e a{" "}
             <Link href="/privacidade" target="_blank" rel="noopener" className="link font-semibold">

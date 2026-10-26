@@ -50,7 +50,7 @@ export function LandingFooter() {
             </nav>
           ))}
         </div>
-        <p className="border-t border-line pt-6 text-meta text-ink-muted">© {new Date().getFullYear()} CampusLost</p>
+        <p className=" text-center border-t border-line pt-6 text-meta text-ink-muted">© {new Date().getFullYear()} CampusLost</p>
       </div>
     </footer>
   );
