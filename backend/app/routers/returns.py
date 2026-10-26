@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from .. import audit
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, find_item, require_user
+from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_user
 from ..models import ClaimRow, ReturnRow, UserRow
 from ..rules.returns import filter_returns_by_period, register_return, sort_returns
 from ..rules.validation import validate_period
@@ -23,8 +23,10 @@ def _view(db, r: ReturnRow):
 
 
 @router.post("/items/{item_id}/return", status_code=201)
-def register_item_return(item_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
-    user = require_user(actor, "register_return")
+def register_item_return(
+    item_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep, settings: SettingsDep
+):
+    user = ensure_admin_2fa(settings, require_user(actor, "register_return"))
     with lock:
         item = find_item(db, item_id)
         claims = list(db.scalars(select(ClaimRow).where(ClaimRow.item_id == item_id)).all())
@@ -40,7 +42,7 @@ def register_item_return(item_id: str, request: Request, db: DbDep, actor: Optio
 
 @router.get("/returns")
 def list_returns(request: Request, db: DbDep, actor: OptionalUser, settings: SettingsDep):
-    require_user(actor, "view_returns")
+    ensure_admin_2fa(settings, require_user(actor, "view_returns"))
     period = validate_period(dict(request.query_params))
     rows = db.scalars(select(ReturnRow)).all()
     filtered = filter_returns_by_period(rows, settings.tz, period.get("from"), period.get("to"))

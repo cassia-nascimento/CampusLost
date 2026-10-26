@@ -38,6 +38,13 @@ def _int(value: str | None, default: int) -> int:
         return default
 
 
+def _cookie_path(value: str | None) -> str:
+    v = (value or "").strip() or "/"
+    if not v.startswith("/") or ";" in v or " " in v:
+        raise ConfigError("COOKIE_REFRESH_PATH deve começar com '/' (ex.: /auth ou /).")
+    return v
+
+
 def _list(value: str | None, default: tuple[str, ...]) -> tuple[str, ...]:
     items = tuple(p.strip() for p in (value or "").split(",") if p.strip())
     return items or default
@@ -65,6 +72,8 @@ class Settings:
     # Sessões por cookie (B1/6): acesso curto + refresh rotativo.
     cookie_access_minutes: int = 15
     refresh_days: int = 7
+    # Path do cookie de refresh. "/auth" (padrão) ou "/" (necessário atrás de proxy com prefixo, ex. /backend/auth).
+    cookie_refresh_path: str = "/"
     cookie_secure: bool | None = None  # None: Secure em tudo que não for development/test
     # E-mail (B1/3). `console` imprime o link no log (só dev); `smtp` envia de verdade.
     mail_backend: str = "console"
@@ -170,6 +179,7 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
         bcrypt_rounds=_int(environ.get("BCRYPT_ROUNDS"), 12),
         cookie_access_minutes=_int(environ.get("COOKIE_ACCESS_MINUTES"), 15),
         refresh_days=_int(environ.get("REFRESH_DAYS"), 7),
+        cookie_refresh_path=_cookie_path(environ.get("COOKIE_REFRESH_PATH")),
         cookie_secure=None if secure_raw in (None, "") else _bool(secure_raw, True),
         mail_backend=mail_backend,
         smtp_host=smtp_host,

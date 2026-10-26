@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseApiBaseUrl } from "./api-config";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { API_PROXY_PREFIX, getApiBaseUrl, getApiTargetUrl, parseApiBaseUrl } from "./api-config";
 import { isRenderablePhotoSrc, isStoredPhotoSrc } from "./validation/photo";
 import { isSeedImage, itemPhotoAlt } from "./utils";
 
@@ -15,6 +15,33 @@ describe("parseApiBaseUrl", () => {
     expect(parseApiBaseUrl("localhost:8000")).toBe("");
     expect(parseApiBaseUrl("javascript:alert(1)")).toBe("");
     expect(parseApiBaseUrl("ftp://x.test")).toBe("");
+  });
+});
+
+describe("base same-origin (cookie HttpOnly)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("com NEXT_PUBLIC_API_URL válida o cliente usa o prefixo /backend; o destino real fica à parte", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://127.0.0.1:8000/");
+    expect(API_PROXY_PREFIX).toBe("/backend");
+    expect(getApiBaseUrl()).toBe("/backend");
+    expect(getApiTargetUrl()).toBe("http://127.0.0.1:8000");
+  });
+
+  it("ausente ou inválida = modo mock (base vazia)", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    expect(getApiBaseUrl()).toBe("");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "javascript:alert(1)");
+    expect(getApiBaseUrl()).toBe("");
+  });
+
+  it("fotos da API no prefixo same-origin são aceitas; outro host ou // não", () => {
+    const ok = `/backend/uploads/${UUID}.jpg`;
+    expect(isStoredPhotoSrc(ok, "/backend")).toBe(true);
+    expect(isStoredPhotoSrc(`/backend/uploads/seed/mochila.svg`, "/backend")).toBe(true);
+    expect(isStoredPhotoSrc(`//evil.test/backend/uploads/${UUID}.jpg`, "/backend")).toBe(false);
+    expect(isStoredPhotoSrc(`/backend/uploads/../x.jpg`, "/backend")).toBe(false);
+    expect(isSeedImage("/backend/uploads/seed/mochila.svg", "/backend")).toBe(true);
   });
 });
 

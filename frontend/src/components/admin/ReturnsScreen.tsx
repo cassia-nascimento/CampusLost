@@ -7,7 +7,7 @@ import { withOrigin } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ErrorState } from "@/components/ui/ErrorState";
+import { AdminQueryError } from "./AdminQueryError";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
@@ -84,9 +84,7 @@ export function ReturnsScreen() {
 
       {query.status === "loading" ? <ReturnsSkeleton /> : null}
       {query.status === "error" ? (
-        <ErrorState title="Não conseguimos carregar as devoluções" onRetry={query.refetch}>
-          {query.error?.message}
-        </ErrorState>
+        <AdminQueryError error={query.error} title="Não conseguimos carregar as devoluções" onRetry={query.refetch} />
       ) : null}
       {query.status === "success" && query.data && !periodError ? (
         <ReturnsResults returns={query.data} filtered={filtered} onClear={clear} />

@@ -294,7 +294,17 @@ Cookies definidos nas respostas de sessão (todos `HttpOnly`, `SameSite=Lax`, `S
 | Cookie | Path | Vida | Conteúdo |
 |---|---|---|---|
 | `cl_access` | `/` | 15 min | JWT de acesso (mesmo formato do Bearer, preso à sessão). |
-| `cl_refresh` | `/auth` | 7 dias (renova a cada uso) | Token opaco de uso único; só o hash fica em `sessions`. |
+| `cl_refresh` | `/` (configurável: `COOKIE_REFRESH_PATH`; `/auth` só serve sem proxy) | 7 dias (renova a cada uso) | Token opaco de uso único; só o hash fica em `sessions`. |
+
+**Atrás de um proxy same-origin do Next** (ex.: o frontend chama `/backend/auth/refresh` e o Next repassa à API): o navegador só envia um cookie cujo `Path` é prefixo da URL vista por ele (`/backend/auth/...`), então `Path=/auth` nunca seria enviado. Configuração recomendada nesse caso:
+
+```
+COOKIE_REFRESH_PATH=/          # cookie de refresh enviado a qualquer rota do site (padrão; `/auth` serve só sem proxy)
+COOKIE_SECURE=true             # HTTPS em produção (vazio já liga fora de development/test; false só em HTTP local)
+CORS_ORIGINS=https://app.exemplo.edu.br   # a origem do SITE (a que o navegador envia em `Origin`), não a da API
+```
+
+Os cookies não têm `Domain`: ficam presos ao host do site e passam pelo proxy sem ajuste (o Next repassa `Set-Cookie`). O CSRF (§1) continua valendo: `Origin` é a do site, que está em `CORS_ORIGINS`, e o `fetch` deve mandar `X-Requested-With`. Com `Path=/` o refresh também vai em chamadas que não precisam dele; é o preço do proxy. Sem proxy (frontend e API em origens diferentes chamando direto), mantenha `/auth`. Valor inválido (sem `/` inicial) impede a API de subir. Não foi testado com um Next real, só com `Origin`/cookies simulados nos testes.
 
 Cookie de acesso **inválido/expirado** é tratado como visitante (a navegação pública não quebra); `/auth/me` e rotas protegidas respondem 401 e o cliente chama `refresh`. Mutáveis por cookie: ver CSRF na §1.
 
@@ -332,7 +342,7 @@ SHA-1, 6 dígitos, passo de 30 s, tolerância de ±1 passo; um código **não va
 - `POST /auth/2fa/verify` `{ "challengeToken": "...", "code": "123456" }` ou `{ "challengeToken": "...", "recoveryCode": "abcde-fghjk" }` → **200** `Session` (+ cookies). O `challengeToken` é um JWT de 5 min (`typ` próprio; não serve como Bearer). Código errado: 401 `INVALID_CREDENTIALS` com `fieldErrors.code`; desafio inválido/expirado: 401 `UNAUTHENTICATED` "A verificação expirou. Entre novamente."
 - **Limite de tentativas**: `setup`/`enable`/`disable`/`verify` usam o mesmo mecanismo do login (§4.2.5) com chave própria por conta + IP: 10 erros bloqueiam (429 `RATE_LIMITED`, `Retry-After`, progressivo) e, bloqueado, nem o código certo passa.
 - **Administração exige 2FA.** Admin sem 2FA consegue entrar, mas toda rota `/admin/*` responde **403 `TWO_FACTOR_REQUIRED`** até ele concluir `setup` + `enable`. **Isenções** (configuração `ADMIN_REQUIRE_2FA`): vazia = exigido, **exceto com `DEMO_MODE=true`**; `false` desliga; `true` liga mesmo em demo (a conta `user-admin` do seed continua isenta em modo demo, para a demonstração funcionar).
-- **Escopo da exigência**: vale só para `/admin/*` (como pedido). As rotas administrativas anteriores (`/claims/*/accept|reject`, `PUT|DELETE /items/{id}`, `POST /items/{id}/return`, `GET /returns`) continuam acessíveis a um admin sem 2FA; estender a exigência a elas é uma decisão em aberto (o frontend precisaria tratar `TWO_FACTOR_REQUIRED` em todo o painel).
+- **Escopo da exigência**: vale para `/admin/*` **e** para todas as rotas só-admin: `GET /items/{id}/claims`, `GET /claims/pending`, `POST /claims/{id}/accept|reject`, `PUT|DELETE /items/{id}`, `POST /items/{id}/return` e `GET /returns` (mesma regra e mesmas isenções; papel errado continua 403 `FORBIDDEN`, a checagem de 2FA vem depois). Rotas que o admin usa como qualquer papel (`GET /items`, `POST /items`, `/me/*`) não são bloqueadas. O frontend deve tratar `TWO_FACTOR_REQUIRED` em todo o painel e levar o admin ao `setup`.
 - **Limitação**: o segredo TOTP fica **em claro** na coluna `users.totp_secret` (não há biblioteca de cifra no projeto e não implementamos cifra caseira). Quem lê o arquivo do banco ou um backup consegue gerar códigos: proteja `data/` e `data/backups/`.
 - Perda do dispositivo: use um código de recuperação. Sem eles não há redefinição self-service (decisão em aberto; um admin não consegue zerar o 2FA de outra pessoa nesta versão).
 
@@ -502,7 +512,7 @@ Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (aluno, 
 
 ## 6. Diferenças em relação ao mock (para o cliente tratar)
 
-1. **Sessão**: o mock guarda `userId` em `sessionStorage`; a API devolve `token` (guardar em `sessionStorage`, manter P21) e, em paralelo, cookies HttpOnly (§4.2.3) para quem preferir não guardar token em JS. Qualquer 401 `UNAUTHENTICATED` com Bearer enviado ⇒ descartar sessão; no modo cookie, tentar `POST /auth/refresh` primeiro.
+1. **Sessão**: o mock guarda `userId` em `sessionStorage`. O cliente REST do frontend **não guarda token**: usa os cookies HttpOnly (§4.2.3) por meio do proxy same-origin `/backend`; o `token` do corpo da resposta é ignorado. Num 401 `UNAUTHENTICATED` o cliente tenta uma vez `POST /auth/refresh` e repete a chamada; se falhar, encerra a sessão local. O logout chama `POST /auth/logout`.
 2. **`getCurrentUser`**: a API responde 401 sem sessão; o cliente converte em `null`.
 3. **Google**: `signInWithGoogle` recebe `credential` (não o perfil) e `completeGoogleSignUp` recebe `profileToken` + `role`. A rota `/api/auth/google` do Next deixa de ser necessária.
 4. **`subscribe`**: não existe push. Releitura manual/periódica.

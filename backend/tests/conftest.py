@@ -40,6 +40,7 @@ def make_settings(tmp_path, **overrides) -> Settings:
         bcrypt_rounds=4,  # rápido nos testes
         login_rate_limit=10,
         timezone_name="America/Fortaleza",
+        cookie_refresh_path="/auth",  # os testes de sessão assumem o escopo estreito; o padrão real é "/" (proxy do Next)
     )
     base.update(overrides)
     return Settings(**base)

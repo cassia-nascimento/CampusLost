@@ -16,7 +16,7 @@ export function createClaimService(ctx: MockContext): ClaimService {
   const decide = (claimId: string, decision: "accept" | "reject") =>
     ctx.run(`claims.${decision}`, (who): ClaimDecisionResult =>
       store.transaction((db) => {
-        const actor = requireUser(db, who, "review_claims");
+        const actor = ctx.requireAdmin(db, who, "review_claims");
         const target = db.claims.find((c) => c.id === claimId);
         if (!target) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
         const item = findItem(db, target.itemId);

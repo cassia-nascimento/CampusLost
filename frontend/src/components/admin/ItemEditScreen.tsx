@@ -8,7 +8,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ErrorState } from "@/components/ui/ErrorState";
+import { ACCOUNT_TWO_FACTOR_PATH } from "@/components/account/two-factor";
+import { AdminQueryError } from "./AdminQueryError";
+import { isTwoFactorRequired } from "./admin-errors";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { useServiceQuery } from "@/hooks/use-service-query";
@@ -33,15 +35,32 @@ export function ItemEditScreen({ itemId }: { itemId: string }) {
   // Depois de salvar ou excluir, a tela navega: evita piscar "não encontrado" quando os dados mudam.
   const [leaving, setLeaving] = useState(false);
 
+  /** Administração sem 2FA: leva a /conta (true) em vez de mostrar erro. */
+  function redirectIfTwoFactor(error: unknown): boolean {
+    if (!isTwoFactorRequired(error)) return false;
+    router.replace(ACCOUNT_TWO_FACTOR_PATH);
+    return true;
+  }
+
   async function save(input: ItemInput) {
-    await services.items.update(itemId, input);
+    try {
+      await services.items.update(itemId, input);
+    } catch (error) {
+      if (redirectIfTwoFactor(error)) return;
+      throw error;
+    }
     setLeaving(true);
     toast.success("Alterações salvas.");
     router.replace(`/itens/${itemId}`);
   }
 
   async function remove() {
-    await services.items.delete(itemId);
+    try {
+      await services.items.delete(itemId);
+    } catch (error) {
+      if (redirectIfTwoFactor(error)) return;
+      throw error;
+    }
     setLeaving(true);
     toast.success("Item excluído.");
     router.replace("/itens");
@@ -63,9 +82,7 @@ export function ItemEditScreen({ itemId }: { itemId: string }) {
         </EmptyState>
       ) : null}
       {!leaving && query.status === "error" && query.error?.code !== "NOT_FOUND" ? (
-        <ErrorState title="Não conseguimos carregar o item" onRetry={query.refetch}>
-          {query.error?.message}
-        </ErrorState>
+        <AdminQueryError error={query.error} title="Não conseguimos carregar o item" onRetry={query.refetch} />
       ) : null}
       {!leaving && query.status === "success" && query.data ? (
         <EditContent detail={query.data} onSave={save} onDelete={remove} />

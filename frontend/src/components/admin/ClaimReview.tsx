@@ -11,7 +11,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ErrorState } from "@/components/ui/ErrorState";
+import { ACCOUNT_TWO_FACTOR_PATH } from "@/components/account/two-factor";
+import { AdminQueryError } from "./AdminQueryError";
+import { isTwoFactorRequired } from "./admin-errors";
 import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
 import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
@@ -111,9 +113,7 @@ export function ClaimReview({ claimId }: { claimId: string }) {
         </EmptyState>
       ) : null}
       {query.status === "error" && query.error?.code !== "NOT_FOUND" ? (
-        <ErrorState title="Não conseguimos carregar a reivindicação" onRetry={query.refetch}>
-          {query.error?.message}
-        </ErrorState>
+        <AdminQueryError error={query.error} title="Não conseguimos carregar a reivindicação" onRetry={query.refetch} />
       ) : null}
       {query.status === "success" && shown ? (
         <ReviewContent claim={shown.claim} detail={shown.detail} refetch={query.refetch} onDecided={handleDecided} />
@@ -151,6 +151,10 @@ function ReviewContent({
   /** Outra aba/pessoa pode ter decidido antes: explica, fecha o diálogo e relê o estado atual. */
   function handleFailure(error: unknown) {
     setDialog(null);
+    if (isTwoFactorRequired(error)) {
+      router.replace(ACCOUNT_TWO_FACTOR_PATH);
+      return;
+    }
     if (!isServiceError(error)) {
       toast.error("Não foi possível concluir a ação. Tente de novo em instantes.");
       return;

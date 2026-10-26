@@ -10,7 +10,7 @@ import { createHttpClient, type HttpOptions } from "./http";
 import { createMappers } from "./mappers";
 
 export { fetchCatalog } from "./catalog";
-export { TOKEN_STORAGE_KEY } from "./http";
+export { LEGACY_TOKEN_STORAGE_KEY, SESSION_HINT_KEY } from "./http";
 
 export interface ApiServicesOptions extends Omit<HttpOptions, "onSessionExpired"> {
   polling?: ChangeFeedOptions;

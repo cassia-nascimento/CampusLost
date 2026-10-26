@@ -28,7 +28,7 @@ Na tela de entrada há três botões de um toque, sem digitar senha (as contas t
 | **Professor demo** (Rafael Lima) | professor | o mesmo que a aluna |
 | **Administração demo** | administração | analisar reivindicações, editar/excluir itens, registrar devolução, ver devoluções |
 
-Também é possível **criar conta** em `/cadastro` (com senha de 8 a 72 caracteres; o papel escolhido não é verificado). "Entrar com Google" só funciona com e-mail institucional da UNDB e depois que o Client ID do Google estiver configurado na hospedagem. Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
+Também é possível **criar conta** em `/cadastro` (senha de 10 caracteres a 72 bytes; papel aluno, professor ou **comunidade externa**, que tem as mesmas permissões; o papel escolhido não é verificado). "Entrar com Google" depende de o Client ID do Google estar configurado; com e-mail institucional da UNDB a conta é aluno/professor e com outro domínio é comunidade externa (premissas P30 e P32). Confirmação de e-mail, 2FA da administração, convites e auditoria existem só no backend (SPEC AC01.8 a AC01.22) e **não** fazem parte do roteiro desta demo sem backend; envio real de e-mail, Google real e captcha **não foram testados** (P37). Todos os usuários, itens, categorias e locais são **fictícios/demonstrativos**.
 
 ## 3. Roteiro principal (≈ 6 min): o ciclo completo
 

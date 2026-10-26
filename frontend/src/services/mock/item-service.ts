@@ -152,6 +152,8 @@ export function createItemService(ctx: MockContext): ItemService {
       ctx.run("items.delete", (actor) => {
         store.transaction((db) => {
           const user = requireSession(db, actor);
+          // Administração sem 2FA (e não isenta) é barrada antes de qualquer outra regra, como no backend.
+          if (user.role === "admin") ctx.requireAdmin(db, actor, "delete_item");
           const item = findItem(db, id);
           assertAllowed(canDeleteItem(user, item));
           recordAudit(ctx, db, {

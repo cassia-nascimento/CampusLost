@@ -13,7 +13,7 @@ from starlette.datastructures import UploadFile
 from .. import audit
 from ..clock import local_today
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, find_item, require_session, require_user
+from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_session, require_user
 from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow, ReturnRow, UserRow
 from ..photos import delete_photo_file, save_photo
@@ -154,6 +154,7 @@ def update_item(item_id: str, form: ItemFormDep, db: DbDep, actor: OptionalUser,
     with lock:
         item = find_item(db, item_id)
         assert_allowed(can_edit_item(user, item))
+        ensure_admin_2fa(settings, user)
         fields = validate_item(form.fields, local_today(now(), settings.tz))
         new_url = _store_new_photo(settings, form)
         old_url = item.photo_url
@@ -181,6 +182,7 @@ def delete_item(item_id: str, request: Request, db: DbDep, actor: OptionalUser, 
     with lock:
         item = find_item(db, item_id)
         assert_allowed(can_delete_item(user, item))
+        ensure_admin_2fa(settings, user)
         photo = item.photo_url
         # P18: a exclusão remove também as reivindicações do item.
         for c in db.scalars(select(ClaimRow).where(ClaimRow.item_id == item_id)).all():

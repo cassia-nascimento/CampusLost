@@ -42,14 +42,16 @@ export function createFakeApi() {
 export function createHarness(overrides: Partial<Parameters<typeof createApiServices>[0]> = {}) {
   const api = createFakeApi();
   const storage = createMemoryStorage();
+  const legacyStorage = createMemoryStorage();
   const services: Services = createApiServices({
     baseUrl: BASE,
     fetch: api.fetch,
     storage,
+    legacyStorage,
     polling: { pollMs: 1000, minGapMs: 100, isVisible: () => true },
     ...overrides,
   });
-  return { api, storage, services };
+  return { api, storage, legacyStorage, services };
 }
 
 export const rawUser = { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", emailVerified: true } as const;
