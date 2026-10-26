@@ -9,6 +9,7 @@ import { Button, LinkButton } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "@/lib/validation";
 import { isServiceError } from "@/types/domain";
 import { services } from "@/services";
@@ -24,6 +25,7 @@ export const FORGOT_PASSWORD_SENT =
 export function ForgotPasswordScreen() {
   const [sent, setSent] = useState<{ email: string; devLink: string | null } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const turnstile = useTurnstile();
   const {
     register,
     handleSubmit,
@@ -39,9 +41,10 @@ export function ForgotPasswordScreen() {
   async function onSubmit({ email }: ForgotPasswordValues) {
     setFormError(null);
     try {
-      const dispatch = await services.auth.forgotPassword(email);
+      const dispatch = await services.auth.forgotPassword(email, turnstile.token);
       setSent({ email, devLink: dispatch.devLink ?? null });
     } catch (error) {
+      turnstile.reset();
       const message = isServiceError(error) && error.code === "VALIDATION" ? error.fieldErrors?.email : undefined;
       if (message) {
         setError("email", { type: "server", message });
@@ -87,7 +90,8 @@ export function ForgotPasswordScreen() {
             {...register("email")}
           />
         </Field>
-        <Button type="submit" size="lg" width="full" loading={isSubmitting} loadingText="Enviando…">
+        {turnstile.widget}
+        <Button type="submit" size="lg" width="full" disabled={turnstile.blocked} loading={isSubmitting} loadingText="Enviando…">
           Enviar link
         </Button>
         <p className="text-body text-ink-muted">

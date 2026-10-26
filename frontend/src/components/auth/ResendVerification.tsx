@@ -19,10 +19,11 @@ export function ResendVerification({
   initialDevLink?: string | null;
   className?: string;
 }) {
-  const { resend, sending, message, failed, devLink } = useResendVerification();
+  const { resend, sending, message, failed, devLink, widget, blocked } = useResendVerification();
   return (
     <div className={cn("flex flex-col gap-4", className)}>
-      <Button variant="secondary" size="lg" width="mobile-full" loading={sending} loadingText="Reenviando…" onClick={() => void resend()}>
+      {widget}
+      <Button variant="secondary" size="lg" width="mobile-full" disabled={blocked} loading={sending} loadingText="Reenviando…" onClick={() => void resend()}>
         {label}
       </Button>
       <p role="status" className={cn("text-meta empty:hidden", failed ? "text-danger-fg" : "text-ink")}>
