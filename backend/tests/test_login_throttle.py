@@ -178,3 +178,16 @@ def test_turnstile_secret_comes_from_env_and_is_not_in_repr():
     s = load_settings({"TURNSTILE_SECRET": "abc"}, read_dotenv=False)
     assert s.turnstile_secret == "abc" and "abc" not in repr(s)
     assert load_settings({}, read_dotenv=False).turnstile_secret == ""
+
+
+def test_turnstile_hostname_allowlist(tmp_path, monkeypatch):
+    def fake(settings, token, ip):
+        return {"success": True, "hostname": token}  # o "token" carrega o hostname devolvido pela Cloudflare
+
+    monkeypatch.setattr(turnstile, "_siteverify", fake)
+    settings = make_settings(tmp_path, turnstile_secret="s", turnstile_hostnames=("meu-site.vercel.app",))
+    with TestClient(create_app(settings, clock=Clock(FIXED_NOW))) as c:
+        ok = c.post("/auth/login", json={**GOOD, "turnstileToken": "Meu-Site.vercel.app"})
+        assert ok.status_code == 200
+        bad = c.post("/auth/login", json={**GOOD, "turnstileToken": "outro-site.com"})
+        assert bad.status_code == 400 and bad.json()["code"] == "CAPTCHA_FAILED"

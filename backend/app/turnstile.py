@@ -42,3 +42,8 @@ def verify_turnstile(settings: Settings, payload: Any, ip: str | None) -> None:
         raise ServiceError("CAPTCHA_FAILED", FAIL_MESSAGE) from exc
     if result.get("success") is not True:
         raise ServiceError("CAPTCHA_FAILED", FAIL_MESSAGE)
+    if settings.turnstile_hostnames:
+        hostname = str(result.get("hostname") or "").lower()
+        if hostname not in settings.turnstile_hostnames:
+            log.warning("Turnstile: hostname fora da lista permitida")
+            raise ServiceError("CAPTCHA_FAILED", FAIL_MESSAGE)

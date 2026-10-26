@@ -81,6 +81,8 @@ class Settings:
     login_failure_decay_seconds: int = 900
     login_lock_max_seconds: int = 3600
     turnstile_secret: str = field(default="", repr=False)  # vazio = captcha desligado
+    # Hostnames aceitos na resposta da Cloudflare (vazio = não confere). Em produção, liste só o(s) domínio(s) do site.
+    turnstile_hostnames: tuple[str, ...] = ()
     turnstile_verify_url: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
     terms_version: str = "2026-10"
     # B2: 2FA obrigatório para administração nas rotas /admin/*. None = automático (exigido, exceto em DEMO_MODE).
@@ -177,6 +179,9 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
         smtp_from=smtp_from,
         app_base_url=(environ.get("APP_BASE_URL") or "http://localhost:3000").strip().rstrip("/"),
         turnstile_secret=(environ.get("TURNSTILE_SECRET") or "").strip(),
+        turnstile_hostnames=tuple(
+            h.strip().lower() for h in (environ.get("TURNSTILE_HOSTNAMES") or "").split(",") if h.strip()
+        ),
         terms_version=(environ.get("TERMS_VERSION") or "2026-10").strip(),
         admin_require_2fa=None if (environ.get("ADMIN_REQUIRE_2FA") or "") == "" else _bool(environ.get("ADMIN_REQUIRE_2FA"), True),
         invite_token_hours=_int(environ.get("INVITE_TOKEN_HOURS"), 48),
