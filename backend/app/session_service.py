@@ -2,7 +2,7 @@
 
 Dois jeitos de autenticar, ambos amarrados à mesma linha de `sessions` (então `logout` revoga os dois):
 - Bearer (cliente atual): JWT de `ACCESS_TOKEN_EXPIRE_MINUTES` no corpo da resposta, enviado em `Authorization`.
-- Cookies HttpOnly `cl_access` (15 min, `Path=/`) e `cl_refresh` (7 dias, `Path=/auth`), SameSite=Lax,
+- Cookies HttpOnly `cl_access` (15 min, `Path=/`) e `cl_refresh` (7 dias, `Path=COOKIE_REFRESH_PATH`, padrão `/`), SameSite=Lax,
   Secure fora de dev. O refresh é opaco, rotativo (um uso) e só o hash SHA-256 fica no banco.
 """
 
@@ -24,7 +24,6 @@ from .security import create_access_token, hash_token, new_opaque_token
 
 ACCESS_COOKIE = "cl_access"
 REFRESH_COOKIE = "cl_refresh"
-REFRESH_COOKIE_PATH = "/auth"
 REUSE_GRACE = timedelta(seconds=10)  # duas abas renovando juntas não contam como roubo
 SESSION_EXPIRED = "Sua sessão expirou. Entre novamente."
 
@@ -49,14 +48,14 @@ def set_auth_cookies(
     common = dict(httponly=True, secure=settings.use_secure_cookies, samesite="lax")
     response.set_cookie(ACCESS_COOKIE, access, max_age=settings.cookie_access_minutes * 60, path="/", **common)
     response.set_cookie(
-        REFRESH_COOKIE, refresh_raw, max_age=settings.refresh_days * 86400, path=REFRESH_COOKIE_PATH, **common
+        REFRESH_COOKIE, refresh_raw, max_age=settings.refresh_days * 86400, path=settings.cookie_refresh_path, **common
     )
 
 
 def clear_auth_cookies(response: Response, settings: Settings) -> None:
     common = dict(httponly=True, secure=settings.use_secure_cookies, samesite="lax")
     response.delete_cookie(ACCESS_COOKIE, path="/", **common)
-    response.delete_cookie(REFRESH_COOKIE, path=REFRESH_COOKIE_PATH, **common)
+    response.delete_cookie(REFRESH_COOKIE, path=settings.cookie_refresh_path, **common)
 
 
 def issue_session(

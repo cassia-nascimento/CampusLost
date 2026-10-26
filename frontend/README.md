@@ -35,3 +35,13 @@ CampusLost/
 
 > Em construção. As instruções completas (instalação, variáveis de ambiente,
 > banco, seed e usuários de demonstração) serão adicionadas até 26/10.
+
+### Modo API: proxy same-origin e cabeçalhos de segurança (frontend)
+
+- Com `NEXT_PUBLIC_API_URL` definida, `frontend/next.config.ts` reescreve `/backend/:path*` para
+  `${API_INTERNAL_URL}/:path*` (padrão `http://localhost:8000`). `API_INTERNAL_URL` é variável de servidor
+  (não `NEXT_PUBLIC_`); veja `frontend/.env.example`. Sem `NEXT_PUBLIC_API_URL` (mock), nada é reescrito.
+  O prefixo `/api` não é usado porque `/api/auth/google` pertence ao modo mock.
+- Todas as respostas levam CSP, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`
+  e, só em produção, HSTS. Limitação: a CSP mantém `'unsafe-inline'` em scripts e estilos (o Next injeta código
+  inline); `'unsafe-eval'` só em desenvolvimento.

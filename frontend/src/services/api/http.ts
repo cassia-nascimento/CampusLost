@@ -1,8 +1,17 @@
 import { ServiceError, type ServiceErrorCode } from "@/types/domain";
 import { createDefaultStorage, type KeyValueStorage } from "../mock/storage";
 
-/** Chave versionada do token de sessão. `sessionStorage`: uma sessão por aba, como a P21 (sobrevive a recarregar). */
-export const TOKEN_STORAGE_KEY = "campuslost.api.token.v1";
+/**
+ * Chave do token de versões antigas (Bearer em `sessionStorage`). O cliente NÃO guarda mais token algum: a sessão
+ * é cookie HttpOnly. A chave só existe para ser APAGADA na subida.
+ */
+export const LEGACY_TOKEN_STORAGE_KEY = "campuslost.api.token.v1";
+
+/**
+ * Dica NÃO sensível ("este navegador tem sessão"), em `localStorage`. Evita pedir `/auth/me` (e `/auth/refresh`)
+ * a cada visitante anônimo. Quem decide se a sessão vale é sempre o cookie, no servidor.
+ */
+export const SESSION_HINT_KEY = "campuslost.api.session-hint.v1";
 
 export const NETWORK_MESSAGE = "Não foi possível falar com o servidor. Tente de novo em instantes.";
 const UNEXPECTED_MESSAGE = "Algo deu errado. Tente novamente.";
@@ -39,17 +48,19 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ServiceErrorCode>([
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface HttpOptions {
-  /** Endereço da API, sem barra final. */
+  /** Base da API, sem barra final. Em produção, o prefixo same-origin `/backend` (cookies HttpOnly, sem CORS). */
   baseUrl: string;
   /** Injetável nos testes. Padrão: `fetch` global (chamado sem `this` indevido). */
   fetch?: typeof fetch;
-  /** Onde fica o token. Padrão: `sessionStorage` (com fallback em memória). */
+  /** Onde fica a dica de sessão (sem token). Padrão: `localStorage` (com fallback em memória). */
   storage?: KeyValueStorage;
+  /** Onde apagar o token legado de versões antigas. Padrão: `sessionStorage`. */
+  legacyStorage?: KeyValueStorage;
   /** Tempo máximo de uma requisição comum. */
   timeoutMs?: number;
   /** Tempo máximo de um envio com arquivo (multipart). */
   uploadTimeoutMs?: number;
-  /** Chamado quando o servidor recusa o token (sessão expirada). A API usa para avisar a UI. */
+  /** Chamado quando a sessão acabou (401 e o refresh falhou). A API usa para avisar a UI. */
   onSessionExpired?: () => void;
 }
 
@@ -57,7 +68,7 @@ export interface RequestOptions {
   query?: Record<string, string | undefined>;
   json?: unknown;
   form?: FormData;
-  /** `false`: não envia o token (login, cadastro, Google, demo). Padrão `true`. */
+  /** `false`: chamada pública de sessão (login, cadastro, Google, demo, refresh): em 401 NÃO tenta renovar. Padrão `true`. */
   auth?: boolean;
 }
 
@@ -65,9 +76,14 @@ export interface HttpClient {
   readonly baseUrl: string;
   /** `T` é o formato que o chamador espera; nada é validado em tempo de execução além do JSON. */
   request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>;
-  getToken(): string | null;
-  setToken(token: string): void;
-  clearToken(): void;
+  /** Este navegador tem (ou teve) sessão? Dica local; o servidor decide. */
+  hasSession(): boolean;
+  /** Marca que há sessão (depois de login/cadastro/2FA/convite). */
+  markSession(): void;
+  /** Esquece a sessão local (logout, exclusão de conta, sessão expirada). Não chama o servidor. */
+  clearSession(): void;
+  /** Troca o cookie de refresh por um novo par (POST /auth/refresh). Chamadas simultâneas compartilham UMA requisição. */
+  refresh(): Promise<boolean>;
 }
 
 function statusToCode(status: number): ServiceErrorCode {
@@ -150,42 +166,57 @@ function buildError(response: Response, body: unknown): ServiceError {
 
 export function createHttpClient(options: HttpOptions): HttpClient {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const storage = options.storage ?? createDefaultStorage("session");
+  const storage = options.storage ?? createDefaultStorage("local");
   const timeoutMs = options.timeoutMs ?? 15_000;
   const uploadTimeoutMs = options.uploadTimeoutMs ?? 60_000;
 
-  const getToken = () => {
+  // Limpeza única na subida: o token antigo (Bearer em sessionStorage) não deve sobrar no navegador.
+  for (const area of [options.legacyStorage ?? createDefaultStorage("session"), storage]) {
     try {
-      return storage.getItem(TOKEN_STORAGE_KEY) || null;
+      area.removeItem(LEGACY_TOKEN_STORAGE_KEY);
     } catch {
-      return null;
+      // ignorado
+    }
+  }
+
+  const hasSession = () => {
+    try {
+      return storage.getItem(SESSION_HINT_KEY) === "1";
+    } catch {
+      return false;
     }
   };
-  const setToken = (token: string) => {
+  const markSession = () => {
     try {
-      storage.setItem(TOKEN_STORAGE_KEY, token);
+      storage.setItem(SESSION_HINT_KEY, "1");
     } catch {
-      // sem onde guardar: a sessão dura até recarregar a página
+      // sem onde guardar: a dica dura até recarregar a página
     }
   };
-  const clearToken = () => {
+  const clearSession = () => {
     try {
-      storage.removeItem(TOKEN_STORAGE_KEY);
+      storage.removeItem(SESSION_HINT_KEY);
     } catch {
       // ignorado
     }
   };
 
-  async function request<T>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
-    const url = new URL(`${baseUrl}${path}`);
-    for (const [key, value] of Object.entries(opts.query ?? {})) {
-      if (value !== undefined && value !== "") url.searchParams.set(key, value);
-    }
+  const doFetch = (input: string, init: RequestInit) =>
+    (options.fetch ?? ((i: RequestInfo | URL, n?: RequestInit) => fetch(i, n)))(input, init);
 
+  function buildUrl(path: string, query?: Record<string, string | undefined>): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== undefined && value !== "") params.set(key, value);
+    }
+    const qs = params.toString();
+    return `${baseUrl}${path}${qs ? `?${qs}` : ""}`;
+  }
+
+  /** Uma tentativa de HTTP (sem renovação). Lança `ServiceError`. */
+  async function send<T>(method: HttpMethod, path: string, opts: RequestOptions): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json" };
-    const token = opts.auth === false ? null : getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    // Anti-CSRF: o backend exige este cabeçalho em mutações (obrigatório quando a auth é por cookie; inofensivo com Bearer).
+    // Anti-CSRF: o backend exige este cabeçalho em mutações autenticadas por cookie (inclusive refresh e logout).
     if (method !== "GET") headers["X-Requested-With"] = "CampusLost";
     let body: BodyInit | undefined;
     if (opts.form) {
@@ -199,8 +230,14 @@ export function createHttpClient(options: HttpOptions): HttpClient {
     const timer = setTimeout(() => controller.abort(), opts.form ? uploadTimeoutMs : timeoutMs);
     let response: Response;
     try {
-      const doFetch = options.fetch ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
-      response = await doFetch(url.toString(), { method, headers, body, signal: controller.signal, cache: "no-store" });
+      response = await doFetch(buildUrl(path, opts.query), {
+        method,
+        headers,
+        body,
+        signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
+      });
     } catch (cause) {
       throw new ServiceError("NETWORK", NETWORK_MESSAGE, { cause });
     } finally {
@@ -209,20 +246,48 @@ export function createHttpClient(options: HttpOptions): HttpClient {
 
     if (response.status === 204) return undefined as T;
     const parsed = await readBody(response);
-    if (!response.ok) {
-      const error = buildError(response, parsed);
-      // Token enviado e recusado: a sessão acabou. Descarta e avisa (login com senha errada é INVALID_CREDENTIALS, não entra aqui).
-      if (token && response.status === 401 && error.code === "UNAUTHENTICATED") {
-        clearToken();
-        options.onSessionExpired?.();
-      }
-      throw error;
-    }
+    if (!response.ok) throw buildError(response, parsed);
     if (parsed === undefined) {
       throw new ServiceError("UNEXPECTED", UNEXPECTED_MESSAGE, { cause: new Error("resposta sem JSON") });
     }
     return parsed as T;
   }
 
-  return { baseUrl, request, getToken, setToken, clearToken };
+  let refreshing: Promise<boolean> | null = null;
+  function refresh(): Promise<boolean> {
+    // Duas chamadas que levam 401 juntas compartilham a MESMA renovação (o refresh é de uso único: a segunda
+    // requisição seria lida como reuso/roubo e derrubaria a sessão).
+    refreshing ??= send("POST", "/auth/refresh", { auth: false })
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
+    return refreshing;
+  }
+
+  async function request<T>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
+    try {
+      return await send<T>(method, path, opts);
+    } catch (error) {
+      const expired = error instanceof ServiceError && error.code === "UNAUTHENTICATED" && opts.auth !== false;
+      if (!expired) throw error;
+      // Cookie de acesso vencido: UMA tentativa de renovar e repetir a chamada original.
+      if (await refresh()) {
+        try {
+          return await send<T>(method, path, opts);
+        } catch (retryError) {
+          if (!(retryError instanceof ServiceError && retryError.code === "UNAUTHENTICATED")) throw retryError;
+        }
+      }
+      // Sessão encerrada de verdade: esquece a dica e avisa a UI (só se havia sessão, para não gerar laço de releituras).
+      if (hasSession()) {
+        clearSession();
+        options.onSessionExpired?.();
+      }
+      throw error;
+    }
+  }
+
+  return { baseUrl, request, hasSession, markSession, clearSession, refresh };
 }

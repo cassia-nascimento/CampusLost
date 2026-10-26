@@ -92,6 +92,7 @@ Veja `.env.example`. Nenhum valor real é versionado.
 | `MAX_BODY_BYTES` | `11534336` | Corpo máximo da requisição (foto até 10 MB). |
 | `BCRYPT_ROUNDS` | `12` | Custo do bcrypt. |
 | `ADMIN_REQUIRE_2FA` | vazio | Exige 2FA da administração em `/admin/*`. Vazio = exigido, **exceto com `DEMO_MODE=true`**; `true`/`false` força. Em modo demo a conta `user-admin` do seed fica sempre isenta. |
+| `COOKIE_REFRESH_PATH` | `/` | `Path` do cookie de refresh. **Atrás de proxy same-origin do Next (`/backend/...`) use `/`**, senão o navegador não envia o cookie. Recomendado com proxy: `COOKIE_REFRESH_PATH=/`, `COOKIE_SECURE=true`, `CORS_ORIGINS=<origem do site>`. Detalhes: `docs/api/API.md` §4.2.3. |
 | `INVITE_TOKEN_HOURS` | `48` | Validade do convite de administração. |
 | `BACKUP_DIR` | `<backend>/data/backups` | Destino de `python -m app.backup`. |
 
@@ -134,7 +135,7 @@ backend/
 - **Auditoria**: tabela `audit_log` (quem, o quê, alvo, IP, `metadata` sem dados sensíveis). Lista em `GET /admin/audit?action=&actor=&page=`. Eventos e campos: `docs/api/API.md` §4.8.
 - **Usuários**: `GET /admin/users`, `PATCH /admin/users/{id}` (papel e ativar/desativar). Desativar revoga sessões e tokens na hora; login responde `ACCOUNT_DISABLED`. Ninguém altera a si mesmo, e o último admin ativo não é rebaixado nem desativado.
 - **Convites de administração**: `POST/GET/DELETE /admin/invites` e `POST /auth/accept-invite`. Link de uso único, 48 h, só o hash no banco, enviado pelo mailer. Em desenvolvimento (`MAIL_BACKEND=console`) o link aparece no log. O script `python -m app.create_admin` continua sendo a forma de criar o **primeiro** admin.
-- **2FA TOTP** (`/auth/2fa/*`): RFC 6238 em stdlib, 8 códigos de recuperação (só hash). Admin sem 2FA entra, mas recebe 403 `TWO_FACTOR_REQUIRED` em `/admin/*` até ativar. **Isenção**: `ADMIN_REQUIRE_2FA` vazio + `DEMO_MODE=true` (padrão de desenvolvimento) não exige, e o admin do seed demo (`user-admin`) é sempre isento em modo demo. Em produção (`DEMO_MODE=false`) é exigido. A exigência cobre só `/admin/*`, não as rotas administrativas antigas (itens, reivindicações, devoluções).
+- **2FA TOTP** (`/auth/2fa/*`): RFC 6238 em stdlib, 8 códigos de recuperação (só hash). Admin sem 2FA entra, mas recebe 403 `TWO_FACTOR_REQUIRED` em `/admin/*` até ativar. **Isenção**: `ADMIN_REQUIRE_2FA` vazio + `DEMO_MODE=true` (padrão de desenvolvimento) não exige, e o admin do seed demo (`user-admin`) é sempre isento em modo demo. Em produção (`DEMO_MODE=false`) é exigido. A exigência cobre `/admin/*` e também as rotas só-admin antigas (analisar reivindicações, editar/excluir item, registrar devolução, listar devoluções).
 - **Cabeçalhos**: middleware envia `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` em `/auth`, `/me`, `/admin` e HSTS fora de development/test. CSP e cabeçalhos do Next: `docs/api/API.md` §7 (snippet para o frontend; não testado).
 
 ### Rotinas operacionais
