@@ -122,7 +122,7 @@ export function PrivacyScreen() {
         <p className="text-body">
           O uso do serviço também segue os{" "}
           <Link href="/termos" className="link font-semibold">
-            termos de uso
+            Termos de uso
           </Link>
           .
         </p>
