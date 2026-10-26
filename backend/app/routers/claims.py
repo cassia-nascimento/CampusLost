@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .. import audit
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, client_ip, find_item, require_session, require_user
+from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_session, require_user
 from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow, UserRow
 from ..rules.claims import can_view_claim, review_claim, submit_claim
@@ -53,8 +53,8 @@ def create_claim(
 
 
 @router.get("/items/{item_id}/claims")
-def list_claims_by_item(item_id: str, db: DbDep, actor: OptionalUser):
-    require_user(actor, "review_claims")
+def list_claims_by_item(item_id: str, db: DbDep, actor: OptionalUser, settings: SettingsDep):
+    ensure_admin_2fa(settings, require_user(actor, "review_claims"))
     find_item(db, item_id)
     return [_view(db, c) for c in sorted(_item_claims(db, item_id), key=lambda c: c.created_at)]
 
@@ -67,8 +67,8 @@ def list_my_claims(db: DbDep, actor: OptionalUser):
 
 
 @router.get("/claims/pending")
-def list_pending_claims(db: DbDep, actor: OptionalUser):
-    require_user(actor, "review_claims")
+def list_pending_claims(db: DbDep, actor: OptionalUser, settings: SettingsDep):
+    ensure_admin_2fa(settings, require_user(actor, "review_claims"))
     rows = db.scalars(select(ClaimRow).where(ClaimRow.status == "pending")).all()
     return [_view(db, c) for c in sorted(rows, key=lambda c: c.created_at)]
 
@@ -83,8 +83,8 @@ def get_claim(claim_id: str, db: DbDep, actor: OptionalUser):
     return _view(db, claim)
 
 
-def _decide(request: Request, claim_id: str, decision: str, db, actor, now, lock) -> dict[str, Any]:
-    user = require_user(actor, "review_claims")
+def _decide(request: Request, claim_id: str, decision: str, db, actor, now, lock, settings) -> dict[str, Any]:
+    user = ensure_admin_2fa(settings, require_user(actor, "review_claims"))
     with lock:
         target = db.get(ClaimRow, claim_id)
         if target is None:
@@ -104,10 +104,10 @@ def _decide(request: Request, claim_id: str, decision: str, db, actor, now, lock
 
 
 @router.post("/claims/{claim_id}/accept")
-def accept_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
-    return _decide(request, claim_id, "accept", db, actor, now, lock)
+def accept_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep, settings: SettingsDep):
+    return _decide(request, claim_id, "accept", db, actor, now, lock, settings)
 
 
 @router.post("/claims/{claim_id}/reject")
-def reject_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep):
-    return _decide(request, claim_id, "reject", db, actor, now, lock)
+def reject_claim(claim_id: str, request: Request, db: DbDep, actor: OptionalUser, now: ClockDep, lock: LockDep, settings: SettingsDep):
+    return _decide(request, claim_id, "reject", db, actor, now, lock, settings)

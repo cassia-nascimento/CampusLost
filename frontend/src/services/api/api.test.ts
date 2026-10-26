@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ServiceError, type ServiceErrorCode } from "@/types/domain";
-import { TOKEN_STORAGE_KEY } from "./http";
-import { BASE, createHarness, denied, rawClaim, rawItem, rawSession, rawUser } from "./test-utils";
+import { LEGACY_TOKEN_STORAGE_KEY, SESSION_HINT_KEY } from "./http";
+import { createApiServices } from "./index";
+import { BASE, createFakeApi, createHarness, denied, rawClaim, rawItem, rawSession, rawUser } from "./test-utils";
 
 async function failure(promise: Promise<unknown>): Promise<ServiceError> {
   try {
@@ -277,7 +278,7 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
     expect(api.calls[2]).toMatchObject({ method: "DELETE" });
     expect(api.calls[2].url.pathname).toBe("/me");
     expect(JSON.parse(String(api.calls[2].body))).toEqual({ password: "demonstracao123" });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
   });
 
   it("códigos novos do servidor viram ServiceError tipado; INVALID_TOKEN vira TOKEN_INVALID", async () => {
@@ -329,108 +330,249 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
   });
 });
 
-describe("autenticação e token", () => {
-  it("login guarda o token, envia o Bearer nas chamadas seguintes e NÃO o envia no login", async () => {
+const rawClaimView = () => ({ ...rawClaim, claimant: rawUser, item: rawItem });
+const unauthenticated = { status: 401, json: { code: "UNAUTHENTICATED", message: "Sua sessão expirou. Entre novamente." } } as const;
+
+describe("sessão por cookie HttpOnly", () => {
+  it("nenhuma chamada leva Authorization e todas usam credentials same-origin; token do corpo é ignorado", async () => {
+    const credentials: (RequestCredentials | undefined)[] = [];
+    const inner = createFakeApi();
+    const h = createHarness({
+      fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
+        credentials.push(init?.credentials);
+        return inner.fetch(input, init);
+      }) as typeof fetch,
+    });
+    inner.reply({ json: { ...rawSession, token: "tok-secreto" } }, { json: [] });
+    await h.services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
+    await h.services.items.list();
+    expect(credentials).toEqual(["same-origin", "same-origin"]);
+    for (const call of inner.calls) expect(call.headers.Authorization).toBeUndefined();
+    const keep = JSON.stringify([h.storage.getItem(SESSION_HINT_KEY), h.storage.getItem(LEGACY_TOKEN_STORAGE_KEY), h.legacyStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)]);
+    expect(keep).not.toContain("tok-secreto");
+  });
+
+  it("login funciona mesmo que o corpo não traga token (só cookies); marca a dica de sessão", async () => {
     const { api, storage, services } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "antigo");
-    api.reply({ json: rawSession }, { json: [] });
-    const result = await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
-    expect(result).toEqual({ status: "signed_in", user: rawUser });
-    expect(api.calls[0].headers.Authorization).toBeUndefined();
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
-    await services.items.list();
-    expect(api.calls[1].headers.Authorization).toBe("Bearer tok-1");
+    api.reply({ json: { user: rawUser } });
+    expect(await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" })).toEqual({ status: "signed_in", user: rawUser });
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
+    expect(api.calls[0].headers["X-Requested-With"]).toBe("CampusLost");
   });
 
-  it("visitante não envia Authorization", async () => {
-    const { api, services } = createHarness();
-    api.reply({ json: [] });
-    await services.items.list();
-    expect(api.calls[0].headers.Authorization).toBeUndefined();
+  it("apaga o token legado (sessionStorage da versão Bearer) na subida", () => {
+    const h = createHarness();
+    h.legacyStorage.setItem(LEGACY_TOKEN_STORAGE_KEY, "antigo");
+    h.storage.setItem(LEGACY_TOKEN_STORAGE_KEY, "antigo");
+    createApiServices({ baseUrl: BASE, fetch: h.api.fetch, storage: h.storage, legacyStorage: h.legacyStorage });
+    expect(h.legacyStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(h.storage.getItem(LEGACY_TOKEN_STORAGE_KEY)).toBeNull();
   });
 
-  it("signUp, demo e Google guardam o token", async () => {
+  it("base relativa (/backend): a URL final é /backend/... e fotos viram /backend/uploads/...", async () => {
+    const urls: string[] = [];
+    const h = createHarness({
+      baseUrl: "/backend/",
+      fetch: (async (input: RequestInfo | URL) => {
+        urls.push(String(input));
+        return new Response(JSON.stringify([rawItem]), { status: 200 });
+      }) as typeof fetch,
+    });
+    const [item] = await h.services.items.list();
+    expect(urls[0]).toBe("/backend/items");
+    expect(item.photoDataUrl).toBe("/backend/uploads/seed/chaveiro.svg");
+  });
+
+  it("signUp, demo e Google marcam a sessão", async () => {
     const { api, storage, services } = createHarness();
     api.reply({ status: 201, json: rawSession });
     await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demonstracao123", role: "student", acceptedTerms: true });
     expect(api.calls[0].url.pathname).toBe("/auth/signup");
-    storage.removeItem(TOKEN_STORAGE_KEY);
-    api.reply({ json: { ...rawSession, token: "tok-demo" } });
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
+    storage.removeItem(SESSION_HINT_KEY);
+    api.reply({ json: rawSession });
     await services.auth.signInAsDemo("admin");
     expect(api.calls[1].url.pathname).toBe("/demo/login/admin");
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-demo");
-    api.reply({ json: { status: "signed_in", ...rawSession, token: "tok-g" } });
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
+    storage.removeItem(SESSION_HINT_KEY);
+    api.reply({ json: { status: "signed_in", ...rawSession } });
     const result = await services.auth.signInWithGoogle("id-token");
     expect(JSON.parse(String(api.calls[2].body))).toEqual({ credential: "id-token" });
     expect(result).toEqual({ status: "signed_in", user: rawUser });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-g");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
-  it("Google conta nova: needs_role com ticket = profileToken; completar usa o ticket e guarda o token", async () => {
+  it("Google conta nova: needs_role não marca sessão; completar usa o ticket e marca", async () => {
     const { api, storage, services } = createHarness();
     api.reply({ json: { status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, profileToken: "ptok" } });
     const result = await services.auth.signInWithGoogle("id-token");
     expect(result).toEqual({ status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, ticket: "ptok" });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
-    api.reply({ status: 201, json: { ...rawSession, token: "tok-new" } });
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
+    api.reply({ status: 201, json: rawSession });
     await services.auth.completeGoogleSignUp({ ticket: "ptok", role: "teacher", acceptedTerms: true });
     expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", role: "teacher", acceptTerms: true });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-new");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
-  it("getCurrentUser: sem token = null sem rede; 401 = null e token descartado; sucesso = usuário", async () => {
+  it("getCurrentUser: sem dica de sessão = null sem rede; com dica = /auth/me", async () => {
     const { api, storage, services } = createHarness();
     expect(await services.auth.getCurrentUser()).toBeNull();
     expect(api.calls).toHaveLength(0);
-
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
     api.reply({ json: rawUser });
     expect(await services.auth.getCurrentUser()).toEqual(rawUser);
     expect(api.calls[0].url.pathname).toBe("/auth/me");
-
-    api.reply({ status: 401, json: { code: "UNAUTHENTICATED", message: "Sua sessão expirou. Entre novamente." } });
-    expect(await services.auth.getCurrentUser()).toBeNull();
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
   });
 
-  it("getCurrentUser: erro de rede propaga (não apaga a sessão)", async () => {
+  it("getCurrentUser: 401 -> um refresh -> /auth/me de novo -> usuário", async () => {
     const { api, storage, services } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
-    api.reply(new TypeError("fetch failed"));
-    expect((await failure(services.auth.getCurrentUser())).code).toBe("NETWORK");
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(unauthenticated, { json: rawSession }, { json: rawUser });
+    expect(await services.auth.getCurrentUser()).toEqual(rawUser);
+    expect(api.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /auth/me", "POST /auth/refresh", "GET /auth/me"]);
+    expect(api.calls[1].headers["X-Requested-With"]).toBe("CampusLost");
+    expect(api.calls[1].headers.Authorization).toBeUndefined();
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
-  it("401 em endpoint autenticado descarta o token e avisa os ouvintes", async () => {
+  it("getCurrentUser: refresh falha = null, dica apagada e ouvintes avisados uma vez", async () => {
     const { api, storage, services } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
     let notified = 0;
     services.subscribe(() => notified++);
-    api.reply({ status: 401, json: { code: "UNAUTHENTICATED", message: "Sua sessão expirou. Entre novamente." } });
+    api.reply(unauthenticated, unauthenticated);
+    expect(await services.auth.getCurrentUser()).toBeNull();
+    expect(api.calls).toHaveLength(2);
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
+    expect(notified).toBe(1);
+    // sem dica: nenhuma nova requisição (sem laço de releituras)
+    expect(await services.auth.getCurrentUser()).toBeNull();
+    expect(api.calls).toHaveLength(2);
+  });
+
+  it("getCurrentUser: erro de rede propaga e não apaga a sessão", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(new TypeError("fetch failed"));
+    expect((await failure(services.auth.getCurrentUser())).code).toBe("NETWORK");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
+  });
+});
+
+describe("renovação automática da sessão (refresh)", () => {
+  it("401 numa chamada autenticada: renova UMA vez e repete a original", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(unauthenticated, { json: rawSession }, { json: [rawClaimView()] });
+    const mine = await services.claims.listMine();
+    expect(mine).toHaveLength(1);
+    expect(api.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /claims/mine", "POST /auth/refresh", "GET /claims/mine"]);
+  });
+
+  it("mutação repetida mantém corpo e cabeçalho anti-CSRF", async () => {
+    const { api, services } = createHarness();
+    api.reply(unauthenticated, { json: rawSession }, { json: { claim: rawClaim, item: rawItem, autoRejectedIds: [] } });
+    await services.claims.accept("claim-01");
+    expect(api.calls[0].url.pathname).toBe("/claims/claim-01/accept");
+    expect(api.calls[2].method).toBe("POST");
+    expect(api.calls[2].headers["X-Requested-With"]).toBe("CampusLost");
+    expect(api.calls[2].url.pathname).toBe(api.calls[0].url.pathname);
+  });
+
+  it("várias chamadas que levam 401 ao mesmo tempo compartilham UM refresh", async () => {
+    const { api, services } = createHarness();
+    // 3 chamadas 401 em paralelo -> 1 refresh -> 3 repetições
+    api.reply(unauthenticated, unauthenticated, unauthenticated, { json: rawSession }, { json: [] }, { json: [] }, { json: [] });
+    const results = await Promise.all([services.claims.listMine(), services.claims.listPending(), services.returns.list()]);
+    expect(results).toEqual([[], [], []]);
+    expect(api.calls.filter((c) => c.url.pathname === "/auth/refresh")).toHaveLength(1);
+    expect(api.calls).toHaveLength(7);
+  });
+
+  it("refresh falha: o erro 401 original chega, a sessão local é encerrada e a UI é avisada; sem segundo refresh", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    let notified = 0;
+    services.subscribe(() => notified++);
+    api.reply(unauthenticated, unauthenticated);
     const error = await failure(services.claims.listMine());
     expect(error.code).toBe("UNAUTHENTICATED");
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(api.calls.map((c) => c.url.pathname)).toEqual(["/claims/mine", "/auth/refresh"]);
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
     expect(notified).toBe(1);
   });
 
-  it("senha errada (401 INVALID_CREDENTIALS) não mexe no token", async () => {
+  it("refresh ok mas a repetição ainda dá 401: encerra a sessão (sem laço)", async () => {
     const { api, storage, services } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(unauthenticated, { json: rawSession }, unauthenticated);
+    expect((await failure(services.claims.listMine())).code).toBe("UNAUTHENTICATED");
+    expect(api.calls).toHaveLength(3);
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
+  });
+
+  it("refresh com erro de rede também encerra com o 401 original (não trava)", async () => {
+    const { api, services } = createHarness();
+    api.reply(unauthenticated, new TypeError("fetch failed"));
+    expect((await failure(services.claims.listMine())).code).toBe("UNAUTHENTICATED");
+  });
+
+  it("chamadas públicas de sessão (login, verify 2FA, aceitar convite) e outros erros NÃO disparam refresh", async () => {
+    const { api, services } = createHarness();
+    api.reply(
+      { status: 401, json: { code: "INVALID_CREDENTIALS", message: "E-mail ou senha incorretos." } },
+      unauthenticated,
+      { status: 400, json: { code: "INVALID_TOKEN", message: "x" } },
+      { status: 403, json: { code: "TWO_FACTOR_REQUIRED", message: "x" } },
+    );
+    await failure(services.auth.signIn({ email: "marina@demo.test", password: "errada123" }));
+    await failure(services.auth.verifyTwoFactor({ challengeToken: "c", code: "123456" }));
+    await failure(services.auth.acceptInvite({ token: "t".repeat(40), name: "Nova Admin", password: "senha-longa-123" }));
+    await failure(services.claims.listPending());
+    expect(api.calls.some((c) => c.url.pathname === "/auth/refresh")).toBe(false);
+  });
+
+  it("senha errada (401 INVALID_CREDENTIALS) não mexe na sessão", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(SESSION_HINT_KEY, "1");
     api.reply({ status: 401, json: { code: "INVALID_CREDENTIALS", message: "E-mail ou senha incorretos." } });
     const error = await failure(services.auth.signIn({ email: "marina@demo.test", password: "errada123" }));
     expect(error).toMatchObject({ code: "INVALID_CREDENTIALS", message: "E-mail ou senha incorretos." });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
+});
 
-  it("signOut descarta o token sem chamar a rede", async () => {
+describe("signOut (POST /auth/logout)", () => {
+  it("revoga no servidor com X-Requested-With, limpa o estado local e não avisa ouvintes", async () => {
     const { api, storage, services } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
     let notified = 0;
     services.subscribe(() => notified++);
+    api.reply({ status: 204 });
     await services.auth.signOut();
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
-    expect(api.calls).toHaveLength(0);
+    expect(api.calls).toHaveLength(1);
+    expect(api.calls[0].method).toBe("POST");
+    expect(api.calls[0].url.pathname).toBe("/auth/logout");
+    expect(api.calls[0].headers["X-Requested-With"]).toBe("CampusLost");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
     expect(notified).toBe(0);
+    expect(await services.auth.getCurrentUser()).toBeNull();
+  });
+
+  it("falha de rede ou 401 no logout não impede sair: estado local limpo e sem refresh", async () => {
+    const { api, storage, services } = createHarness();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(new TypeError("fetch failed"));
+    await services.auth.signOut();
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply({ status: 500, text: "erro" });
+    await services.auth.signOut();
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
+    storage.setItem(SESSION_HINT_KEY, "1");
+    api.reply(unauthenticated);
+    await services.auth.signOut();
+    expect(api.calls.every((c) => c.url.pathname === "/auth/logout")).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { ServiceError, type PublicUser, type User } from "@/types/domain";
-import { checkCapability, assertAllowed, parseAllowedDomains, type Capability } from "@/lib/rules";
+import { checkAdminTwoFactor, checkCapability, assertAllowed, parseAllowedDomains, type Capability } from "@/lib/rules";
 import { toFieldErrors } from "@/lib/validation/common";
 import type { z } from "zod";
 import { verifyGoogleCredentialViaRoute, type GoogleCredentialVerifier } from "./google";
@@ -55,6 +55,12 @@ export interface MockContext {
    * falha injetada, passa o usuário capturado a `fn` e converte erros inesperados em `ServiceError`.
    * Quem muda dados deve revalidar o usuário na transação com `requireUser`.
    */
+  /**
+   * Administração com 2FA: papel/capacidade + 2FA ligado (`TWO_FACTOR_REQUIRED`), salvo conta isenta (a conta demo,
+   * como o backend em `DEMO_MODE`). Valem para `/admin/*` e para as rotas administrativas antigas (aceitar/recusar
+   * reivindicação, excluir item, registrar e listar devoluções).
+   */
+  requireAdmin(db: Db, actor: User | null, capability: Capability): User;
   run<T>(
     operation: string,
     fn: (actor: User | null) => T | Promise<T>,
@@ -85,6 +91,11 @@ export function createContext(options: MockServicesOptions = {}): MockContext {
     randomBytes: options.randomBytes ?? ((length) => crypto.getRandomValues(new Uint8Array(length))),
     photo: options.photoProcessor ?? processPhotoInBrowser,
     verifyGoogleCredential: options.verifyGoogleCredential ?? verifyGoogleCredentialViaRoute,
+    requireAdmin(db, actor, capability) {
+      const user = requireUser(db, actor, capability);
+      assertAllowed(checkAdminTwoFactor(user, { exempt: (options.twoFactorExemptUserIds ?? TWO_FACTOR_EXEMPT_USER_IDS).includes(user.id) }));
+      return user;
+    },
     async run(operation, fn, opts) {
       try {
         const actor = currentUser(store.getSessionUserId(), store.read());

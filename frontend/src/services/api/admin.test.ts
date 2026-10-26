@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ServiceError } from "@/types/domain";
-import { TOKEN_STORAGE_KEY } from "./http";
+import { SESSION_HINT_KEY } from "./http";
 import { createHarness, rawSession, rawUser } from "./test-utils";
 
 async function failure(promise: Promise<unknown>): Promise<ServiceError> {
@@ -28,12 +28,12 @@ const adminRow = {
 };
 
 describe("2FA (API.md §4.2.7)", () => {
-  it("signIn com 2FA ligado devolve needs_2fa e NÃO guarda token", async () => {
+  it("signIn com 2FA ligado devolve needs_2fa e NÃO marca sessão", async () => {
     const { api, services, storage } = createHarness();
     api.reply({ json: { status: "needs_2fa", challengeToken: "chal-1" } });
     const result = await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
     expect(result).toEqual({ status: "needs_2fa", challengeToken: "chal-1" });
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+    expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
   });
 
   it("signInWithGoogle: needs_2fa também é repassado", async () => {
@@ -42,7 +42,7 @@ describe("2FA (API.md §4.2.7)", () => {
     expect(await services.auth.signInWithGoogle("cred")).toEqual({ status: "needs_2fa", challengeToken: "chal-2" });
   });
 
-  it("verifyTwoFactor: POST /auth/2fa/verify sem Bearer, com code ou recoveryCode; guarda o token da sessão", async () => {
+  it("verifyTwoFactor: POST /auth/2fa/verify sem Authorization, com code ou recoveryCode; marca a sessão", async () => {
     const { api, services, storage } = createHarness();
     api.reply({ json: rawSession }, { json: rawSession });
     expect(await services.auth.verifyTwoFactor({ challengeToken: "chal-1", code: "123456" })).toEqual(rawUser);
@@ -51,7 +51,7 @@ describe("2FA (API.md §4.2.7)", () => {
     expect(JSON.parse(String(api.calls[0].body))).toEqual({ challengeToken: "chal-1", code: "123456" });
     expect(api.calls[0].headers.Authorization).toBeUndefined();
     expect(api.calls[0].headers["X-Requested-With"]).toBe("CampusLost");
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
     await services.auth.verifyTwoFactor({ challengeToken: "chal-1", recoveryCode: "abcde-fghjk" });
     expect(JSON.parse(String(api.calls[1].body))).toEqual({ challengeToken: "chal-1", recoveryCode: "abcde-fghjk" });
   });
@@ -69,14 +69,14 @@ describe("2FA (API.md §4.2.7)", () => {
     expect((await failure(services.auth.verifyTwoFactor({ challengeToken: "c", code: "000000" }))).code).toBe("ACCOUNT_DISABLED");
   });
 
-  it("setup / enable / disable: rotas, corpos e Bearer", async () => {
+  it("setup / enable / disable: rotas, corpos e cookies (sem Authorization)", async () => {
     const { api, services } = createHarness();
     api.reply({ json: rawSession }, { json: { secret: "ABC", otpauthUri: "otpauth://totp/x" } });
     await services.auth.signIn({ email: "marina@demo.test", password: "demonstracao123" });
     expect(await services.auth.setupTwoFactor()).toEqual({ secret: "ABC", otpauthUri: "otpauth://totp/x" });
     expect(api.calls[1]).toMatchObject({ method: "POST" });
     expect(api.calls[1].url.pathname).toBe("/auth/2fa/setup");
-    expect(api.calls[1].headers.Authorization).toBe("Bearer tok-1");
+    expect(api.calls[1].headers.Authorization).toBeUndefined();
 
     api.reply({ json: { enabled: true, recoveryCodes: ["aaaaa-bbbbb", "ccccc-ddddd"] } });
     expect(await services.auth.enableTwoFactor("123456")).toEqual({ recoveryCodes: ["aaaaa-bbbbb", "ccccc-ddddd"] });
@@ -99,10 +99,10 @@ describe("2FA (API.md §4.2.7)", () => {
 
   it("disable com senha/código errados: INVALID_CREDENTIALS (403) mantém a sessão", async () => {
     const { api, services, storage } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
     api.reply({ status: 403, json: { code: "INVALID_CREDENTIALS", message: "Senha ou código incorretos.", fieldErrors: { password: "Confira a senha e o código." } } });
     expect((await failure(services.auth.disableTwoFactor({ password: "x", code: "000000" }))).code).toBe("INVALID_CREDENTIALS");
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
   it("aceitar convite: POST /auth/accept-invite sem Bearer, sem acceptedTerms; abre sessão", async () => {
@@ -113,7 +113,7 @@ describe("2FA (API.md §4.2.7)", () => {
     expect(api.calls[0].url.pathname).toBe("/auth/accept-invite");
     expect(JSON.parse(String(api.calls[0].body))).toEqual({ token: "t".repeat(40), name: "Nova Admin", password: "senha-longa-123" });
     expect(api.calls[0].headers.Authorization).toBeUndefined();
-    expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("tok-1");
+    expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
   it("convite inválido vira TOKEN_INVALID (INVALID_TOKEN normalizado)", async () => {
@@ -126,7 +126,7 @@ describe("2FA (API.md §4.2.7)", () => {
 describe("administração (API.md §4.8)", () => {
   it("listUsers: GET /admin/users com q, role, status e paginação na query", async () => {
     const { api, services, storage } = createHarness();
-    storage.setItem(TOKEN_STORAGE_KEY, "tok-1");
+    storage.setItem(SESSION_HINT_KEY, "1");
     api.reply({ json: page([adminRow]) });
     const result = await services.admin.listUsers({ q: " lucas ", role: "student", status: "active", page: 2, pageSize: 10 });
     expect(result).toEqual(page([adminRow]));
@@ -134,7 +134,7 @@ describe("administração (API.md §4.8)", () => {
     expect(method).toBe("GET");
     expect(url.pathname).toBe("/admin/users");
     expect(Object.fromEntries(url.searchParams)).toEqual({ q: "lucas", role: "student", status: "active", page: "2", pageSize: "10" });
-    expect(headers.Authorization).toBe("Bearer tok-1");
+    expect(headers.Authorization).toBeUndefined();
     expect(headers["X-Requested-With"]).toBeUndefined(); // só em mutações
   });
 

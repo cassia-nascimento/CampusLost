@@ -227,3 +227,46 @@ def test_cors_allows_credentials_and_csrf_header_for_configured_origin_only(clie
                  "Access-Control-Request-Headers": "x-requested-with"},
     )
     assert "access-control-allow-origin" not in bad.headers
+
+
+def _set_cookie_path(response, name):
+    for v in response.headers.get_list("set-cookie"):
+        if v.startswith(name + "="):
+            return v.lower()
+    raise AssertionError(name)
+
+
+def test_refresh_cookie_path_is_configurable_for_a_same_origin_proxy(tmp_path, mailbox, clock):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from tests.conftest import make_settings
+
+    default = create_app(make_settings(tmp_path / "a"), clock=clock, mailer=mailbox)
+    proxied = create_app(make_settings(tmp_path / "b", cookie_refresh_path="/"), clock=clock, mailer=mailbox)
+    body = {"email": "marina@demo.test", "password": "demonstracao123"}
+    with TestClient(default) as c:
+        r = c.post("/auth/login", json=body)
+        assert "path=/auth" in _set_cookie_path(r, "cl_refresh")
+    with TestClient(proxied) as c:
+        r = c.post("/auth/login", json=body)
+        refresh = _set_cookie_path(r, "cl_refresh")
+        assert "path=/;" in refresh or refresh.rstrip().endswith("path=/")
+        assert "domain" not in refresh and "domain" not in _set_cookie_path(r, "cl_access")  # cookie do host do site
+        # via proxy a Origin é a do site (CORS_ORIGINS): refresh e logout passam no CSRF
+        site = {"Origin": "http://localhost:3000", "X-Requested-With": "fetch"}
+        assert c.post("/auth/refresh", headers=site).status_code == 200
+        assert c.post("/auth/refresh", headers={"Origin": "https://evil.example", "X-Requested-With": "fetch"}).status_code == 403
+        out = c.post("/auth/logout", headers=site)
+        assert out.status_code == 204 and "path=/" in _set_cookie_path(out, "cl_refresh")
+
+
+def test_cookie_refresh_path_env_validation():
+    import pytest
+
+    from app.config import ConfigError, load_settings
+
+    assert load_settings({"COOKIE_REFRESH_PATH": "/"}, read_dotenv=False).cookie_refresh_path == "/"
+    assert load_settings({}, read_dotenv=False).cookie_refresh_path == "/"
+    with pytest.raises(ConfigError):
+        load_settings({"COOKIE_REFRESH_PATH": "auth"}, read_dotenv=False)

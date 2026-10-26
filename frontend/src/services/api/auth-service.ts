@@ -6,7 +6,6 @@ import type { HttpClient } from "./http";
 import { asArray, asRecord, type Mappers } from "./mappers";
 
 interface SessionJson {
-  token: string;
   user: unknown;
 }
 
@@ -20,21 +19,21 @@ function challenge(raw: Record<string, unknown>): TwoFactorChallenge {
 }
 
 export function createAuthService(http: HttpClient, mappers: Mappers, changed: () => void): AuthService {
-  /** Guarda o token da sessão e devolve o usuário. */
+  /**
+   * Resposta de sessão: o servidor já definiu os cookies HttpOnly. O `token` do corpo (modo Bearer, ainda enviado
+   * pelo backend) é IGNORADO e nunca guardado. Devolve o usuário.
+   */
   function adopt(raw: unknown): User {
     const session = asRecord(raw, "sessão") as unknown as SessionJson;
-    if (typeof session.token !== "string" || !session.token) {
-      throw new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", { cause: new Error("sessão sem token") });
-    }
-    http.setToken(session.token);
     const user = mappers.user(session.user);
+    http.markSession();
     changed();
     return user;
   }
 
   return {
     async getCurrentUser() {
-      if (!http.getToken()) return null;
+      if (!http.hasSession()) return null;
       try {
         return mappers.user(await http.request("GET", "/auth/me"));
       } catch (error) {
@@ -142,7 +141,7 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
     async deleteMyAccount(confirmation) {
       const body = confirmation && (confirmation.password !== undefined || confirmation.credential !== undefined) ? confirmation : undefined;
       await http.request("DELETE", "/me", { json: body });
-      http.clearToken();
+      http.clearSession();
       changed();
     },
 
@@ -170,9 +169,15 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
     },
 
     async signOut() {
-      // A API não tem logout: sair é descartar o token. Sem `changed()`: a sessão (SessionProvider) já limpa a si
-      // mesma, e reler agora faria as telas abertas pedirem dados autenticados sem token (401 inútil).
-      http.clearToken();
+      // Revoga a sessão no servidor e limpa os cookies. Falha de rede/servidor não impede sair daqui: o estado
+      // local é limpo sempre. Sem `changed()`: a sessão (SessionProvider) já limpa a si mesma, e reler agora
+      // faria as telas abertas pedirem dados autenticados sem sessão (401 inútil).
+      try {
+        await http.request("POST", "/auth/logout", { auth: false });
+      } catch {
+        // ignorado de propósito
+      }
+      http.clearSession();
     },
   };
 }

@@ -194,3 +194,38 @@ def test_account_json_exposes_two_factor_enabled(client, app, clock):
     assert v.json()["user"]["twoFactorEnabled"] is True
     s = client.post("/auth/signup", json={"name": "Pessoa Nova", "email": "n@exemplo.com", "password": PW, "role": "student", "acceptTerms": True})
     assert s.json()["user"]["twoFactorEnabled"] is False
+
+
+LEGACY_ADMIN_ROUTES = (
+    ("post", "/claims/claim-01/accept"),
+    ("post", "/claims/claim-01/reject"),
+    ("get", "/claims/pending"),
+    ("get", "/items/item-01/claims"),
+    ("post", "/items/item-01/return"),
+    ("get", "/returns"),
+    ("delete", "/items/item-01"),
+)
+
+
+def test_legacy_admin_routes_require_2fa_too(strict_client, strict_app, clock):
+    make_user(strict_app, "chefe@exemplo.com")
+    h = token_of(strict_client, "chefe@exemplo.com")
+    for method, path in LEGACY_ADMIN_ROUTES:
+        r = getattr(strict_client, method)(path, headers=h)
+        assert r.status_code == 403 and r.json()["code"] == "TWO_FACTOR_REQUIRED", path
+    put = strict_client.put("/items/item-01", data={"title": "Novo título"}, headers=h)
+    assert put.status_code == 403 and put.json()["code"] == "TWO_FACTOR_REQUIRED"
+    enable_2fa(strict_client, clock, h)
+    assert strict_client.get("/claims/pending", headers=h).status_code == 200
+    assert strict_client.get("/returns", headers=h).status_code == 200
+    # rotas que admin usa como qualquer papel não são bloqueadas
+    assert strict_client.get("/items", headers=h).status_code == 200
+
+
+def test_legacy_admin_routes_keep_forbidden_for_other_roles_and_demo_exemption(strict_client, client, student, admin):
+    for method, path in LEGACY_ADMIN_ROUTES[:2] + LEGACY_ADMIN_ROUTES[5:6]:
+        assert getattr(client, method)(path, headers=student).status_code == 403
+        assert getattr(client, method)(path, headers=student).json()["code"] == "FORBIDDEN"
+    assert client.get("/returns", headers=admin).status_code == 200  # demo: isento
+    r = strict_client.post("/demo/login/admin")
+    assert strict_client.get("/returns", headers=bearer(r.json()["token"])).status_code == 200  # user-admin isento

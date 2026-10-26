@@ -555,3 +555,48 @@ describe("trilha de auditoria", () => {
     expect((await h.services.admin.listAuditLog({ pageSize: 1 })).total).toBe(500);
   });
 });
+
+describe("2FA nas rotas administrativas antigas", () => {
+  const strictAdmin = async () => {
+    const h = createHarness({ twoFactorExemptUserIds: [] });
+    await h.services.auth.signInAsDemo("admin");
+    return h;
+  };
+
+  it("sem 2FA (e não isento): aceitar, recusar, excluir item, registrar e listar devoluções -> TWO_FACTOR_REQUIRED", async () => {
+    const h = await strictAdmin();
+    await expectCode(h.services.claims.accept("claim-01"), "TWO_FACTOR_REQUIRED");
+    await expectCode(h.services.claims.reject("claim-01"), "TWO_FACTOR_REQUIRED");
+    await expectCode(h.services.items.delete("item-01"), "TWO_FACTOR_REQUIRED");
+    await expectCode(h.services.returns.register("item-05"), "TWO_FACTOR_REQUIRED");
+    await expectCode(h.services.returns.list(), "TWO_FACTOR_REQUIRED");
+  });
+
+  it("nada foi alterado pelas tentativas barradas; leituras e edição de item seguem livres (como no backend)", async () => {
+    const h = await strictAdmin();
+    await expectCode(h.services.claims.accept("claim-01"), "TWO_FACTOR_REQUIRED");
+    await expectCode(h.services.items.delete("item-01"), "TWO_FACTOR_REQUIRED");
+    expect((await h.services.claims.listPending()).some((c) => c.id === "claim-01")).toBe(true);
+    expect((await h.services.items.get("item-01")).item.id).toBe("item-01");
+    await h.services.items.update("item-01", { ...validItem });
+  });
+
+  it("depois de ligar o 2FA as mesmas operações funcionam", async () => {
+    const h = await strictAdmin();
+    await enable2fa(h);
+    expect((await h.services.claims.accept("claim-01")).claim.status).toBe("accepted");
+    expect((await h.services.returns.list()).length).toBeGreaterThan(0);
+    await h.services.items.delete("item-01");
+  });
+
+  it("não-admin continua FORBIDDEN (não vira TWO_FACTOR_REQUIRED); admin demo isento segue normal", async () => {
+    const h = createHarness({ twoFactorExemptUserIds: [] });
+    await h.services.auth.signInAsDemo("teacher");
+    await expectCode(h.services.claims.accept("claim-01"), "FORBIDDEN");
+    await expectCode(h.services.items.delete("item-01"), "FORBIDDEN");
+    await expectCode(h.services.returns.list(), "FORBIDDEN");
+    const demo = createHarness();
+    await demo.services.auth.signInAsDemo("admin");
+    expect((await demo.services.returns.list()).length).toBeGreaterThan(0);
+  });
+});

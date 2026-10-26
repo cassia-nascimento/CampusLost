@@ -3,7 +3,6 @@ import type { AdminInvite, AdminUserRow, AuditEntry, CreatedInvite, Page } from 
 import {
   assertAllowed,
   canUpdateUser,
-  checkAdminTwoFactor,
   countOtherActiveAdmins,
   emailFingerprint,
   INVITE_TTL_HOURS,
@@ -24,7 +23,7 @@ import {
 } from "@/lib/validation";
 import type { AdminService, AuthService } from "../contracts";
 import { recordAudit } from "./audit";
-import { isActiveAccount, parseInput, requireUser, type MockContext } from "./context";
+import { isActiveAccount, parseInput, type MockContext } from "./context";
 import { hashPassword, newSalt, newToken, PBKDF2_ITERATIONS } from "./password";
 import type { AccountMeta, Db, InviteRecord } from "./seed";
 
@@ -71,12 +70,7 @@ function pageOf<T>(all: readonly T[], page?: number, pageSize?: number): Page<T>
 export function createAdminService(ctx: MockContext): AdminService {
   const { store } = ctx;
 
-  /** Administração + 2FA (ou conta isenta). Devolve o ator atualizado. */
-  const requireAdmin = (db: Db, who: User | null, capability: Capability): User => {
-    const actor = requireUser(db, who, capability);
-    assertAllowed(checkAdminTwoFactor(actor, { exempt: ctx.twoFactorExemptUserIds.includes(actor.id) }));
-    return actor;
-  };
+  const requireAdmin = (db: Db, who: User | null, capability: Capability): User => ctx.requireAdmin(db, who, capability);
 
   return {
     listUsers: (filters) =>
