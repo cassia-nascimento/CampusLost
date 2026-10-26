@@ -11,6 +11,7 @@ import { Notice } from "@/components/ui/Notice";
 import { accountErrorMessage } from "./error-messages";
 import { PasswordInput } from "./PasswordInput";
 import { useSession } from "@/hooks/use-session";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { signInSchema, type SignInValues } from "@/lib/validation";
 import { isServiceError } from "@/types/domain";
 
@@ -24,6 +25,7 @@ export function SignInForm({ onNeedsTwoFactor }: { onNeedsTwoFactor(challengeTok
   const { signIn } = useSession();
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const turnstile = useTurnstile();
   const {
     register,
     handleSubmit,
@@ -40,9 +42,10 @@ export function SignInForm({ onNeedsTwoFactor }: { onNeedsTwoFactor(challengeTok
     setFormError(null);
     setAnnouncement("");
     try {
-      const result = await signIn(values);
+      const result = await signIn({ ...values, turnstileToken: turnstile.token });
       if (result.status === "needs_2fa") onNeedsTwoFactor(result.challengeToken);
     } catch (error) {
+      turnstile.reset();
       if (isServiceError(error) && error.code === "INVALID_CREDENTIALS") {
         // Erro geral, sem apontar qual campo errou (AC01.2).
         setFormError(INVALID_CREDENTIALS);
@@ -96,10 +99,11 @@ export function SignInForm({ onNeedsTwoFactor }: { onNeedsTwoFactor(challengeTok
           Esqueci minha senha
         </Link>
       </div>
+      {turnstile.widget}
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      <Button type="submit" size="lg" width="full" loading={isSubmitting} loadingText="Entrando…">
+      <Button type="submit" size="lg" width="full" disabled={turnstile.blocked} loading={isSubmitting} loadingText="Entrando…">
         Entrar
       </Button>
     </form>
