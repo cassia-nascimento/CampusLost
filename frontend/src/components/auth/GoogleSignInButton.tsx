@@ -21,7 +21,7 @@ interface GoogleIdApi {
       type: "standard";
       theme: "outline";
       size: "large";
-      text: "signin_with";
+      text: "signin_with" | "signup_with";
       shape: "rectangular";
       logo_alignment: "left";
       locale: string;
@@ -65,10 +65,12 @@ export interface GoogleSignInButtonProps {
   clientId: string;
   /** Recebe o ID token (`credential`) assim que a pessoa escolhe a conta. */
   onCredential(credential: string): void;
+  /** Rótulo oficial do botão: "Fazer login com o Google" ou "Cadastrar-se com o Google". */
+  mode?: "signin" | "signup";
 }
 
 /** Botão oficial "Entrar com Google" (GIS). Sem filtro de domínio: contas de outros domínios entram como comunidade externa. */
-export function GoogleSignInButton({ clientId, onCredential }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ clientId, onCredential, mode = "signin" }: GoogleSignInButtonProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef(onCredential);
@@ -102,7 +104,7 @@ export function GoogleSignInButton({ clientId, onCredential }: GoogleSignInButto
           type: "standard",
           theme: "outline",
           size: "large",
-          text: "signin_with",
+          text: mode === "signup" ? "signup_with" : "signin_with",
           shape: "rectangular",
           logo_alignment: "left",
           locale: "pt-BR",
@@ -117,7 +119,7 @@ export function GoogleSignInButton({ clientId, onCredential }: GoogleSignInButto
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [clientId, mode]);
 
   if (state === "failed") {
     return <Notice tone="neutral">Não foi possível carregar o login com Google. Use e-mail e senha.</Notice>;
