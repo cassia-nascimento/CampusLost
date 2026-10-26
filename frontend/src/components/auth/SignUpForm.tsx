@@ -13,6 +13,7 @@ import { Notice } from "@/components/ui/Notice";
 import { RadioCard, RadioGroup } from "@/components/ui/RadioCard";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { signUpSchema, type SignUpValues } from "@/lib/validation";
 import { ROLE_LABEL, SIGNUP_ROLES, isServiceError, type User } from "@/types/domain";
 import { accountErrorMessage } from "./error-messages";
@@ -41,6 +42,7 @@ export function SignUpForm({
   const next = useNextPath();
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const turnstile = useTurnstile();
   const {
     register,
     handleSubmit,
@@ -60,11 +62,12 @@ export function SignUpForm({
     setAnnouncement("");
     onCreatingChange(true);
     try {
-      const user = await signUp(values);
+      const user = await signUp({ ...values, turnstileToken: turnstile.token });
       toast.success("Conta criada. Falta confirmar seu e-mail.");
       onCreated(user);
     } catch (error) {
       onCreatingChange(false);
+      turnstile.reset();
       if (isServiceError(error) && error.code === "EMAIL_TAKEN") {
         setError("email", { type: "server", message: EMAIL_TAKEN });
         setFocus("email");
@@ -150,12 +153,13 @@ export function SignUpForm({
             Entrar
           </Link>
         </p>
+        {turnstile.widget}
         <p role="status" className="sr-only">
           {announcement}
         </p>
       </div>
       <ActionBar>
-        <Button type="submit" size="lg" width="mobile-full" loading={isSubmitting} loadingText="Criando conta…">
+        <Button type="submit" size="lg" width="mobile-full" disabled={turnstile.blocked} loading={isSubmitting} loadingText="Criando conta…">
           Criar conta
         </Button>
       </ActionBar>

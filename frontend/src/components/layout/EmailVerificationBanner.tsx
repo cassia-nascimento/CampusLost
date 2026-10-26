@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  */
 export function EmailVerificationBanner() {
   const { user } = useSession();
-  const { resend, sending, message, failed, devLink } = useResendVerification();
+  const { resend, sending, message, failed, devLink, widget, blocked } = useResendVerification();
   if (!user || checkEmailVerified(user).allowed) return null;
 
   return (
@@ -29,10 +29,11 @@ export function EmailVerificationBanner() {
               um link para <span className="user-text font-semibold">{user.email}</span>.
             </span>
           </p>
-          <Button variant="secondary" width="mobile-full" loading={sending} loadingText="Reenviando…" onClick={() => void resend()}>
+          <Button variant="secondary" width="mobile-full" disabled={blocked} loading={sending} loadingText="Reenviando…" onClick={() => void resend()}>
             Reenviar e-mail
           </Button>
         </div>
+        {widget}
         <p role="status" className={cn("text-meta empty:hidden", failed ? "text-danger-fg" : "text-ink")}>
           {message}
         </p>
