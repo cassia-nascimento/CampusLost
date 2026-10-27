@@ -29,13 +29,11 @@ export function TermsScreen() {
       <LegalSection id="quem-pode" title="Quem pode usar">
         <p className="text-body">Podem usar o CampusLost:</p>
         <ul className={LEGAL_LIST}>
-          <li>alunos;</li>
-          <li>professores;</li>
-          <li>pessoas da comunidade externa;</li>
+          <li>pessoas com conta, com e-mail institucional ou externo;</li>
           <li>a administração, por convite.</li>
         </ul>
         <p className="text-body">
-          O papel (aluno, professor ou comunidade externa) é informado por você no cadastro e não é verificado.
+          O vínculo (e-mail institucional ou externo) é definido apenas pelo domínio do e-mail informado. Não verificamos se a pessoa é aluno, professor ou servidor.
         </p>
       </LegalSection>
 

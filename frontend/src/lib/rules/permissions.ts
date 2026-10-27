@@ -15,9 +15,9 @@ export type Capability =
   | "manage_users"
   | "view_audit";
 
-const ALL: readonly UserRole[] = ["student", "teacher", "external", "admin"];
-/** Papéis comuns (não administrativos): aluno, professor e comunidade externa. */
-const COMMON: readonly UserRole[] = ["student", "teacher", "external"];
+const ALL: readonly UserRole[] = ["user", "admin"];
+/** Papéis comuns (não administrativos): só `user`. */
+const COMMON: readonly UserRole[] = ["user"];
 const ADMIN: readonly UserRole[] = ["admin"];
 
 /** Matriz de permissões por papel (SPEC §2). */

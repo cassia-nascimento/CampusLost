@@ -66,7 +66,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin/auditoria", label: "Auditoria", description: "Quem fez o quê e quando.", icon: ScrollText },
 ];
 
-/** Itens do BottomNav (celular). Aluno/professor: 3; administração: 4. */
+/** Itens do BottomNav (celular). Usuário: 3; administração: 4. */
 export function getBottomNavItems(role: UserRole): NavItem[] {
   return hasCapability({ role }, "review_claims")
     ? [DASHBOARD, ITEMS, REGISTER, RETURNS]

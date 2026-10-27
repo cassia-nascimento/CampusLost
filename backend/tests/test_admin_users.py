@@ -22,12 +22,17 @@ def test_list_users_search_filters_and_pagination(client, admin):
     body = r.json()
     assert set(body) == {"items", "page", "pageSize", "total", "totalPages"} and body["total"] >= 6
     assert set(body["items"][0]) == {
-        "id", "name", "email", "role", "provider", "active", "disabledAt", "emailVerified", "twoFactorEnabled", "createdAt",
+        "id", "name", "email", "role", "affiliation", "provider", "active", "disabledAt", "emailVerified", "twoFactorEnabled", "createdAt",
     }
     assert "password_hash" not in r.text and "$2" not in r.text and "totp" not in r.text.replace("twoFactor", "")
     q = client.get("/admin/users?q=MARINA", headers=admin).json()
     assert [u["email"] for u in q["items"]] == ["marina@demo.test"]
-    assert client.get("/admin/users?q=demo.test&role=teacher", headers=admin).json()["total"] == 1
+    assert client.get("/admin/users?q=demo.test&role=user&affiliation=external", headers=admin).json()["items"][0]["email"] == "externo@demo.test"
+    assert client.get("/admin/users?affiliation=institutional&role=admin", headers=admin).json()["total"] == 1
+    assert client.get("/admin/users?affiliation=aluno", headers=admin).status_code == 422
+    for old in ("student", "teacher", "external"):
+        assert client.get(f"/admin/users?role={old}", headers=admin).status_code == 422
+        assert client.patch("/admin/users/user-marina", json={"role": old}, headers=admin).status_code == 422
     assert client.get("/admin/users?q=%25", headers=admin).json()["total"] == 0  # curingas são literais
     page = client.get("/admin/users?pageSize=2&page=2", headers=admin).json()
     assert len(page["items"]) == 2 and page["page"] == 2 and page["totalPages"] >= 3
@@ -40,20 +45,20 @@ def test_list_users_search_filters_and_pagination(client, admin):
 
 def test_patch_role_and_audit(client, app, admin):
     uid = user_row(app, "marina@demo.test").id
-    r = client.patch(f"/admin/users/{uid}", json={"role": "teacher"}, headers=admin)
-    assert r.status_code == 200 and r.json()["role"] == "teacher"
-    assert user_row(app, "marina@demo.test").role == "teacher"
+    r = client.patch(f"/admin/users/{uid}", json={"role": "admin"}, headers=admin)
+    assert r.status_code == 200 and r.json()["role"] == "admin" and r.json()["affiliation"] == "institutional"
+    assert user_row(app, "marina@demo.test").role == "admin"
     from tests.admin_helpers import audit_rows
 
     row = audit_rows(app, "user.role_change")[0]
-    assert row.target_id == uid and row.meta == {"from": "student", "to": "teacher"} and row.actor_id == "user-admin"
+    assert row.target_id == uid and row.meta == {"from": "user", "to": "admin"} and row.actor_id == "user-admin"
 
 
 def test_patch_validation_and_not_found(client, admin):
     assert client.patch("/admin/users/user-marina", json={"role": "root"}, headers=admin).status_code == 422
     assert client.patch("/admin/users/user-marina", json={"active": "sim"}, headers=admin).status_code == 422
     assert client.patch("/admin/users/user-marina", json={}, headers=admin).status_code == 422
-    assert client.patch("/admin/users/inexistente", json={"role": "student"}, headers=admin).status_code == 404
+    assert client.patch("/admin/users/inexistente", json={"role": "user"}, headers=admin).status_code == 404
 
 
 def test_disable_blocks_login_revokes_sessions_and_reenable(client, app, admin):
@@ -91,7 +96,7 @@ def test_disabled_user_cannot_refresh_cookies(client, admin):
 def test_cannot_change_self(client, app, clock):
     headers = setup_admin(client, app, clock)
     me = user_row(app, "chefe@exemplo.com").id
-    for body in ({"role": "student"}, {"active": False}):
+    for body in ({"role": "user"}, {"active": False}):
         r = client.patch(f"/admin/users/{me}", json=body, headers=headers)
         assert r.status_code == 409 and r.json()["code"] == "CONFLICT"
     assert user_row(app, "chefe@exemplo.com").role == "admin"
@@ -102,7 +107,7 @@ def test_demote_and_disable_other_admins_while_one_remains(client, app, clock):
     second = make_user(app, "outro@exemplo.com")
     assert client.patch(f"/admin/users/{second.id}", json={"active": False}, headers=headers).status_code == 200
     assert client.patch(f"/admin/users/{second.id}", json={"active": True}, headers=headers).status_code == 200
-    assert client.patch(f"/admin/users/{second.id}", json={"role": "student"}, headers=headers).status_code == 200
+    assert client.patch(f"/admin/users/{second.id}", json={"role": "user"}, headers=headers).status_code == 200
 
 
 def test_last_active_admin_guard(client, app, clock, monkeypatch):
@@ -112,11 +117,11 @@ def test_last_active_admin_guard(client, app, clock, monkeypatch):
     import app.routers.admin as admin_router
 
     monkeypatch.setattr(admin_router, "_other_active_admins", lambda db, uid: 0)
-    r = client.patch("/admin/users/user-admin", json={"role": "teacher"}, headers=headers)
+    r = client.patch("/admin/users/user-admin", json={"role": "user"}, headers=headers)
     assert r.status_code == 409 and "última conta de administração" in r.json()["message"]
     assert client.patch("/admin/users/user-admin", json={"active": False}, headers=headers).status_code == 409
     assert user_row(app, "admin@demo.test").role == "admin" and user_row(app, "admin@demo.test").disabled_at is None
-    assert client.patch("/admin/users/user-marina", json={"role": "teacher"}, headers=headers).status_code == 200  # não-admin: livre
+    assert client.patch("/admin/users/user-marina", json={"role": "admin"}, headers=headers).status_code == 200  # não-admin: livre
 
 
 def test_promote_to_admin(client, app, admin):
@@ -197,3 +202,35 @@ def test_new_invited_admin_needs_2fa_for_admin_routes(strict_client, strict_app,
     h = bearer(r.json()["token"])
     got = strict_client.get("/admin/users", headers=h)
     assert got.status_code == 403 and got.json()["code"] == "TWO_FACTOR_REQUIRED"
+
+
+def test_invited_admin_gets_affiliation_from_email_domain(client, admin, mailbox):
+    for email, expected in (("nova@undb.edu.br", "institutional"), ("outra@gmail.com", "external")):
+        client.post("/admin/invites", json={"email": email}, headers=admin)
+        r = client.post("/auth/accept-invite", json={"token": extract_token(mailbox.sent[-1]), "name": "Nova Admin", "password": PW})
+        assert r.status_code == 201 and r.json()["user"]["role"] == "admin" and r.json()["user"]["affiliation"] == expected
+    client.cookies.clear()
+
+
+def test_admin_checks_use_role_not_affiliation(client, app, admin):
+    """Papel `admin` com vínculo `external` continua admin; `user` institucional nunca vira admin por e-mail."""
+    from tests.admin_helpers import make_user
+
+    make_user(app, "chefe@gmail.com", role="admin")
+    # make_user grava institutional; ajusta para provar que o vínculo não influencia
+    from app.models import UserRow
+    from sqlalchemy import select
+
+    with app.state.session_factory() as s:
+        u = s.scalar(select(UserRow).where(UserRow.email == "chefe@gmail.com"))
+        u.affiliation = "external"
+        s.commit()
+    h = token_of(client, "chefe@gmail.com")
+    assert client.get("/admin/users", headers=h).status_code == 200  # demo: 2FA isento
+    assert client.get("/admin/users", headers=login_demo(client)).status_code == 403
+
+
+def login_demo(client):
+    r = client.post("/auth/login", json={"email": "marina@demo.test", "password": "demonstracao123"})
+    client.cookies.clear()
+    return bearer(r.json()["token"])

@@ -34,6 +34,18 @@ def is_allowed_google_email(email: object, allowed_domains: tuple[str, ...] | li
     return False
 
 
+INSTITUTIONAL = "institutional"
+EXTERNAL = "external"
+AFFILIATIONS = (INSTITUTIONAL, EXTERNAL)
+
+
+def affiliation_for_email(email: object, allowed_domains: tuple[str, ...] | list[str]) -> str:
+    """Vínculo pelo DOMÍNIO do e-mail: `institutional` (domínio ou subdomínio permitido) ou `external`.
+    Só diz algo sobre o texto do e-mail (que o Google/link de e-mail comprova ser da pessoa); NÃO verifica
+    matrícula nem vínculo real com a instituição."""
+    return INSTITUTIONAL if is_allowed_google_email(email, allowed_domains) else EXTERNAL
+
+
 def parse_allowed_domains(raw: str | None) -> tuple[str, ...]:
     parsed = [normalize_domain(p) for p in (raw or "").split(",")]
     parsed = [d for d in parsed if _DOMAIN_RE.match(d)]

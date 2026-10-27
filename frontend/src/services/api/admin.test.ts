@@ -18,7 +18,8 @@ const adminRow = {
   id: "user-lucas",
   name: "Lucas Prado",
   email: "lucas@demo.test",
-  role: "student",
+  role: "user",
+  affiliation: "institutional",
   provider: "password",
   active: true,
   disabledAt: null,
@@ -128,12 +129,12 @@ describe("administração (API.md §4.8)", () => {
     const { api, services, storage } = createHarness();
     storage.setItem(SESSION_HINT_KEY, "1");
     api.reply({ json: page([adminRow]) });
-    const result = await services.admin.listUsers({ q: " lucas ", role: "student", status: "active", page: 2, pageSize: 10 });
+    const result = await services.admin.listUsers({ q: " lucas ", role: "user", affiliation: "institutional", status: "active", page: 2, pageSize: 10 });
     expect(result).toEqual(page([adminRow]));
     const { method, url, headers } = api.calls[0];
     expect(method).toBe("GET");
     expect(url.pathname).toBe("/admin/users");
-    expect(Object.fromEntries(url.searchParams)).toEqual({ q: "lucas", role: "student", status: "active", page: "2", pageSize: "10" });
+    expect(Object.fromEntries(url.searchParams)).toEqual({ q: "lucas", role: "user", affiliation: "institutional", status: "active", page: "2", pageSize: "10" });
     expect(headers.Authorization).toBeUndefined();
     expect(headers["X-Requested-With"]).toBeUndefined(); // só em mutações
   });
@@ -147,12 +148,12 @@ describe("administração (API.md §4.8)", () => {
 
   it("updateUser usa PATCH com X-Requested-With e só os campos informados", async () => {
     const { api, services } = createHarness();
-    api.reply({ json: { ...adminRow, role: "teacher" } }, { json: { ...adminRow, active: false } });
-    expect((await services.admin.updateUser("user-lucas", { role: "teacher" })).role).toBe("teacher");
+    api.reply({ json: { ...adminRow, role: "admin" } }, { json: { ...adminRow, active: false } });
+    expect((await services.admin.updateUser("user-lucas", { role: "admin" })).role).toBe("admin");
     expect(api.calls[0].method).toBe("PATCH");
     expect(api.calls[0].url.pathname).toBe("/admin/users/user-lucas");
     expect(api.calls[0].headers["X-Requested-With"]).toBe("CampusLost");
-    expect(JSON.parse(String(api.calls[0].body))).toEqual({ role: "teacher" });
+    expect(JSON.parse(String(api.calls[0].body))).toEqual({ role: "admin" });
     await services.admin.updateUser("user-lucas", { active: false });
     expect(JSON.parse(String(api.calls[1].body))).toEqual({ active: false });
   });

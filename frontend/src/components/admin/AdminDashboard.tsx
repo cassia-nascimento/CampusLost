@@ -21,7 +21,7 @@ import { useServiceQuery } from "@/hooks/use-service-query";
 import { formatCount, formatRelativeInstant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { services, type ClaimView } from "@/services";
-import { ROLE_LABEL } from "@/types/domain";
+import { AFFILIATION_LABEL } from "@/types/domain";
 import { summarizeClaimedItems, type ClaimedItemSummary } from "./claimed-items";
 import { toStoredItem } from "./stored-item";
 
@@ -214,7 +214,7 @@ function PendingList({ claims, heading: Heading }: { claims: ClaimView[]; headin
             <div className="min-w-0 flex-1">
               <Heading className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{claim.item.title}</Heading>
               <p className="user-text mt-0.5 text-meta text-ink-muted">
-                {claim.claimant.name} · {ROLE_LABEL[claim.claimant.role]}
+                {claim.claimant.name} · {AFFILIATION_LABEL[claim.claimant.affiliation]}
               </p>
               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-subtle">
                 <ClaimStatusBadge status={claim.status} />

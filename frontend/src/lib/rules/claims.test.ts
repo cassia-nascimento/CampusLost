@@ -5,7 +5,7 @@ import { admin, externalUser, makeClaim, makeItem, NOW, otherStudent, student, t
 const input = { proofDetails: "Detalhe secreto do objeto.", lostWhereWhen: "Biblioteca, segunda." };
 
 describe("canClaim: external e e-mail verificado", () => {
-  it("comunidade externa verificada reivindica como aluno/professor", () => {
+  it("usuário externo verificado reivindica como qualquer usuário", () => {
     expect(canClaim(externalUser, makeItem(), [])).toEqual({ allowed: true });
   });
   it("conta não verificada: EMAIL_NOT_VERIFIED, mesmo em item Disponível", () => {

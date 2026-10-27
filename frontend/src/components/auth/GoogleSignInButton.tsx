@@ -69,7 +69,7 @@ export interface GoogleSignInButtonProps {
   mode?: "signin" | "signup";
 }
 
-/** Botão oficial "Entrar com Google" (GIS). Sem filtro de domínio: contas de outros domínios entram como comunidade externa. */
+/** Botão oficial "Entrar com Google" (GIS). Sem filtro de domínio: contas de outros domínios entram com vínculo externo. */
 export function GoogleSignInButton({ clientId, onCredential, mode = "signin" }: GoogleSignInButtonProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

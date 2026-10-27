@@ -91,3 +91,42 @@ def test_0002_upgrades_a_0001_database_keeping_users(tmp_path):
     command.downgrade(cfg, "0001")
     assert "audit_log" not in inspect(engine).get_table_names()
     engine.dispose()
+
+
+def test_0003_converts_roles_and_derives_affiliation(tmp_path, monkeypatch):
+    from sqlalchemy import text
+
+    monkeypatch.delenv("GOOGLE_ALLOWED_DOMAINS", raising=False)
+    url = f"sqlite:///{tmp_path / 'roles.db'}"
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "0002")
+    engine = create_engine(url)
+    old = [
+        ("u-stu", "aluna@alunos.undb.edu.br", "student"), ("u-tea", "prof@gmail.com", "teacher"),
+        ("u-ext", "ext@undb.edu.br", "external"), ("u-adm1", "chefe@undb.edu.br", "admin"),
+        ("u-adm2", "chefe@gmail.com", "admin"), ("u-adm3", "x@evilundb.edu.br", "admin"),
+    ]
+    with engine.begin() as conn:
+        for uid, email, role in old:
+            conn.execute(text(
+                "INSERT INTO users (id, name, email, role, provider, created_at, token_version) "
+                "VALUES (:id, 'N N', :e, :r, 'password', '2026-10-01 00:00:00', 0)"
+            ), {"id": uid, "e": email, "r": role})
+    command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        got = {r[0]: (r[1], r[2]) for r in conn.execute(text("SELECT id, role, affiliation FROM users"))}
+    assert got == {
+        "u-stu": ("user", "institutional"), "u-tea": ("user", "institutional"),
+        "u-ext": ("user", "external"),  # o papel antigo manda: o domínio só é usado para admin
+        "u-adm1": ("admin", "institutional"), "u-adm2": ("admin", "external"), "u-adm3": ("admin", "external"),
+    }
+    with engine.connect() as conn:
+        diff = compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True}), Base.metadata)
+    assert diff == []
+    command.downgrade(cfg, "0002")
+    with engine.connect() as conn:
+        back = {r[0]: r[1] for r in conn.execute(text("SELECT id, role FROM users"))}
+        cols = {c["name"] for c in inspect(engine).get_columns("users")}
+    assert back == {"u-stu": "student", "u-tea": "student", "u-ext": "external", "u-adm1": "admin", "u-adm2": "admin", "u-adm3": "admin"}
+    assert "affiliation" not in cols
+    engine.dispose()

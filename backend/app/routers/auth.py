@@ -17,7 +17,7 @@ from ..google_auth import GENERIC_FAIL, verify_google_credential
 from ..login_flow import complete_login
 from ..mailer import deliver, reset_email, verification_email
 from ..models import AdminInviteRow, ClaimRow, EmailTokenRow, ItemRow, ReturnRow, SessionRow, UserRow
-from ..rules.google import is_allowed_google_email, is_well_formed_email
+from ..rules.google import affiliation_for_email, is_well_formed_email
 from ..rules.password import password_error, password_strength
 from ..rules.validation import (
     normalize_email,
@@ -103,7 +103,8 @@ def signup(
         # Conta de senha nasce NÃO verificada (mesmo com e-mail institucional): só o link enviado por e-mail prova
         # o controle da caixa de entrada. Sem isso, qualquer um cadastraria o e-mail de outra pessoa.
         user = UserRow(
-            id=random_id("user"), name=data["name"], email=data["email"], role=data["role"],
+            id=random_id("user"), name=data["name"], email=data["email"], role="user",
+            affiliation=affiliation_for_email(data["email"], settings.google_allowed_domains),
             provider="password", password_hash=pw_hash, created_at=instant, email_verified_at=None,
             **_terms_fields(settings, instant),
         )
@@ -116,7 +117,7 @@ def signup(
         token = email_tokens.issue_token(db, settings, user, email_tokens.VERIFY, instant)
     audit.record(
         db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
-        metadata={"role": user.role, "provider": "password"},
+        metadata={"role": user.role, "affiliation": user.affiliation, "provider": "password"},
     )
     background.add_task(deliver, mailer, verification_email(settings, user.email, user.name, token))
     return issue_session(db, settings, user, instant, response)
@@ -366,9 +367,10 @@ def _release_unverified_account(db, user: UserRow, now) -> None:
     db.commit()
 
 
-def _new_google_user(settings, profile: dict[str, str], role: str, now) -> UserRow:
+def _new_google_user(settings, profile: dict[str, str], now) -> UserRow:
     return UserRow(
-        id=random_id("user"), name=profile["name"], email=profile["email"], role=role, provider="google",
+        id=random_id("user"), name=profile["name"], email=profile["email"], role="user",
+        affiliation=affiliation_for_email(profile["email"], settings.google_allowed_domains), provider="google",
         password_hash=None, created_at=now, email_verified_at=now, **_terms_fields(settings, now),
     )
 
@@ -393,7 +395,6 @@ def google_sign_in(
     profile = _normalize_google_profile(verified["email"], verified["name"])
     if not is_well_formed_email(profile["email"]):
         raise ServiceError("UNAUTHENTICATED", GENERIC_FAIL)
-    institutional = is_allowed_google_email(profile["email"], settings.google_allowed_domains)
     instant = now()
     with lock:
         user = _find_by_email(db, profile["email"])
@@ -408,18 +409,18 @@ def google_sign_in(
                 db.commit()
             result = complete_login(request, response, db, settings, user, instant, "google")
             return result if result.get("status") == "needs_2fa" else {"status": "signed_in", **result}
-        profile_token = create_profile_token(settings, profile["email"], profile["name"])
-        if institutional:
-            return {"status": "needs_role", "profile": profile, "profileToken": profile_token}
-        # Qualquer outro e-mail Google verificado vira comunidade externa. Sem aceite dos termos na chamada
-        # não se cria conta: o cliente mostra os termos e repete a chamada com `acceptTerms: true`.
+        # Qualquer e-mail Google verificado é aceito; o vínculo (institutional/external) vem só do domínio. Sem aceite
+        # dos termos na chamada não se cria conta: o cliente mostra os termos e repete a chamada com
+        # `acceptTerms: true` (ou chama `/auth/google/complete` com o `ticket`).
         if payload.get("acceptTerms") is not True:
-            return {"status": "needs_terms", "profile": profile, "profileToken": profile_token}
-        user = _new_google_user(settings, profile, "external", instant)
+            ticket = create_profile_token(settings, profile["email"], profile["name"])
+            shown = {**profile, "affiliation": affiliation_for_email(profile["email"], settings.google_allowed_domains)}
+            return {"status": "needs_terms", "profile": shown, "ticket": ticket, "profileToken": ticket}
+        user = _new_google_user(settings, profile, instant)
         _commit_new_user(db, user)
         audit.record(
             db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
-            metadata={"role": user.role, "provider": "google"},
+            metadata={"role": user.role, "affiliation": user.affiliation, "provider": "google"},
         )
     return {"status": "signed_in", **issue_session(db, settings, user, instant, response)}
 
@@ -428,23 +429,21 @@ def google_sign_in(
 def google_complete(
     request: Request, response: Response, payload: dict[str, Any] = Body(...), *, db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep
 ):
-    token = payload.get("profileToken")
+    token = payload.get("ticket", payload.get("profileToken"))  # `profileToken`: nome antigo, ainda aceito
     claims = decode_token(settings, token, GOOGLE_PROFILE) if isinstance(token, str) else None
     if not claims or not isinstance(claims.get("email"), str):
         raise ServiceError("UNAUTHENTICATED", "Sua verificação do Google expirou. Entre com o Google novamente.")
     profile = _normalize_google_profile(claims["email"], claims.get("name", ""))
-    institutional = is_allowed_google_email(profile["email"], settings.google_allowed_domains)
-    data = validate_google_complete(payload, needs_role=institutional)
-    role = data["role"] if institutional else "external"
+    validate_google_complete(payload)
     instant = now()
     with lock:
         if _find_by_email(db, profile["email"]):
             raise _email_taken()
-        user = _new_google_user(settings, profile, role, instant)
+        user = _new_google_user(settings, profile, instant)
         _commit_new_user(db, user)
         audit.record(
             db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
-            metadata={"role": user.role, "provider": "google"},
+            metadata={"role": user.role, "affiliation": user.affiliation, "provider": "google"},
         )
     return issue_session(db, settings, user, instant, response)
 
@@ -482,7 +481,8 @@ def accept_invite(
             db.rollback()
             raise _email_taken()
         user = UserRow(
-            id=random_id("user"), name=data["name"], email=invite.email, role="admin", provider="password",
+            id=random_id("user"), name=data["name"], email=invite.email, role="admin",
+            affiliation=affiliation_for_email(invite.email, settings.google_allowed_domains), provider="password",
             password_hash=pw_hash, created_at=instant, email_verified_at=instant,
         )
         db.add(user)

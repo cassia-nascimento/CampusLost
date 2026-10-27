@@ -31,9 +31,20 @@ Atualizado pelo orquestrador ao fim de cada onda.
 
 Todas são **[Premissa]** do protótipo, a validar pela equipe (não são decisões aprovadas):
 
-- Novo papel **comunidade externa** (`external`), com as mesmas permissões de aluno/professor. Cadastro por senha (e-mail confirmado) ou Google (qualquer conta; domínio institucional escolhe aluno/professor).
+- ~~Novo papel comunidade externa (`external`)~~ **Superado em 27/10/2026** (ver abaixo). Cadastro por senha (e-mail confirmado) ou Google (qualquer conta).
 - E-mail precisa ser confirmado para cadastrar itens e reivindicar. Senha: mín. 10 caracteres, máx. 72 bytes, fora da lista de comuns.
 - Recuperação de senha por e-mail; sessões por cookie HttpOnly + refresh rotativo (backend); limite de tentativas de login no banco.
 - Administração: gestão de usuários, convites de administrador, auditoria e 2FA (TOTP) obrigatório para admin (exceto demonstração). 2FA sem QR code (segredo manual + link otpauth), para não adicionar dependência.
 - LGPD: aceite dos termos, exportar e excluir dados. `/privacidade` é **texto-modelo** com lacunas a preencher pela equipe.
 - Pendente de teste real: envio de e-mail, login Google, captcha (Turnstile). Hospedagem da API com disco persistente segue indefinida.
+
+## Decisões posteriores — 27/10/2026 (papéis e vínculo)
+
+Todas são **[Premissa]** do protótipo, a validar pela equipe e pelo professor (SPEC P32 revisada e P40):
+
+- Perfis aluno, professor e comunidade externa **removidos** do cadastro e do modelo. Papel de acesso: `user` | `admin`; usuários comuns têm permissões iguais. Cadastro: nome, e-mail, senha e aceite dos termos; Google em conta nova só pede o aceite dos termos.
+- Novo campo `affiliation` (`institutional` | `external`), derivado **só do domínio do e-mail** (padrão `undb.edu.br` = **hipótese**, configurável) e **não verificado**: não há integração com a UNDB nem matrícula.
+- Administração só por `create_admin`, convite ou outra administração; nenhuma rota de cadastro cria admin; permissões validadas no backend (AC01.23).
+- Migração Alembic 0003 converte contas antigas (`student`/`teacher`/`external` para `user`, com vínculo); no mock, `DB_VERSION` 6 descarta dados antigos. Perfis de demonstração: institucional, externo, administração.
+- Backlog (SPEC §10): solicitar acesso administrativo com justificativa e aprovação de um responsável; verificação real do vínculo exigiria integração com a UNDB.
+- Documentos atualizados: SPEC, DEMO, DESIGN (microcopy e wireframes de cadastro/login) e este arquivo. **Não conferido por mim:** se o código do frontend já reflete os textos de DESIGN e DEMO (rótulos dos botões de demonstração foram tirados de `DEMO_PROFILE_LABELS` no seed); testes e build não foram executados nesta tarefa.

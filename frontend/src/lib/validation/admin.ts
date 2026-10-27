@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { USER_ROLES } from "@/types/domain";
+import { AFFILIATIONS, ROLES } from "@/types/domain";
 import { MAX_PAGE_SIZE } from "@/types/admin";
 import { boundedText, emptyToUndefined, requiredString } from "./common";
 import { emailField, newPasswordField } from "./auth";
@@ -59,7 +59,8 @@ const pageSizeField = z.preprocess(
 
 export const adminUserFiltersSchema = z.object({
   q: z.preprocess(emptyToUndefined, z.string().trim().max(120, "Use no máximo 120 caracteres.").optional()),
-  role: z.preprocess(emptyToUndefined, z.enum(USER_ROLES, { error: "Papel inválido." }).optional()),
+  role: z.preprocess(emptyToUndefined, z.enum(ROLES, { error: "Papel inválido." }).optional()),
+  affiliation: z.preprocess(emptyToUndefined, z.enum(AFFILIATIONS, { error: "Vínculo inválido." }).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(["active", "disabled"], { error: "Use active ou disabled." }).optional()),
   page: pageField,
   pageSize: pageSizeField,
@@ -67,7 +68,7 @@ export const adminUserFiltersSchema = z.object({
 
 export const userPatchSchema = z
   .object({
-    role: z.enum(USER_ROLES, { error: "Escolha aluno, professor, comunidade externa ou administração." }).optional(),
+    role: z.enum(ROLES, { error: "Escolha usuário ou administração." }).optional(),
     active: z.boolean({ error: "Use verdadeiro ou falso." }).optional(),
   })
   .refine((v) => v.role !== undefined || v.active !== undefined, { error: "Informe o papel e/ou o estado da conta." });

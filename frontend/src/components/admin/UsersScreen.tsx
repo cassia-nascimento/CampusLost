@@ -21,13 +21,14 @@ import { formatCount, formatInstantDate } from "@/lib/format";
 import { canUpdateUser } from "@/lib/rules";
 import { services } from "@/services";
 import type { AdminUserRow } from "@/types/admin";
-import { ROLE_LABEL, USER_ROLES, type UserRole } from "@/types/domain";
+import { AFFILIATION_LABEL, AFFILIATION_NOTICE, ROLE_LABEL, USER_ROLES, type UserRole } from "@/types/domain";
 import { classifyAdminFailure } from "./admin-errors";
 import { AdminQueryError } from "./AdminQueryError";
 import { AdminSectionNav } from "./AdminSectionNav";
 import { AccountStatusBadge, TwoFactorBadge } from "./AdminBadges";
 import { Pagination } from "./Pagination";
 import {
+  AFFILIATION_OPTIONS,
   NO_USER_FILTERS,
   ROLE_OPTIONS,
   STATUS_OPTIONS,
@@ -63,7 +64,7 @@ export function UsersScreen() {
   }, [draft, applied.q]);
 
   const filters = toListUsersFilters(applied, page);
-  const query = useServiceQuery(() => services.admin.listUsers(filters), [applied.q, applied.role, applied.status, page]);
+  const query = useServiceQuery(() => services.admin.listUsers(filters), [applied.q, applied.role, applied.affiliation, applied.status, page]);
 
   function change(patch: Partial<UserFilterState>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -100,8 +101,9 @@ export function UsersScreen() {
     <Container size="admin">
       <PageHeader title="Usuários" description="Veja as contas, mude o papel de cada pessoa e ative ou desative o acesso." />
       <AdminSectionNav current={PATH} />
+      <p className="mb-4 text-meta text-ink-muted">{AFFILIATION_NOTICE}</p>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end">
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto] md:items-end">
         <Field label="Buscar por nome ou e-mail">
           <Input
             type="search"
@@ -114,6 +116,16 @@ export function UsersScreen() {
           <Select value={draft.role} onChange={(event) => change({ role: event.target.value })}>
             <option value="">Todos</option>
             {ROLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Vínculo">
+          <Select value={draft.affiliation} onChange={(event) => change({ affiliation: event.target.value })}>
+            <option value="">Todos</option>
+            {AFFILIATION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -284,6 +296,10 @@ function UsersList({
               <span className="text-ink-subtle">Papel: </span>
               {ROLE_LABEL[row.role]}
             </p>
+            <p className="text-body">
+              <span className="text-ink-subtle">Vínculo: </span>
+              {AFFILIATION_LABEL[row.affiliation]}
+            </p>
             <div className="flex flex-wrap gap-2">
               <AccountStatusBadge active={row.active} />
               <TwoFactorBadge enabled={row.twoFactorEnabled} />
@@ -304,6 +320,7 @@ function UsersList({
             <tr>
               <th scope="col" className="px-4 py-3 font-semibold">Pessoa</th>
               <th scope="col" className="px-4 py-3 font-semibold">Papel</th>
+              <th scope="col" className="px-4 py-3 font-semibold">Vínculo</th>
               <th scope="col" className="px-4 py-3 font-semibold">Situação</th>
               <th scope="col" className="px-4 py-3 font-semibold">Criada em</th>
               <th scope="col" className="px-4 py-3 font-semibold">Ações</th>
@@ -317,6 +334,7 @@ function UsersList({
                   <p className="truncate text-meta text-ink-muted">{row.email}</p>
                 </td>
                 <td className="px-4 py-3">{ROLE_LABEL[row.role]}</td>
+                <td className="px-4 py-3">{AFFILIATION_LABEL[row.affiliation]}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col items-start gap-1.5">
                     <AccountStatusBadge active={row.active} />

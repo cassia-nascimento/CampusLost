@@ -11,8 +11,8 @@ CLAIM = {"proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWhe
 PASSWORD = "senha-forte-1"
 
 
-def signup_payload(email="novo@exemplo.com", role="student", **over):
-    return {"name": "Pessoa Nova", "email": email, "password": PASSWORD, "role": role, "acceptTerms": True, **over}
+def signup_payload(email="novo@exemplo.com", **over):
+    return {"name": "Pessoa Nova", "email": email, "password": PASSWORD, "acceptTerms": True, **over}
 
 
 def bearer(token: str) -> dict[str, str]:

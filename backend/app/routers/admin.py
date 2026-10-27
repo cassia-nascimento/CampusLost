@@ -21,7 +21,8 @@ from ..session_service import revoke_all_sessions
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-ROLES = ("student", "teacher", "external", "admin")
+ROLES = ("user", "admin")
+AFFILIATIONS = ("institutional", "external")
 PAGE_SIZE_DEFAULT = 20
 PAGE_SIZE_MAX = 100
 
@@ -82,7 +83,7 @@ def list_audit(request: Request, _: AdminUser, db: DbDep):
 
 def admin_user_json(u: UserRow) -> dict[str, Any]:
     return {
-        "id": u.id, "name": u.name, "email": u.email, "role": u.role, "provider": u.provider,
+        "id": u.id, "name": u.name, "email": u.email, "role": u.role, "affiliation": u.affiliation, "provider": u.provider,
         "active": u.disabled_at is None, "disabledAt": to_iso(u.disabled_at) if u.disabled_at else None,
         "emailVerified": u.email_verified_at is not None, "twoFactorEnabled": u.totp_enabled_at is not None,
         "createdAt": to_iso(u.created_at),
@@ -97,6 +98,11 @@ def list_users(request: Request, _: AdminUser, db: DbDep):
     q = request.query_params.get("q", "").strip()
     role = request.query_params.get("role", "").strip()
     status = request.query_params.get("status", "").strip()
+    affiliation = request.query_params.get("affiliation", "").strip()
+    if affiliation:
+        if affiliation not in AFFILIATIONS:
+            raise ServiceError("VALIDATION", "Confira os campos destacados.", {"affiliation": "Use institutional ou external."})
+        where.append(UserRow.affiliation == affiliation)
     if role:
         if role not in ROLES:
             raise ServiceError("VALIDATION", "Confira os campos destacados.", {"role": "Papel inválido."})
@@ -127,12 +133,12 @@ def update_user(
     user_id: str, request: Request, admin: AdminUser, db: DbDep, now: ClockDep, lock: LockDep,
     payload: dict[str, Any] = Body(...),
 ):
-    """Corpo: `role` (student|teacher|external|admin) e/ou `active` (bool). Ninguém altera a si mesmo, e o último
+    """Corpo: `role` (user|admin) e/ou `active` (bool). Ninguém altera a si mesmo, e o último
     admin ativo não pode ser rebaixado nem desativado. Desativar revoga todas as sessões na hora."""
     errors: dict[str, str] = {}
     new_role, new_active = payload.get("role"), payload.get("active")
     if "role" in payload and new_role not in ROLES:
-        errors["role"] = "Escolha aluno, professor, comunidade externa ou administração."
+        errors["role"] = "Escolha usuário ou administração."
     if "active" in payload and not isinstance(new_active, bool):
         errors["active"] = "Use verdadeiro ou falso."
     if not errors and "role" not in payload and "active" not in payload:

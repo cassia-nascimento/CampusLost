@@ -20,7 +20,7 @@ def bearer(token: str) -> dict[str, str]:
 def make_user(app, email: str, role: str = "admin", name: str = "Pessoa Teste", verified: bool = True) -> UserRow:
     with app.state.session_factory() as s:
         u = UserRow(
-            id=random_id("user"), name=name, email=email, role=role, provider="password",
+            id=random_id("user"), name=name, email=email, role=role, affiliation="institutional", provider="password",
             password_hash=hash_password(PW, 4), created_at=FIXED_NOW, email_verified_at=FIXED_NOW if verified else None,
         )
         s.add(u)

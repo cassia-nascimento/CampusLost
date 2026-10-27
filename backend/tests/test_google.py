@@ -47,18 +47,19 @@ def post(client, cred="id-token"):
     return client.post("/auth/google", json={"credential": cred})
 
 
-def test_new_account_needs_role_then_complete(client, fake_google, app):
+def test_new_account_needs_terms_then_complete_with_ticket(client, fake_google, app):
     r = post(client)
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "needs_role"
-    assert body["profile"] == {"email": "ana.souza@undb.edu.br", "name": "Ana Souza"}
-    assert "token" not in body
+    assert body["status"] == "needs_terms"  # `needs_role` não existe mais
+    assert body["profile"] == {"email": "ana.souza@undb.edu.br", "name": "Ana Souza", "affiliation": "institutional"}
+    assert "token" not in body and body["ticket"] == body["profileToken"]
     with app.state.session_factory() as s:  # nada foi criado ainda
         assert s.scalar(select(UserRow).where(UserRow.email == "ana.souza@undb.edu.br")) is None
-    done = client.post("/auth/google/complete", json={"profileToken": body["profileToken"], "role": "teacher", "acceptTerms": True})
+    done = client.post("/auth/google/complete", json={"ticket": body["ticket"], "acceptTerms": True})
     assert done.status_code == 201
-    assert done.json()["user"]["role"] == "teacher" and done.json()["user"]["email"] == "ana.souza@undb.edu.br"
+    user = done.json()["user"]
+    assert user["role"] == "user" and user["affiliation"] == "institutional" and user["email"] == "ana.souza@undb.edu.br"
     me = client.get("/auth/me", headers={"Authorization": f"Bearer {done.json()['token']}"})
     assert me.status_code == 200
     with app.state.session_factory() as s:
@@ -70,19 +71,25 @@ def test_new_account_needs_role_then_complete(client, fake_google, app):
     assert bad.status_code == 401 and bad.json()["code"] == "INVALID_CREDENTIALS"
 
 
+def test_google_sign_in_with_accept_terms_creates_user_directly(client, fake_google):
+    r = client.post("/auth/google", json={"credential": "x", "acceptTerms": True})
+    assert r.status_code == 200 and r.json()["status"] == "signed_in"
+    assert r.json()["user"]["role"] == "user" and r.json()["user"]["affiliation"] == "institutional"
+
+
 def test_existing_verified_account_signs_in_directly(client, fake_google, mailbox):
-    client.post("/auth/signup", json={"name": "Ana Souza", "email": "ana.souza@undb.edu.br", "password": "senha-forte-1", "role": "student", "acceptTerms": True})
+    client.post("/auth/signup", json={"name": "Ana Souza", "email": "ana.souza@undb.edu.br", "password": "senha-forte-1", "acceptTerms": True})
     assert client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])}).status_code == 200
     r = post(client)
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "signed_in" and body["user"]["role"] == "student" and body["token"]
+    assert body["status"] == "signed_in" and body["user"]["role"] == "user" and body["token"]
 
 
 def test_second_complete_is_email_taken(client, fake_google):
-    ptoken = post(client).json()["profileToken"]
-    assert client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student", "acceptTerms": True}).status_code == 201
-    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student", "acceptTerms": True})
+    ptoken = post(client).json()["ticket"]
+    assert client.post("/auth/google/complete", json={"ticket": ptoken, "acceptTerms": True}).status_code == 201
+    r = client.post("/auth/google/complete", json={"ticket": ptoken, "acceptTerms": True})
     assert r.status_code == 409 and r.json()["code"] == "EMAIL_TAKEN"
 
 
@@ -90,17 +97,17 @@ def test_second_complete_is_email_taken(client, fake_google):
     "email",
     ["aluno@gmail.com", "aluno@evilundb.edu.br", "aluno@undb.edu.br.evil.com", "aluno@undb.edu.brx.com", "aluno@edu.br"],
 )
-def test_non_institutional_google_email_is_external_not_student(client, fake_google, email, app):
-    """Domínio parecido com o institucional NÃO vira aluno/professor: vira comunidade externa (e só com aceite)."""
+def test_non_institutional_google_email_has_external_affiliation(client, fake_google, email, app):
+    """Domínio parecido com o institucional tem vínculo `external` (só o domínio exato/subdomínio é `institutional`)."""
     fake_google["response"] = tokeninfo(email=email)
     first = post(client).json()
-    assert first["status"] == "needs_terms" and first["profile"]["email"] == email and "token" not in first
+    assert first["status"] == "needs_terms" and first["profile"]["email"] == email and first["profile"]["affiliation"] == "external" and "token" not in first
     with app.state.session_factory() as s:
         assert s.scalar(select(UserRow).where(UserRow.email == email)) is None  # nada criado sem aceite
     r = client.post("/auth/google", json={"credential": "x", "acceptTerms": True})
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "signed_in" and body["user"]["role"] == "external" and body["user"]["emailVerified"] is True
+    assert body["status"] == "signed_in" and body["user"]["role"] == "user" and body["user"]["affiliation"] == "external" and body["user"]["emailVerified"] is True
     again = post(client).json()  # segunda vez: conta existe, entra direto
     assert again["status"] == "signed_in" and again["user"]["id"] == body["user"]["id"]
 
@@ -115,7 +122,7 @@ def test_malformed_google_email_refused(client, fake_google, email):
 @pytest.mark.parametrize("email", ["a@undb.edu.br", "A@UNDB.EDU.BR", "aluno@alunos.undb.edu.br", "x@a.b.undb.edu.br"])
 def test_exact_domain_and_subdomains_accepted(client, fake_google, email):
     fake_google["response"] = tokeninfo(email=email)
-    assert post(client).json()["status"] == "needs_role"
+    assert post(client).json()["profile"]["affiliation"] == "institutional"
 
 
 def test_domain_rule_unit_and_config_parsing():
@@ -136,9 +143,9 @@ def test_custom_allowed_domains(tmp_path, clock, fake_google):
 
     s = make_settings(tmp_path, google_allowed_domains=("outra.edu.br",))
     with TestClient(create_app(s, clock=clock)) as c:
-        assert post(c).json()["status"] == "needs_terms"  # undb não está mais na lista: vira externo, não aluno
+        assert post(c).json()["profile"]["affiliation"] == "external"  # undb não está mais na lista
         fake_google["response"] = tokeninfo(email="x@outra.edu.br")
-        assert post(c).json()["status"] == "needs_role"
+        assert post(c).json()["profile"]["affiliation"] == "institutional"
 
 
 @pytest.mark.parametrize(
@@ -201,23 +208,23 @@ def test_missing_or_bad_credential_is_validation(client, fake_google):
 
 
 def test_complete_requires_valid_profile_token(client, fake_google, settings):
-    payload = {"role": "student", "acceptTerms": True}
+    payload = {"acceptTerms": True}
     assert client.post("/auth/google/complete", json=payload).status_code == 401
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": "lixo"}).status_code == 401
+    assert client.post("/auth/google/complete", json={**payload, "ticket": "lixo"}).status_code == 401
     good = create_profile_token(settings, "ana@undb.edu.br", "Ana Souza")
     head, body, sig = good.split(".")
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": f"{head}.{body}.{sig[:-3]}abc"}).status_code == 401
+    assert client.post("/auth/google/complete", json={**payload, "ticket": f"{head}.{body}.{sig[:-3]}abc"}).status_code == 401
     # assinado com outra chave
     forged = jwt.encode({"typ": "google_profile", "email": "ana@undb.edu.br", "name": "Ana", "iat": datetime.now(UTC), "exp": datetime.now(UTC) + timedelta(minutes=5)}, "outra-chave-qualquer-com-32-caracteres!!", algorithm="HS256")
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": forged}).status_code == 401
+    assert client.post("/auth/google/complete", json={**payload, "ticket": forged}).status_code == 401
     # expirado
     expired = jwt.encode({"typ": "google_profile", "email": "ana@undb.edu.br", "name": "Ana", "iat": datetime.now(UTC) - timedelta(hours=1), "exp": datetime.now(UTC) - timedelta(minutes=1)}, settings.secret_key, algorithm="HS256")
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": expired}).status_code == 401
+    assert client.post("/auth/google/complete", json={**payload, "ticket": expired}).status_code == 401
     # token de sessão não vale como profileToken
-    session = client.post("/demo/login/student").json()["token"]
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": session}).status_code == 401
+    session = client.post("/demo/login/institutional").json()["token"]
+    assert client.post("/auth/google/complete", json={**payload, "ticket": session}).status_code == 401
     # e nada foi criado
-    assert client.post("/auth/google/complete", json={**payload, "profileToken": good}).status_code == 201
+    assert client.post("/auth/google/complete", json={**payload, "ticket": good}).status_code == 201
 
 
 def test_profile_token_lasts_ten_minutes(settings):
@@ -226,24 +233,19 @@ def test_profile_token_lasts_ten_minutes(settings):
     assert claims["exp"] - claims["iat"] == 600
 
 
-def test_complete_validates_role_and_domain(client, fake_google, settings):
-    ptoken = post(client).json()["profileToken"]
-    for role in ("admin", "", None, "visitante"):
-        r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": role, "acceptTerms": True})
-        assert r.status_code == 422 and r.json()["fieldErrors"]["role"] == "Escolha se você é aluno ou professor."
-    # "external" não é escolha do fluxo institucional; e sem aceite dos termos não cria conta
-    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "external", "acceptTerms": True})
-    assert r.status_code == 422 and "role" in r.json()["fieldErrors"]
-    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "student"})
-    assert r.status_code == 422 and "acceptTerms" in r.json()["fieldErrors"]
-    # e-mail fora do domínio: o papel é sempre `external`, qualquer que seja o enviado
+def test_complete_ignores_role_requires_terms_and_derives_affiliation(client, fake_google, settings):
+    ptoken = post(client).json()["ticket"]
+    r = client.post("/auth/google/complete", json={"ticket": ptoken, "role": "admin", "acceptTerms": False})
+    assert r.status_code == 422 and "acceptTerms" in r.json()["fieldErrors"] and "role" not in r.json()["fieldErrors"]
+    r = client.post("/auth/google/complete", json={"profileToken": ptoken, "role": "admin", "acceptTerms": True})  # nome antigo ainda vale
+    assert r.status_code == 201 and r.json()["user"]["role"] == "user"  # `role` do corpo é ignorado
     outside = create_profile_token(settings, "x@gmail.com", "Fulano")
-    r = client.post("/auth/google/complete", json={"profileToken": outside, "role": "teacher", "acceptTerms": True})
-    assert r.status_code == 201 and r.json()["user"]["role"] == "external"
+    r = client.post("/auth/google/complete", json={"ticket": outside, "acceptTerms": True})
+    assert r.status_code == 201 and r.json()["user"]["role"] == "user" and r.json()["user"]["affiliation"] == "external"
 
 
 def test_google_name_fallback_to_email_local_part(client, fake_google):
     fake_google["response"] = tokeninfo(name=None, email="Bia.Lima@undb.edu.br")
-    assert post(client).json()["profile"] == {"email": "bia.lima@undb.edu.br", "name": "bia.lima"}
+    assert post(client).json()["profile"] == {"email": "bia.lima@undb.edu.br", "name": "bia.lima", "affiliation": "institutional"}
     fake_google["response"] = tokeninfo(name="x" * 200)
     assert len(post(client).json()["profile"]["name"]) == 80

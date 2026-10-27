@@ -13,7 +13,7 @@ const google = { email: "Ana.Lima@alunos.UNDB.edu.br", name: "  Ana Lima " };
 describe("senha (P29)", () => {
   it("cadastro com senha abre sessão e permite entrar depois com a mesma senha", async () => {
     const h = createHarness();
-    const u = await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true });
+    const u = await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true });
     await h.services.auth.signOut();
     expect(userOf(await h.services.auth.signIn({ email: "CARLA@demo.test", password: PW })).id).toBe(u.id);
     expect((await h.services.auth.getCurrentUser())?.id).toBe(u.id);
@@ -21,7 +21,7 @@ describe("senha (P29)", () => {
 
   it("cadastro rejeita senha curta/longa/ausente com fieldErrors.password", async () => {
     const h = createHarness();
-    const base = { name: "Carla Dias", email: "carla@demo.test", role: "student" as const, acceptedTerms: true as const };
+    const base = { name: "Carla Dias", email: "carla@demo.test" as const, acceptedTerms: true as const };
     for (const [password, msg] of [
       ["123456789", "Use pelo menos 10 caracteres."],
       ["a".repeat(73), PASSWORD_ISSUE_MESSAGE.too_long],
@@ -77,8 +77,8 @@ describe("senha (P29)", () => {
 
   it("senha guardada só como hash com sal aleatório por usuário", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true });
-    await h.services.auth.signUp({ name: "Dora Dias", email: "dora@demo.test", password: PW, role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Dora Dias", email: "dora@demo.test", password: PW, acceptedTerms: true });
     const raw = h.storage.getItem(DB_KEY)!;
     expect(raw).not.toContain(PW);
     const db = JSON.parse(raw);
@@ -92,12 +92,12 @@ describe("senha (P29)", () => {
   it("hash/sal/senha não aparecem em nada devolvido à UI", async () => {
     const h = createHarness();
     const out: unknown[] = [];
-    out.push(await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true }));
+    out.push(await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true }));
     out.push(await h.services.auth.getCurrentUser());
     out.push(await h.services.auth.listDemoProfiles());
     out.push(await h.services.auth.signIn({ email: "carla@demo.test", password: PW }));
     out.push(await h.services.auth.signInWithGoogle(googleCredential(google)));
-    out.push(await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "teacher", acceptedTerms: true }));
+    out.push(await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true }));
     await h.services.auth.signInAsDemo("admin");
     out.push(await h.services.items.list(), await h.services.items.get("item-03"));
     out.push(await h.services.claims.listPending(), await h.services.claims.listByItem("item-03"));
@@ -114,7 +114,7 @@ describe("senha (P29)", () => {
     const h = createHarness();
     const before = JSON.parse(h.storage.getItem(DB_KEY) ?? "null");
     await expectCode(
-      h.services.auth.signUp({ name: "Outra Marina", email: " MARINA@demo.test ", password: PW, role: "student", acceptedTerms: true }),
+      h.services.auth.signUp({ name: "Outra Marina", email: " MARINA@demo.test ", password: PW, acceptedTerms: true }),
       "EMAIL_TAKEN",
     );
     expect(before).toBeNull(); // banco ainda nem gravado; a leitura abaixo grava o seed
@@ -134,25 +134,25 @@ describe("senha (P29)", () => {
 });
 
 describe("Google institucional (P30)", () => {
-  it("conta nova: needs_role (nada criado) -> completar -> sessão", async () => {
+  it("conta nova institucional: needs_terms (nada criado) -> completar -> sessão user + institutional", async () => {
     const h = createHarness();
     const r = await h.services.auth.signInWithGoogle(googleCredential(google));
     expect(r).toEqual({
-      status: "needs_role",
+      status: "needs_terms",
       profile: { email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima" },
       ticket: expect.any(String),
     });
     expect(await h.services.auth.getCurrentUser()).toBeNull();
-    const ticket = r.status === "needs_role" ? r.ticket : "";
-    const user = await h.services.auth.completeGoogleSignUp({ ticket, role: "teacher", acceptedTerms: true });
-    expect(user).toMatchObject({ email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima", role: "teacher" });
+    const ticket = r.status === "needs_terms" ? r.ticket : "";
+    const user = await h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: true });
+    expect(user).toMatchObject({ email: "ana.lima@alunos.undb.edu.br", name: "Ana Lima", role: "user", affiliation: "institutional" });
     expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
   });
 
   it("ticket inválido ou adulterado: UNAUTHENTICATED e nada é criado", async () => {
     const h = createHarness();
     for (const ticket of ["", "lixo", "e30", "eyJmb28iOjF9"]) {
-      await expectCode(h.services.auth.completeGoogleSignUp({ ticket, role: "student", acceptedTerms: true }), "UNAUTHENTICATED");
+      await expectCode(h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: true }), "UNAUTHENTICATED");
     }
     expect(await h.services.auth.getCurrentUser()).toBeNull();
   });
@@ -161,7 +161,6 @@ describe("Google institucional (P30)", () => {
     const h = createHarness();
     const user = await h.services.auth.completeGoogleSignUp({
       ticket: googleTicket({ email: "jose@undb.edu.br", name: "José Conceição" }),
-      role: "student",
       acceptedTerms: true,
     });
     expect(user.name).toBe("José Conceição");
@@ -169,7 +168,7 @@ describe("Google institucional (P30)", () => {
 
   it("conta existente: signed_in direto, sem criar outra", async () => {
     const h = createHarness();
-    const user = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student", acceptedTerms: true });
+    const user = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true });
     await h.services.auth.signOut();
     const r = await h.services.auth.signInWithGoogle(googleCredential({ email: " ANA.LIMA@alunos.undb.edu.br", name: "Outro Nome" }));
     expect(r).toEqual({ status: "signed_in", user });
@@ -185,7 +184,7 @@ describe("Google institucional (P30)", () => {
       // caminho 1: repetir signInWithGoogle com o aceite
       const again = await h.services.auth.signInWithGoogle(googleCredential({ email, name: "Ana" }), { acceptedTerms: true });
       expect(again.status).toBe("signed_in");
-      if (again.status === "signed_in") expect(again.user).toMatchObject({ email, role: "external", emailVerified: true, hasPassword: false });
+      if (again.status === "signed_in") expect(again.user).toMatchObject({ email, emailVerified: true, hasPassword: false });
       await h.services.auth.signOut();
       // conta existente: signed_in direto, sem duplicar
       const third = await h.services.auth.signInWithGoogle(googleCredential({ email, name: "Ana" }));
@@ -198,29 +197,30 @@ describe("Google institucional (P30)", () => {
     const err = await expectCode(h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: false }), "VALIDATION");
     expect(err.fieldErrors?.acceptedTerms).toBeTruthy();
     expect(await h.services.auth.getCurrentUser()).toBeNull();
-    const user = await h.services.auth.completeGoogleSignUp({ ticket, role: "teacher", acceptedTerms: true });
-    expect(user).toMatchObject({ email: "bia@gmail.com", role: "external", emailVerified: true });
+    const user = await h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: true });
+    expect(user).toMatchObject({ email: "bia@gmail.com", emailVerified: true });
   });
 
-  it("domínio institucional exige role e acceptedTerms em completeGoogleSignUp", async () => {
+  it("completeGoogleSignUp exige só acceptedTerms (sem escolha de papel)", async () => {
     const h = createHarness();
-    const ticket = googleTicket(google);
-    const noRole = await expectCode(h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: true }), "VALIDATION");
-    expect(noRole.fieldErrors?.role).toBeTruthy();
-    const both = await expectCode(h.services.auth.completeGoogleSignUp({ ticket, acceptedTerms: false }), "VALIDATION");
-    expect(Object.keys(both.fieldErrors ?? {}).sort()).toEqual(["acceptedTerms", "role"]);
+    const err = await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: false }), "VALIDATION");
+    expect(Object.keys(err.fieldErrors ?? {})).toEqual(["acceptedTerms"]);
     expect(await h.services.auth.getCurrentUser()).toBeNull();
   });
 
-  it("conta Google dentro do domínio nasce verificada e só aceita aluno/professor", async () => {
+  it("conta Google nasce verificada, papel user, e o vínculo vem só do domínio do e-mail", async () => {
     const h = createHarness();
-    const user = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student", acceptedTerms: true });
-    expect(user.emailVerified).toBe(true);
+    const inst = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true });
+    expect(inst).toMatchObject({ emailVerified: true, role: "user", affiliation: "institutional" });
     await h.services.auth.signOut();
-    await expectCode(
-      h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bia@undb.edu.br", name: "Bia" }), role: "external" as never, acceptedTerms: true }),
-      "VALIDATION",
-    );
+    const sub = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bia@mail.undb.edu.br", name: "Bia" }), acceptedTerms: true });
+    expect(sub).toMatchObject({ role: "user", affiliation: "institutional" });
+    await h.services.auth.signOut();
+    for (const [i, email] of ["ana@gmail.com", "ana@undb.edu.br.evil.com", "ana@evilundb.edu.br"].entries()) {
+      const ext = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: `x${i}${email}`, name: "Ana" }), acceptedTerms: true });
+      expect(ext, email).toMatchObject({ role: "user", affiliation: "external" });
+      await h.services.auth.signOut();
+    }
   });
 
   it("domínio configurável por createMockServices", async () => {
@@ -233,30 +233,30 @@ describe("Google institucional (P30)", () => {
   it("completar para e-mail já existente: EMAIL_TAKEN", async () => {
     const h = createHarness({ allowedGoogleDomains: ["demo.test", "undb.edu.br"] });
     await expectCode(
-      h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "marina@demo.test", name: "Marina" }), role: "student", acceptedTerms: true }),
+      h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "marina@demo.test", name: "Marina" }), acceptedTerms: true }),
       "EMAIL_TAKEN",
     );
-    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student", acceptedTerms: true });
-    await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "teacher", acceptedTerms: true }), "EMAIL_TAKEN");
+    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true });
+    await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true }), "EMAIL_TAKEN");
   });
 
-  it("papel inválido (admin) é recusado", async () => {
+  it("um `role` enviado é ignorado: a conta nasce user (não dá para virar admin pelo Google)", async () => {
     const h = createHarness();
-    const err = await expectCode(h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "admin" as never, acceptedTerms: true }), "VALIDATION");
-    expect(err.fieldErrors?.role).toBeTruthy();
+    const user = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "admin", acceptedTerms: true } as never);
+    expect(user.role).toBe("user");
   });
 
   it("nome curto/ausente vira a parte local do e-mail; nome longo é truncado em 80", async () => {
     const h = createHarness();
-    const a = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bia@undb.edu.br", name: "" }), role: "student", acceptedTerms: true });
+    const a = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bia@undb.edu.br", name: "" }), acceptedTerms: true });
     expect(a.name).toBe("bia");
-    const b = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bob@undb.edu.br", name: "x".repeat(200) }), role: "student", acceptedTerms: true });
+    const b = await h.services.auth.completeGoogleSignUp({ ticket: googleTicket({ email: "bob@undb.edu.br", name: "x".repeat(200) }), acceptedTerms: true });
     expect(b.name).toHaveLength(80);
   });
 
   it("conta do Google não tem senha: entrar por senha dá INVALID_CREDENTIALS (mesma mensagem)", async () => {
     const h = createHarness();
-    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), role: "student", acceptedTerms: true });
+    await h.services.auth.completeGoogleSignUp({ ticket: googleTicket(google), acceptedTerms: true });
     await h.services.auth.signOut();
     for (const password of [PW, "", "undefined", "null", "12345678"]) {
       const err = await expectCode(
@@ -274,7 +274,7 @@ describe("Google institucional (P30)", () => {
 
   it("Google em conta de senha existente abre sessão (a senha continua valendo)", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Ana Lima", email: google.email, password: PW, role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Ana Lima", email: google.email, password: PW, acceptedTerms: true });
     await h.services.auth.signOut();
     expect((await h.services.auth.signInWithGoogle(googleCredential(google))).status).toBe("signed_in");
     await h.services.auth.signOut();
@@ -283,19 +283,22 @@ describe("Google institucional (P30)", () => {
 });
 
 describe("migração DB_VERSION (P29/P30)", () => {
-  it("DB_VERSION é 5; v1/v2/v3 antigos são descartados e o seed novo traz credenciais", () => {
-    expect(DB_VERSION).toBe(5);
+  it("DB_VERSION é 6; v1/v2/v3 antigos são descartados e o seed novo traz credenciais", () => {
+    expect(DB_VERSION).toBe(6);
     const storage = createMemoryStorage();
     const { credentials: _c, ...legacy } = buildSeed(TEST_NOW);
     void _c;
     storage.setItem("campuslost:proto:v1:db", JSON.stringify({ ...legacy, version: 1 }));
     storage.setItem("campuslost:proto:v2:db", JSON.stringify({ ...legacy, version: 2 }));
+    // contas antigas do mock (papéis student/teacher/external) NÃO são migradas: o v5 é descartado
+    storage.setItem("campuslost:proto:v5:db", JSON.stringify({ ...legacy, version: 5 }));
     const db = new MockStore({ storage, now: () => TEST_NOW }).read();
-    expect(db.version).toBe(5);
+    expect(db.version).toBe(6);
     expect(db.tokens).toEqual([]);
     expect(db.credentials).toHaveLength(db.users.length);
     expect(storage.getItem("campuslost:proto:v1:db")).toBeNull();
     expect(storage.getItem("campuslost:proto:v2:db")).toBeNull();
+    expect(storage.getItem("campuslost:proto:v5:db")).toBeNull();
   });
 
   it("banco v5 sem `credentials` (adulterado) é descartado e regenerado", () => {

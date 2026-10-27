@@ -19,7 +19,9 @@ class UserRow(Base):
     name: Mapped[str] = mapped_column(String(80))
     # Sempre guardado normalizado (trim + minúsculas).
     email: Mapped[str] = mapped_column(String(120), unique=True, index=True)
-    role: Mapped[str] = mapped_column(String(16))  # student | teacher | external | admin
+    role: Mapped[str] = mapped_column(String(16))  # papel de ACESSO: user | admin
+    # Vínculo pelo domínio do e-mail na criação da conta: institutional | external (nunca verificado de outra forma).
+    affiliation: Mapped[str] = mapped_column(String(16))
     provider: Mapped[str] = mapped_column(String(16), default="password")  # password | google | deleted
     # Nunca serializado. `None` para contas criadas só pelo Google.
     password_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -11,7 +11,7 @@ from app.models import UserRow
 from app.security import RateLimiter, create_profile_token
 from tests.conftest import DEMO_PASSWORD, Clock, FIXED_NOW, make_settings
 
-SIGNUP = {"name": "Joana Silva", "email": "Joana@Exemplo.com", "password": "senha-forte-1", "role": "student", "acceptTerms": True}
+SIGNUP = {"name": "Joana Silva", "email": "Joana@Exemplo.com", "password": "senha-forte-1", "acceptTerms": True}
 INVALID_MSG = "E-mail ou senha incorretos."
 
 
@@ -24,8 +24,8 @@ def test_signup_creates_account_and_session(client):
     assert r.status_code == 201
     body = r.json()
     assert body["user"]["email"] == "joana@exemplo.com"  # normalizado
-    assert body["user"]["role"] == "student"
-    assert set(body["user"]) == {"id", "name", "email", "role", "emailVerified", "hasPassword", "twoFactorEnabled"}
+    assert body["user"]["role"] == "user" and body["user"]["affiliation"] == "external"
+    assert set(body["user"]) == {"id", "name", "email", "role", "affiliation", "emailVerified", "hasPassword", "twoFactorEnabled"}
     assert body["user"]["emailVerified"] is False
     assert body["tokenType"] == "bearer" and body["expiresAt"].endswith("Z")
     me = client.get("/auth/me", headers=bearer(body["token"]))
@@ -60,11 +60,10 @@ def test_signup_duplicate_email_is_case_insensitive(client):
     }
 
 
-def test_signup_cannot_create_admin_or_unknown_role(client):
-    for role in ("admin", "root", None, ""):
-        r = client.post("/auth/signup", json={**SIGNUP, "role": role})
-        assert r.status_code == 422
-        assert r.json()["fieldErrors"]["role"] == "Escolha se você é aluno, professor ou da comunidade externa."
+def test_signup_ignores_role_and_cannot_create_admin(client):
+    for i, role in enumerate(("admin", "root", None, "")):
+        r = client.post("/auth/signup", json={**SIGNUP, "email": f"r{i}@exemplo.com", "role": role})
+        assert r.status_code == 201 and r.json()["user"]["role"] == "user"
 
 
 @pytest.mark.parametrize(
@@ -98,7 +97,7 @@ def test_signup_boundaries_ok(client):
 
 def test_signup_missing_fields_and_bad_json(client):
     r = client.post("/auth/signup", json={})
-    assert r.status_code == 422 and set(r.json()["fieldErrors"]) == {"name", "email", "password", "role", "acceptTerms"}
+    assert r.status_code == 422 and set(r.json()["fieldErrors"]) == {"name", "email", "password", "acceptTerms"}
     r = client.post("/auth/signup", content=b"not json", headers={"Content-Type": "application/json"})
     assert r.status_code == 422 and r.json()["code"] == "VALIDATION"
 
@@ -205,6 +204,6 @@ def test_token_for_deleted_user_rejected(client, app):
 def test_token_expiry_is_configurable(tmp_path):
     s = make_settings(tmp_path, access_token_expire_minutes=1)
     with __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(s, clock=Clock(FIXED_NOW))) as c:
-        body = c.post("/demo/login/student").json()
+        body = c.post("/demo/login/institutional").json()
         exp = datetime.fromisoformat(body["expiresAt"].replace("Z", "+00:00"))
         assert 0 < (exp - datetime.now(UTC)).total_seconds() <= 61

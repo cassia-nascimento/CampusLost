@@ -22,8 +22,6 @@ CLAIM_PROOF_MAX = 500
 CLAIM_WHERE_WHEN_MAX = 300
 PHOTO_MAX_BYTES = 10 * 1024 * 1024
 
-SIGNUP_ROLES = ("student", "teacher", "external")
-GOOGLE_ROLES = ("student", "teacher")  # Google institucional: aluno/professor; demais e-mails Google nascem `external`
 TERMS_MESSAGE = "Aceite os termos de uso e a política de privacidade para continuar."
 
 # Mesma expressão do `z.email()` do zod 4.
@@ -84,18 +82,6 @@ def _login_password(value: Any) -> str:
     return value
 
 
-def _signup_role(value: Any) -> str:
-    if value not in SIGNUP_ROLES:
-        raise _Fail("Escolha se você é aluno, professor ou da comunidade externa.")
-    return value
-
-
-def _google_role(value: Any) -> str:
-    if value not in GOOGLE_ROLES:
-        raise _Fail("Escolha se você é aluno ou professor.")
-    return value
-
-
 def _accept_terms(value: Any) -> bool:
     if value is not True:
         raise _Fail(TERMS_MESSAGE)
@@ -149,7 +135,6 @@ def validate_signup(data: Any) -> dict[str, Any]:
             "name": lambda v: _bounded_text(v, "seu nome", 2, 80),
             "email": _email,
             "password": lambda v: _new_password(v, src.get("email"), src.get("name")),
-            "role": _signup_role,
             "acceptTerms": _accept_terms,
         },
     )
@@ -183,19 +168,9 @@ def validate_signin(data: Any) -> dict[str, str]:
     return _run(data, {"email": _email, "password": _login_password})
 
 
-def validate_google_signup(data: Any) -> dict[str, str]:
-    return _run(
-        data,
-        {"email": _email, "name": lambda v: _bounded_text(v, "seu nome", 2, 80), "role": _signup_role},
-    )
-
-
-def validate_google_complete(data: Any, *, needs_role: bool) -> dict[str, Any]:
-    """Conclusão do cadastro Google: papel (só no domínio institucional) + aceite dos termos."""
-    fields: dict[str, Any] = {"acceptTerms": _accept_terms}
-    if needs_role:
-        fields = {"role": _google_role, **fields}
-    return _run(data, fields)
+def validate_google_complete(data: Any) -> dict[str, Any]:
+    """Conclusão do cadastro Google: só o aceite dos termos (o papel é sempre `user`; o vínculo vem do domínio)."""
+    return _run(data, {"acceptTerms": _accept_terms})
 
 
 def validate_claim(data: Any) -> dict[str, str]:

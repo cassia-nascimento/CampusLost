@@ -54,7 +54,8 @@ describe("filtros e edição de usuários", () => {
   });
 
   it("alteração exige papel válido e/ou active booleano", () => {
-    expect(userPatchSchema.safeParse({ role: "teacher" }).success).toBe(true);
+    expect(userPatchSchema.safeParse({ role: "admin" }).success).toBe(true);
+    expect(userPatchSchema.safeParse({ role: "teacher" }).success).toBe(false); // papéis antigos não existem mais
     expect(userPatchSchema.safeParse({ active: false }).success).toBe(true);
     expect(errors(userPatchSchema.safeParse({}))._form).toBe("Informe o papel e/ou o estado da conta.");
     expect(userPatchSchema.safeParse({ role: "root" }).success).toBe(false);

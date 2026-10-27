@@ -75,7 +75,7 @@ def test_returned_items_never_listed(client, student, admin):
 def test_logged_user_sees_stored_at_and_creator_but_no_foreign_claims(client, student):
     body = client.get("/items/item-03", headers=student).json()
     assert body["item"]["storedAt"] == "Portaria" and body["item"]["createdById"] == "user-lucas"
-    assert body["createdBy"] == {"id": "user-lucas", "name": "Lucas Prado", "role": "student"}  # sem e-mail
+    assert body["createdBy"] == {"id": "user-lucas", "name": "Lucas Prado", "role": "user"}  # sem e-mail
     assert body["claims"] == [] and body["returnRecord"] is None
     assert body["myClaims"] == []  # claim-01/02 são de Beatriz e Rafael
 

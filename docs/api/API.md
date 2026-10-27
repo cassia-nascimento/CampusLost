@@ -36,7 +36,7 @@ Toda falha tem este corpo (mesmo para 404 de rota, 405, 413 e 500):
 | `UNAUTHENTICATED` | 401 | Sem sessão ("Entre na sua conta para continuar."), token inválido/expirado ("Sua sessão expirou. Entre novamente."), credencial Google inválida. |
 | `INVALID_CREDENTIALS` | 401 / 403 | Login: e-mail inexistente, senha errada, conta só-Google ou conta excluída (401, mensagem única: "E-mail ou senha incorretos."). **403** em `DELETE /me` com confirmação errada. |
 | `FORBIDDEN` | 403 | Papel sem permissão. |
-| `FORBIDDEN_DOMAIN` | 403 | **Não é mais emitido** (e-mail Google fora do domínio institucional agora vira conta `external`). Mantido na tabela por compatibilidade com o tipo do frontend. |
+| `FORBIDDEN_DOMAIN` | 403 | **Não é mais emitido** (e-mail Google fora do domínio institucional agora vira conta com `affiliation: external`). Mantido na tabela por compatibilidade com o tipo do frontend. |
 | `EMAIL_NOT_VERIFIED` | 403 | **Novo.** Conta de senha ainda sem e-mail confirmado tentou cadastrar item (`POST /items`) ou reivindicar (`POST /items/{id}/claims`). "Confirme seu e-mail para continuar. Enviamos um link de confirmação para a sua caixa de entrada." O `viewer.claim` do detalhe do item já traz `allowed:false, code:"EMAIL_NOT_VERIFIED"`. |
 | `CSRF_FAILED` | 403 | **Novo.** Modo cookie sem `X-Requested-With` ou com `Origin` não permitida. |
 | `INVALID_TOKEN` | 400 | **Novo.** Link de e-mail (`verify-email`, `reset-password`) inexistente, expirado, já usado ou de outra finalidade: "Link inválido ou expirado. Peça um novo." |
@@ -72,9 +72,9 @@ Ordem de verificação (igual à do mock): sessão → existência do recurso �
 | `auth.getCurrentUser()` | `GET /auth/me` | **401 ⇒ devolver `null`** (a API não devolve `null`). Resposta: `User` puro. |
 | `auth.signUp(input)` | `POST /auth/signup` | Resposta `Session`; guardar `token`, devolver `user`. |
 | `auth.signIn(input)` | `POST /auth/login` | Idem. |
-| `auth.signInWithGoogle(profile)` | `POST /auth/google` | **Muda a entrada**: envia `{credential}` (ID token bruto); a verificação é no servidor. `needs_role` traz também `profileToken`; guardar para o passo seguinte. |
-| `auth.completeGoogleSignUp(input)` | `POST /auth/google/complete` | Envia `{profileToken, role}` (não mais e-mail/nome: vêm do token). |
-| `auth.signInAsDemo(role)` | `POST /demo/login/{role}` | Só com `DEMO_MODE=true`. |
+| `auth.signInWithGoogle(profile)` | `POST /auth/google` | **Muda a entrada**: envia `{credential}` (ID token bruto); a verificação é no servidor. `needs_terms` traz também `ticket` (e `profileToken`, mesmo valor, nome antigo); guardar para o passo seguinte. |
+| `auth.completeGoogleSignUp(input)` | `POST /auth/google/complete` | Envia `{ticket, acceptTerms}` (sem `role`; e-mail/nome vêm do token). |
+| `auth.signInAsDemo(key)` | `POST /demo/login/{key}` | Só com `DEMO_MODE=true`. |
 | `auth.listDemoProfiles()` | `GET /demo/profiles` | Idem. |
 | `auth.signOut()` | — | Descartar o token no cliente. |
 | `items.list(filters)` | `GET /items?category=&location=&from=&to=&status=&sort=` | Resposta `ItemView[]`. |
@@ -100,16 +100,16 @@ Itens sem equivalente: o catálogo (`DEMO_CATEGORIES`/`DEMO_LOCATIONS`) também 
 
 ### `User` (`types/domain.ts: User`)
 ```json
-{ "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "student" }
+{ "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" }
 ```
-`role`: `"student" | "teacher" | "external" | "admin"` (`external` = comunidade externa; mesmas permissões de `student`/`teacher`).
+`role` é o papel de **acesso**: `"user" | "admin"` (só isso decide permissões; sempre checado no servidor). O vínculo com a instituição aparece em `affiliation` só no usuário da própria sessão (`AccountUser`) e nas listas de `/admin/users`.
 
-### `AccountUser` = `User` + `"emailVerified": boolean` + `"hasPassword": boolean` + `"twoFactorEnabled": boolean` (2FA TOTP ligado; §4.2.7)
+### `AccountUser` = `User` + `"affiliation": "institutional" | "external"` + `"emailVerified": boolean` + `"hasPassword": boolean` + `"twoFactorEnabled": boolean` (2FA TOTP ligado; §4.2.7)
 `hasPassword` = a conta tem senha (`false` em conta criada só pelo Google; o cliente usa para escolher a confirmação de `DELETE /me`: `password` ou `credential`). Devolvido **só para a própria pessoa** (`user` em `Session`, `GET /auth/me`). `false` = conta de senha que ainda não confirmou o e-mail (pode entrar, mas não cadastra item nem reivindica: `EMAIL_NOT_VERIFIED`). O `User` que aparece em reivindicações/devoluções não tem esse campo.
 
 ### `PublicUser`
 ```json
-{ "id": "user-lucas", "name": "Lucas Prado", "role": "student" }
+{ "id": "user-lucas", "name": "Lucas Prado", "role": "user" }
 ```
 
 ### `Session` (resposta de login, cadastro, Google e demo)
@@ -118,7 +118,7 @@ Itens sem equivalente: o catálogo (`DEMO_CATEGORIES`/`DEMO_LOCATIONS`) também 
   "token": "eyJhbGciOi...",
   "tokenType": "bearer",
   "expiresAt": "2026-10-22T23:00:00.000Z",
-  "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "student", "emailVerified": true, "hasPassword": true }
+  "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user", "affiliation": "institutional", "emailVerified": true, "hasPassword": true, "twoFactorEnabled": false }
 }
 ```
 Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `refresh` e `demo/login` **definem os cookies** `cl_access` e `cl_refresh` (§4.2.3). Quem usa só Bearer pode ignorá-los.
@@ -168,7 +168,7 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
 {
   "id": "claim-06", "itemId": "item-07", "claimantId": "user-marina",
   "proofDetails": "...", "lostWhereWhen": "...", "status": "pending", "createdAt": "2026-10-21T09:00:00.000Z",
-  "claimant": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "student" },
+  "claimant": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" },
   "item": { "id": "item-07", "title": "Calculadora científica", "...": "...", "storedAt": "Portaria", "photoUrl": "/uploads/seed/calculadora.svg", "status": "under_claim", "createdById": "user-lucas", "createdAt": "2026-10-19T13:00:00.000Z" }
 }
 ```
@@ -209,16 +209,16 @@ Item **devolvido**: visitante recebe **404 `NOT_FOUND`** "Item não encontrado."
 { "status": "signed_in", "token": "...", "tokenType": "bearer", "expiresAt": "...", "user": { "...": "User" } }
 ```
 ```json
-{ "status": "needs_role", "profile": { "email": "ana@undb.edu.br", "name": "Ana Souza" }, "profileToken": "eyJ..." }
+{ "status": "needs_terms", "profile": { "email": "ana@undb.edu.br", "name": "Ana Souza", "affiliation": "institutional" }, "ticket": "eyJ...", "profileToken": "eyJ..." }
 ```
 ```json
-{ "status": "needs_terms", "profile": { "email": "pessoa@gmail.com", "name": "Pessoa Google" }, "profileToken": "eyJ..." }
+{ "status": "needs_terms", "profile": { "email": "pessoa@gmail.com", "name": "Pessoa Google", "affiliation": "external" }, "ticket": "eyJ...", "profileToken": "eyJ..." }
 ```
-(`GoogleSignInResult` do contrato ganha `token`/`expiresAt` no ramo `signed_in`, `profileToken` no `needs_role` e o ramo novo `needs_terms`.)
+(`GoogleSignInResult` do contrato ganha `token`/`expiresAt` no ramo `signed_in`, o ramo `needs_terms` com `ticket` no lugar do antigo `needs_role`, que **não existe mais**.)
 
 ## 4. Endpoints
 
-Legenda de autenticação: **público** = sem token; **logado** = qualquer papel; **aluno/prof.** = `student` ou `teacher`; **admin** = `admin`.
+Legenda de autenticação: **público** = sem token; **logado** = qualquer papel; **usuário** = `user` (qualquer vínculo); **admin** = `admin`.
 
 ### 4.1 Infraestrutura
 
@@ -238,11 +238,11 @@ Serve fotos (`/uploads/<uuid>.jpg`) e ilustrações do seed (`/uploads/seed/<slu
 ### 4.2 Autenticação
 
 #### `POST /auth/signup` — público
-Corpo: `{ "name": "Joana Silva", "email": "joana@exemplo.com", "password": "senha-forte-1", "role": "student", "acceptTerms": true }`
-- `name` 2–80 (após trim); `email` válido, até 120, normalizado (trim + minúsculas); `password` pela **política de senha** (§4.2.6), sem trim; `role`: `student`, `teacher` ou `external` (administração só por script); `acceptTerms` deve ser `true` (o servidor grava `termsAcceptedAt` e `termsVersion` = `TERMS_VERSION`). Com Turnstile ligado, também `turnstileToken`.
+Corpo: `{ "name": "Joana Silva", "email": "joana@exemplo.com", "password": "senha-forte-1", "acceptTerms": true }`
+- `name` 2–80 (após trim); `email` válido, até 120, normalizado (trim + minúsculas); `password` pela **política de senha** (§4.2.6), sem trim; **não há campo `role`**: se vier `role` (ou qualquer campo extra) é **ignorado** e a conta nasce `role: user`; o `affiliation` (`institutional` se o domínio do e-mail for um de `GOOGLE_ALLOWED_DOMAINS` ou subdomínio, senão `external`) é derivado do e-mail e gravado na criação (é só o domínio do texto do e-mail: **não** comprova matrícula nem vínculo real). Administração só por `python -m app.create_admin`, convite de admin ou `PATCH /admin/users/{id}` de outro admin; `acceptTerms` deve ser `true` (o servidor grava `termsAcceptedAt` e `termsVersion` = `TERMS_VERSION`). Com Turnstile ligado, também `turnstileToken`.
 - A conta **nasce com e-mail não verificado** (também com e-mail institucional): um e-mail com link (24 h, uso único) é enviado em segundo plano (§4.2.2). A resposta traz sessão (`emailVerified: false`) e cookies.
 - **201** `Session`.
-- Erros: 422 `VALIDATION` ("Informe seu nome.", "Use pelo menos 2 caracteres.", "Use no máximo 80 caracteres.", "Informe seu e-mail.", "Esse e-mail não parece válido. Use o formato nome@exemplo.com.", mensagens de senha do §4.2.6, "Escolha se você é aluno, professor ou da comunidade externa.", `fieldErrors.acceptTerms` = "Aceite os termos de uso e a política de privacidade para continuar."); 409 `EMAIL_TAKEN` (`fieldErrors.email` = "Este e-mail já está cadastrado.", sem diferenciar maiúsculas; **revela que o e-mail existe** — escolha de UX herdada do mock); 400 `CAPTCHA_FAILED`.
+- Erros: 422 `VALIDATION` ("Informe seu nome.", "Use pelo menos 2 caracteres.", "Use no máximo 80 caracteres.", "Informe seu e-mail.", "Esse e-mail não parece válido. Use o formato nome@exemplo.com.", mensagens de senha do §4.2.6, `fieldErrors.acceptTerms` = "Aceite os termos de uso e a política de privacidade para continuar."); 409 `EMAIL_TAKEN` (`fieldErrors.email` = "Este e-mail já está cadastrado.", sem diferenciar maiúsculas; **revela que o e-mail existe** — escolha de UX herdada do mock); 400 `CAPTCHA_FAILED`.
 
 #### `POST /auth/login` — público
 Corpo: `{ "email": "marina@demo.test", "password": "demonstracao123" }` (+ `turnstileToken` se ligado). A senha de login só é limitada a 72 caracteres: contas antigas com senha curta continuam entrando.
@@ -264,18 +264,18 @@ Regra de senha reutilizável pela interface (medidor). Corpo: `{ "password": "..
 ##### `POST /auth/google` — público (P30)
 Corpo: `{ "credential": "<ID token do Google Identity Services>", "acceptTerms"?: true }`
 O servidor chama `https://oauth2.googleapis.com/tokeninfo` e confere `aud == GOOGLE_CLIENT_ID`, `iss`, `exp` futuro e `email_verified == true`.
-- **Domínio institucional** (exatamente um de `GOOGLE_ALLOWED_DOMAINS`, padrão `undb.edu.br`, ou **subdomínio**; `evilundb.edu.br` e `undb.edu.br.evil.com` **não** contam): conta existente ⇒ `signed_in`; inexistente ⇒ `needs_role` (nada criado; `profileToken` JWT de 10 min).
-- **Qualquer outro e-mail Google verificado** ⇒ conta `external`: existente ⇒ `signed_in`; inexistente ⇒ `needs_terms` (nada criado) **até** o cliente repetir a chamada com `acceptTerms: true`, quando a conta é criada e a resposta é `signed_in`. (Desvio deliberado do "cria direto": sem aceite dos termos não se cria conta — LGPD.)
+- **Domínio institucional** (exatamente um de `GOOGLE_ALLOWED_DOMAINS`, padrão `undb.edu.br`, ou **subdomínio**; `evilundb.edu.br` e `undb.edu.br.evil.com` **não** contam): ⇒ `affiliation: institutional` na conta nova.
+- **Qualquer e-mail Google verificado é aceito**; outro domínio ⇒ `affiliation: external`. Conta existente ⇒ `signed_in` (ou `needs_2fa`); inexistente ⇒ `needs_terms` com `profile` (`email`, `name`, `affiliation`) e `ticket` (JWT de 10 min; nada criado) **até** o cliente repetir a chamada com `acceptTerms: true`, quando a conta é criada e a resposta é `signed_in`. (Desvio deliberado do "cria direto": sem aceite dos termos não se cria conta — LGPD.)
 - Contas Google nascem com **e-mail verificado**.
 - **Anti pre-hijack**: se já existe conta de **senha não verificada** com esse e-mail (alguém cadastrou o e-mail alheio), ela é **descartada** — senha, sessões e tokens morrem — e a pessoa segue o fluxo normal de conta nova. Conta de senha **verificada** é mantida (e a pessoa entra). Escolha documentada: apagar é mais seguro do que "herdar" uma conta cuja senha outra pessoa conhece.
 - **200** `GoogleSignInResult` (+ cookies no `signed_in`).
 - 401 `UNAUTHENTICATED` "Não foi possível verificar sua conta Google. Tente novamente." (token recusado, `aud`/`iss`/`exp`/`email_verified` inválidos, e-mail malformado); 422 `VALIDATION` (`fieldErrors.credential`); 502 `UNEXPECTED` (Google inacessível); 503 `UNEXPECTED` "O login com Google não está configurado." (sem `GOOGLE_CLIENT_ID`).
 
-##### `POST /auth/google/complete` — público (exige `profileToken` válido)
-Corpo: `{ "profileToken": "eyJ...", "role": "teacher", "acceptTerms": true }`. `role` (`student`|`teacher`) só vale e é obrigatório quando o e-mail é institucional; para e-mail externo o papel é sempre `external` e `role` é ignorado. `acceptTerms` é obrigatório.
-Cria a conta **sem senha**, verificada, com e-mail/nome do token. Sem `profileToken` válido (ausente, adulterado, expirado ou token de sessão) não cria nada.
+##### `POST /auth/google/complete` — público (exige `ticket` válido)
+Corpo: `{ "ticket": "eyJ...", "acceptTerms": true }` (`profileToken` ainda é aceito como nome antigo do `ticket`). Não existe `role`: se vier, é ignorado; a conta nasce `role: user` com `affiliation` pelo domínio do e-mail. `acceptTerms` é obrigatório.
+Cria a conta **sem senha**, verificada, com e-mail/nome do token. Sem `ticket` válido (ausente, adulterado, expirado ou token de sessão) não cria nada.
 - **201** `Session`.
-- 401 `UNAUTHENTICATED` "Sua verificação do Google expirou. Entre com o Google novamente."; 409 `EMAIL_TAKEN`; 422 `VALIDATION` (`fieldErrors.role`, `fieldErrors.acceptTerms`).
+- 401 `UNAUTHENTICATED` "Sua verificação do Google expirou. Entre com o Google novamente."; 409 `EMAIL_TAKEN`; 422 `VALIDATION` (`fieldErrors.acceptTerms`).
 
 #### 4.2.2 Verificação de e-mail
 
@@ -361,7 +361,7 @@ Query (todos opcionais; valor vazio é ignorado): `category` (uma de `/catalog`)
 #### `GET /items/{id}` — público (P26)
 **200** `ItemDetail`. 404 `NOT_FOUND` (inexistente; ou devolvido para visitante).
 
-#### `POST /items` — aluno/prof./admin
+#### `POST /items` — qualquer logado (user/admin)
 `multipart/form-data` com os campos de texto abaixo e `photo` opcional (arquivo).
 
 | Campo | Regra |
@@ -395,7 +395,7 @@ Mesmos campos de `POST /items`, mais `removePhoto` (`true`/`1`/`on`). Foto: arqu
 
 ### 4.4 Reivindicações
 
-#### `POST /items/{id}/claims` — aluno/prof.
+#### `POST /items/{id}/claims` — `user`
 Corpo: `{ "proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWhen": "Biblioteca, ontem de manhã." }` — `proofDetails` 10–500, `lostWhereWhen` 5–300 (trim). Item `available` passa a `under_claim`.
 - **201** `Claim` (`status: "pending"`).
 - 422 `VALIDATION` (primeiro, antes da checagem de sessão); 401; 403 (admin: "Você não tem permissão para realizar esta ação."); 404 item; e as decisões de `viewer.claim`: 409 `ITEM_RETURNED` "Este item já foi devolvido."; 409 `DUPLICATE_CLAIM` ("Sua reivindicação foi aceita. Procure a administração para retirar o item." / "Você já tem uma reivindicação em andamento para este item."); 409 `CLAIM_BLOCKED` ("Sua reivindicação para este item foi recusada. Procure a administração." / "Este item já tem uma reivindicação aceita e aguarda a devolução." — P14).
@@ -403,7 +403,7 @@ Corpo: `{ "proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWh
 #### `GET /items/{id}/claims` — admin
 **200** `ClaimView[]`, mais antigas primeiro. 404 se o item não existir.
 
-#### `GET /claims/mine` — aluno/prof.
+#### `GET /claims/mine` — `user`
 **200** `ClaimView[]`, mais recentes primeiro (inclui reivindicações de itens depois devolvidos). Admin: 403.
 
 #### `GET /claims/pending` — admin
@@ -456,13 +456,13 @@ Exclui (**anonimiza**) a conta. Corpo de confirmação: conta com senha ⇒ `{ "
 
 #### `GET /demo/profiles` — público
 ```json
-[ { "role": "student", "label": "Entrar como aluno", "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "student" } },
-  { "role": "teacher", "label": "Entrar como professor", "user": { "id": "user-rafael", "...": "..." } },
-  { "role": "admin", "label": "Entrar como administração", "user": { "id": "user-admin", "...": "..." } } ]
+[ { "key": "institutional", "label": "Usuário (e-mail institucional)", "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" } },
+  { "key": "external", "label": "Usuário (externo)", "user": { "id": "user-externo", "name": "Visitante Externo", "email": "externo@demo.test", "role": "user" } },
+  { "key": "admin", "label": "Administração", "user": { "id": "user-admin", "...": "..." } } ]
 ```
 
-#### `POST /demo/login/{role}` — público
-`role`: `student`|`teacher`|`admin` (não há atalho para `external`; use `externo@demo.test`). **200** `Session` (+ cookies). 404 para outro valor.
+#### `POST /demo/login/{key}` — público
+`key`: `institutional` (Marina, `user` + `institutional`) | `external` (`externo@demo.test`, `user` + `external`) | `admin`. **200** `Session` (+ cookies). 404 para qualquer outra chave (inclusive `user`, `student`, `teacher`). As chaves são atalhos, não papéis. Rafael e os demais entram por `POST /auth/login`.
 
 #### `POST /demo/reset` — público
 Restaura o seed (datas relativas a hoje) e apaga as fotos enviadas. **204**. Tokens (e sessões) dos usuários do seed continuam válidos; os de usuários criados depois passam a dar 401.
@@ -480,7 +480,7 @@ Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`.
 | `login.failure` | Senha errada, conta desativada, código 2FA errado no login | user (se existir) | `method`, `reason`, `emailRef` |
 | `login.blocked` | Tentativa recusada por 429 | — | `emailRef` |
 | `logout` | Sessão revogada por `POST /auth/logout` | session | — |
-| `signup` | Cadastro (senha ou Google) | user | `role`, `provider` |
+| `signup` | Cadastro (senha ou Google) | user | `role`, `affiliation`, `provider` |
 | `email.verify` | Confirmação de e-mail | user | — |
 | `password.reset` | Senha redefinida por link | user | — |
 | `user.role_change` | `PATCH /admin/users/{id}` mudou o papel | user | `from`, `to` |
@@ -495,10 +495,10 @@ Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`.
 O registro não tem chave estrangeira (sobrevive a contas removidas). A limpeza não apaga auditoria por padrão (`python -m app.maintenance --audit-days N` apaga a mais antiga que N dias). Não cobre: edição de item (`PUT /items/{id}`), criação de item/reivindicação, e leituras.
 
 #### `GET /admin/users` — usuários
-Filtros: `?q=` (trecho do nome ou e-mail, sem distinguir maiúsculas; `%` e `_` são literais), `?role=student|teacher|external|admin`, `?status=active|disabled`. Contas excluídas (LGPD) não aparecem. Item: `{ id, name, email, role, provider, active, disabledAt|null, emailVerified, twoFactorEnabled, createdAt }` (nunca hash nem segredo).
+Filtros: `?q=` (trecho do nome ou e-mail, sem distinguir maiúsculas; `%` e `_` são literais), `?role=user|admin`, `?affiliation=institutional|external`, `?status=active|disabled`. Contas excluídas (LGPD) não aparecem. Item: `{ id, name, email, role, affiliation, provider, active, disabledAt|null, emailVerified, twoFactorEnabled, createdAt }` (nunca hash nem segredo).
 
 #### `PATCH /admin/users/{id}`
-Corpo: `{ "role": "teacher" }` e/ou `{ "active": false }`. **200** o usuário atualizado. Desativar (`active:false`): `disabledAt` é gravado, **todas as sessões são revogadas e os tokens de acesso emitidos caem** (próxima chamada ⇒ 401), e o login passa a responder 403 `ACCOUNT_DISABLED`; `active:true` reativa (a pessoa precisa entrar de novo). Erros: 422 (`role` fora da lista, `active` não booleano, corpo vazio), 404, **409 `CONFLICT`** ao mexer na própria conta ou ao rebaixar/desativar o último admin ativo. Registra `user.role_change` / `user.disable` / `user.enable`.
+Corpo: `{ "role": "admin" }` (`user` | `admin`) e/ou `{ "active": false }`. **200** o usuário atualizado. Desativar (`active:false`): `disabledAt` é gravado, **todas as sessões são revogadas e os tokens de acesso emitidos caem** (próxima chamada ⇒ 401), e o login passa a responder 403 `ACCOUNT_DISABLED`; `active:true` reativa (a pessoa precisa entrar de novo). Erros: 422 (`role` fora da lista, `active` não booleano, corpo vazio), 404, **409 `CONFLICT`** ao mexer na própria conta ou ao rebaixar/desativar o último admin ativo. Registra `user.role_change` / `user.disable` / `user.enable`.
 
 #### Convites de administração
 - `POST /admin/invites` `{ "email": "nova@undb.edu.br" }` → **201** `{ id, email, status:"pending", createdAt, expiresAt, invitedById }`. Gera token aleatório (256 bits), guarda só o hash, vale **48 h**, uso único, e envia o link `APP_BASE_URL/aceitar-convite?token=...` pelo mailer em segundo plano (com `MAIL_BACKEND=console` o link aparece no log). **O token nunca é devolvido pela API.** Um novo convite para o mesmo e-mail revoga o anterior. 409 `EMAIL_TAKEN` se já existe conta com o e-mail.
@@ -508,16 +508,16 @@ Corpo: `{ "role": "teacher" }` e/ou `{ "active": false }`. **200** o usuário at
 
 ## 5. Dados de demonstração (seed)
 
-Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (aluno, `user-marina`), `rafael@` (professor, `user-rafael`), `admin@` (administração, `user-admin`), `lucas@`, `beatriz@` (alunos de apoio), `externo@` (comunidade externa, `user-externo`). Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<slug>.svg`.
+Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (`user-marina`), `rafael@` (`user-rafael`), `lucas@`, `beatriz@` — todas `role: user`, `affiliation: institutional` (gravado explicitamente, apesar do domínio `@demo.test`); `externo@` (`user-externo`): `user` + `external`; `admin@` (`user-admin`): `admin` + `institutional`. Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<slug>.svg`.
 
 ## 6. Diferenças em relação ao mock (para o cliente tratar)
 
 1. **Sessão**: o mock guarda `userId` em `sessionStorage`. O cliente REST do frontend **não guarda token**: usa os cookies HttpOnly (§4.2.3) por meio do proxy same-origin `/backend`; o `token` do corpo da resposta é ignorado. Num 401 `UNAUTHENTICATED` o cliente tenta uma vez `POST /auth/refresh` e repete a chamada; se falhar, encerra a sessão local. O logout chama `POST /auth/logout`.
 2. **`getCurrentUser`**: a API responde 401 sem sessão; o cliente converte em `null`.
-3. **Google**: `signInWithGoogle` recebe `credential` (não o perfil) e `completeGoogleSignUp` recebe `profileToken` + `role`. A rota `/api/auth/google` do Next deixa de ser necessária.
+3. **Google**: `signInWithGoogle` recebe `credential` (não o perfil) e `completeGoogleSignUp` recebe `ticket` + `acceptTerms` (sem `role`). A rota `/api/auth/google` do Next deixa de ser necessária.
 4. **`subscribe`**: não existe push. Releitura manual/periódica.
 5. **Foto**: `photoUrl` (caminho relativo à API) no lugar de `photoDataUrl`; upload em `multipart`; sem redimensionamento no servidor.
-6. **Códigos novos** que o tipo `ServiceErrorCode` do frontend ainda não tem: `RATE_LIMITED`, `EMAIL_NOT_VERIFIED`, `CSRF_FAILED`, `INVALID_TOKEN`, `CAPTCHA_FAILED`, `ACCOUNT_DISABLED`, `TWO_FACTOR_REQUIRED`. Também novos: papel `external`, `emailVerified` no usuário da sessão, `acceptTerms` no cadastro e o ramo `needs_terms` do Google.
+6. **Códigos novos** que o tipo `ServiceErrorCode` do frontend ainda não tem: `RATE_LIMITED`, `EMAIL_NOT_VERIFIED`, `CSRF_FAILED`, `INVALID_TOKEN`, `CAPTCHA_FAILED`, `ACCOUNT_DISABLED`, `TWO_FACTOR_REQUIRED`. Também novos: `role` reduzido a `user|admin` e `affiliation` (`institutional|external`) em `AccountUser`, `emailVerified` no usuário da sessão, `acceptTerms` no cadastro e o ramo `needs_terms` do Google.
 7. **Latência/falha simulada** do mock não existem; erros de rede são `NETWORK` no cliente.
 8. **Concorrência**: o servidor serializa as escritas (um processo); duas reivindicações simultâneas do mesmo usuário no mesmo item resultam em uma 201 e uma 409 `DUPLICATE_CLAIM`.
 9. **`createdBy`** continua no `ItemDetail` do visitante como `null` (contrato), sem nenhum dado do autor.

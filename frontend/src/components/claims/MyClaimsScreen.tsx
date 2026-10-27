@@ -25,7 +25,7 @@ export function MyClaimsScreen() {
           title="A administração não tem reivindicações"
           action={<LinkButton href="/admin">Ir para o painel</LinkButton>}
         >
-          Esta página é para quem reivindica itens (alunos, professores e comunidade externa). Para analisar as reivindicações, use o painel.
+          Esta página é para quem reivindica itens (contas de usuário). Para analisar as reivindicações, use o painel.
         </EmptyState>
       ) : (
         <MyClaimsList userId={user?.id ?? null} />

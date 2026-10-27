@@ -169,7 +169,7 @@ def test_turnstile_fails_closed_when_cloudflare_is_unreachable(tmp_path, monkeyp
 
 def test_turnstile_does_not_apply_to_other_routes(captcha_client):
     assert captcha_client.get("/items").status_code == 200
-    assert captcha_client.post("/demo/login/student").status_code == 200
+    assert captcha_client.post("/demo/login/institutional").status_code == 200
 
 
 def test_turnstile_secret_comes_from_env_and_is_not_in_repr():

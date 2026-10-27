@@ -8,23 +8,24 @@ import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { services } from "@/services";
-import { ROLE_LABEL, isServiceError, type UserRole } from "@/types/domain";
+import type { DemoProfileKey } from "@/services";
+import { isServiceError } from "@/types/domain";
 
 /** Entrada com um toque pelos três perfis de demonstração (AC01.3). */
 export function DemoProfiles() {
   const { signInAsDemo } = useSession();
   const toast = useToast();
   const profiles = useServiceQuery(() => services.auth.listDemoProfiles(), []);
-  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
+  const [pendingKey, setPendingKey] = useState<DemoProfileKey | null>(null);
 
-  async function enter(role: UserRole) {
-    setPendingRole(role);
+  async function enter(key: DemoProfileKey) {
+    setPendingKey(key);
     try {
-      await signInAsDemo(role);
+      await signInAsDemo(key);
     } catch (error) {
       toast.error(isServiceError(error) ? error.message : "Não foi possível entrar. Tente de novo em instantes.");
     } finally {
-      setPendingRole(null);
+      setPendingKey(null);
     }
   }
 
@@ -66,19 +67,19 @@ export function DemoProfiles() {
 
       {profiles.status === "success" ? (
         <ul className="mt-3 flex flex-col gap-3">
-          {profiles.data?.map(({ role, user }) => (
-            <li key={role}>
+          {profiles.data?.map(({ key, label, user }) => (
+            <li key={key}>
               <Button
                 variant="secondary"
                 size="lg"
                 width="full"
-                loading={pendingRole === role}
+                loading={pendingKey === key}
                 loadingText="Entrando…"
-                disabled={pendingRole !== null && pendingRole !== role}
-                onClick={() => void enter(role)}
+                disabled={pendingKey !== null && pendingKey !== key}
+                onClick={() => void enter(key)}
               >
                 <span className="flex flex-col py-1 leading-tight">
-                  <span>{ROLE_LABEL[role]} demo</span>
+                  <span>{label}</span>
                   <span className="text-meta font-normal text-ink-muted">
                     {user.name} · {user.email}
                   </span>

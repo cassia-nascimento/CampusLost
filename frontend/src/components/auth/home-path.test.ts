@@ -6,8 +6,7 @@ describe("homePathFor", () => {
     expect(homePathFor("admin")).toBe("/admin");
   });
 
-  it("aluno e professor vão à busca de itens", () => {
-    expect(homePathFor("student")).toBe("/itens");
-    expect(homePathFor("teacher")).toBe("/itens");
+  it("usuário vai à busca de itens", () => {
+    expect(homePathFor("user")).toBe("/itens");
   });
 });

@@ -28,22 +28,24 @@ log = logging.getLogger("campuslost.seed")
 DEMO_PASSWORD = "demonstracao123"  # NÃO é segredo: senha pública das contas @demo.test
 DEMO_DATA_NOTICE = "Dados fictícios de demonstração (pessoas, itens e locais); não representam o campus real."
 
-DEMO_PROFILE_IDS = {"student": "user-marina", "teacher": "user-rafael", "admin": "user-admin"}
+# Atalhos de demonstração (chave -> usuário do seed). As chaves NÃO são papéis: `institutional` e `external` são
+# usuários `user` com vínculos diferentes; `admin` é a administração.
+DEMO_PROFILE_IDS = {"institutional": "user-marina", "external": "user-externo", "admin": "user-admin"}
 DEMO_PROFILE_LABELS = {
-    "student": "Entrar como aluno",
-    "teacher": "Entrar como professor",
-    "admin": "Entrar como administração",
+    "institutional": "Usuário (e-mail institucional)",
+    "external": "Usuário (externo)",
+    "admin": "Administração",
 }
 
 USERS = [
-    ("user-marina", "Marina Alves", "marina@demo.test", "student"),
-    ("user-rafael", "Rafael Lima", "rafael@demo.test", "teacher"),
-    ("user-admin", "Administração Demo", "admin@demo.test", "admin"),
+    ("user-marina", "Marina Alves", "marina@demo.test", "user", "institutional"),
+    ("user-rafael", "Rafael Lima", "rafael@demo.test", "user", "institutional"),
+    ("user-admin", "Administração Demo", "admin@demo.test", "admin", "institutional"),
     # Usuários de apoio (autores de reivindicações); não são atalhos de demonstração.
-    ("user-lucas", "Lucas Prado", "lucas@demo.test", "student"),
-    ("user-beatriz", "Beatriz Nunes", "beatriz@demo.test", "student"),
-    # Comunidade externa (sem vínculo institucional); não é atalho de demonstração.
-    ("user-externo", "Visitante Externo", "externo@demo.test", "external"),
+    ("user-lucas", "Lucas Prado", "lucas@demo.test", "user", "institutional"),
+    ("user-beatriz", "Beatriz Nunes", "beatriz@demo.test", "user", "institutional"),
+    # Vínculo externo (e-mail fora do domínio institucional); não é atalho de demonstração.
+    ("user-externo", "Visitante Externo", "externo@demo.test", "user", "external"),
 ]
 
 # (n, createdHoursAgo, foundDaysAgo, title, photo, description, category, foundLocation, storedAt, status, createdById)
@@ -104,9 +106,9 @@ def seed_database(session: Session, settings: Settings, now=None) -> None:
         session.execute(delete(model))
 
     created = at(24 * 30)
-    for uid, name, email, role in USERS:
+    for uid, name, email, role, affiliation in USERS:
         session.add(
-            UserRow(id=uid, name=name, email=email, role=role, provider="password", password_hash=pw_hash, created_at=created,
+            UserRow(id=uid, name=name, email=email, role=role, affiliation=affiliation, provider="password", password_hash=pw_hash, created_at=created,
                 email_verified_at=created, terms_accepted_at=created, terms_version=settings.terms_version,
             )
         )
@@ -174,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         seed_database(session, settings)
     print(f"Seed aplicado em {settings.database_url}. {DEMO_DATA_NOTICE}")
-    print("Contas: marina@demo.test (aluno), rafael@demo.test (professor), externo@demo.test (externo), admin@demo.test (administração); senha demonstracao123.")
+    print("Contas: marina@, rafael@, lucas@, beatriz@ demo.test (usuário, vínculo institutional), externo@demo.test (usuário, vínculo external), admin@demo.test (administração); senha demonstracao123.")
     return 0
 
 

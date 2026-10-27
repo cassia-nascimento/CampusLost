@@ -14,8 +14,8 @@ O projeto **não define identidade visual** (nem o PDF do professor, nem o docum
 
 | Persona | Situação real | Consequência de design |
 |---|---|---|
-| Aluno/professor que **achou** um objeto | De pé, no corredor, com o objeto numa mão e o celular na outra, com pressa | Registro em poucos toques: foto primeiro, campos curtos, ação principal ao alcance do polegar, data já preenchida com hoje |
-| Aluno/professor que **perdeu** algo | Caminhando, olhando rápido a lista, às vezes sob sol forte | Reconhecer pela foto, contraste alto, status legível de relance, rolagem vertical simples |
+| Usuário que **achou** um objeto | De pé, no corredor, com o objeto numa mão e o celular na outra, com pressa | Registro em poucos toques: foto primeiro, campos curtos, ação principal ao alcance do polegar, data já preenchida com hoje |
+| Usuário que **perdeu** algo | Caminhando, olhando rápido a lista, às vezes sob sol forte | Reconhecer pela foto, contraste alto, status legível de relance, rolagem vertical simples |
 | **Administração** | Sentada, desktop/tablet, comparando duas versões de uma história | Análise com duas colunas lado a lado, decisão sempre visível, confirmações que explicam o efeito |
 
 **Princípios (cada decisão abaixo cita o que a justifica)**
@@ -331,7 +331,7 @@ Estrutura vertical: **rótulo** (`text-meta` 600 `ink`, sempre visível, acima d
 
 - **Obrigatório vs. opcional:** formulários dizem logo abaixo do título "Todos os campos são obrigatórios, exceto os marcados como (opcional)"; campos opcionais levam "(opcional)" em `ink-subtle` junto ao rótulo; **sem asterisco** (leitor de tela e pt-BR lidam melhor com "(opcional)").
 - **Quando mostrar erro:** ao sair do campo (`onTouched`) e no envio; ao corrigir, o erro some imediatamente. No envio com erros: foco vai ao **primeiro campo inválido** e uma região `aria-live` anuncia "Corrija 2 campos para continuar". Sem erro "genérico" que não aponte o campo.
-- **Grupo de rádio (papel no cadastro):** `<fieldset>` + `<legend>`; cada opção é um cartão de 48 px com rádio nativo estilizado (borda `line-strong`, selecionado = borda 2 px `primary` + fundo `primary-soft` + `Check` — **não só cor**).
+- **Grupo de rádio:** usado onde houver escolha única (o cadastro **não** tem mais escolha de papel, 27/10/2026); `<fieldset>` + `<legend>`; cada opção é um cartão de 48 px com rádio nativo estilizado (borda `line-strong`, selecionado = borda 2 px `primary` + fundo `primary-soft` + `Check` — **não só cor**).
 
 ### 6.4 Badge de status (`ItemStatusBadge`, `ClaimStatusBadge`)
 
@@ -399,7 +399,7 @@ Em `/admin/devolucoes` só há o período (De/Até), sempre em linha (duas colun
 
 **Header** (`z-30`, altura 56 px, fundo `surface`, borda inferior `line`):
 
-- **Páginas de topo:** marca 28 px + wordmark à esquerda; à direita, botão de usuário (círculo 44 px com inicial do nome, `aria-label="Menu da conta"`) que abre menu: nome e papel (ex.: "Aluno"), "Reiniciar demonstração", "Sair".
+- **Páginas de topo:** marca 28 px + wordmark à esquerda; à direita, botão de usuário (círculo 44 px com inicial do nome, `aria-label="Menu da conta"`) que abre menu: nome e papel de acesso ("Usuário" ou "Administração"), "Reiniciar demonstração", "Sair".
 - **Páginas de detalhe/formulário (drill-down):** botão voltar `ChevronLeft` 44 px à esquerda + título da página (`text-lead` 600, truncado) em lugar do wordmark.
 - **≥ 768 px:** navegação em texto no header (Itens · Minhas reivindicações para usuário; Painel · Itens · Devoluções para administração) com `aria-current="page"` e indicador inferior de 3 px `primary`; botão `primary` md "Registrar item" à direita antes do menu da conta.
 
@@ -418,7 +418,7 @@ Por que só "Entrar" a 360 px: a área útil é 328 px; marca (141) + "Entrar" (
 
 | Perfil | Itens (ícone · rótulo) |
 |---|---|
-| Aluno/Professor (3) | `Search` Itens · `Plus` Registrar · `ListChecks` Reivindicações (`aria-label` completo "Minhas reivindicações") |
+| Usuário (3) | `Search` Itens · `Plus` Registrar · `ListChecks` Reivindicações (`aria-label` completo "Minhas reivindicações") |
 | Administração (4) | `LayoutDashboard` Painel · `Search` Itens · `Plus` Registrar · `PackageCheck` Devoluções |
 
 "Registrar" é o item central e tem ênfase: o ícone fica num círculo `primary` de 48 px com `on-primary` (é a ação mais frequente de quem achou algo). Em páginas de formulário/detalhe o BottomNav **não aparece**: dá lugar à barra de ação fixa (evita duas barras empilhadas). Conteúdo ganha `pb-bottomnav`.
@@ -502,8 +502,8 @@ Legenda: `[ Botão ]` botão · `( campo )` campo · `{ Badge }` status (ícone 
 |  [          Entrar                   ] |   <- primary lg
 |                                        |
 |  ── Ou entre com um perfil de demo ──  |
-|  [ Aluno demo                  ->  ]   |   <- secondary, 1 toque
-|  [ Professor demo              ->  ]   |
+|  [ Usuário (e-mail institucional) ->]  |   <- secondary, 1 toque
+|  [ Usuário (externo)           ->  ]   |
 |  [ Administração demo          ->  ]   |
 |                                        |
 |  Não tem conta? Criar conta            |
@@ -527,17 +527,18 @@ Desktop (≥ 1024): duas colunas 50/50. Esquerda: painel `primary` com `logo-mar
 |  (!) Esse e-mail já tem cadastro.      |   <- erro AC01.1
 |      Entre com ele.                    |
 |                                        |
-|  Você é                                |
-|  ( ) Aluno       (•) Professor         |   <- cartões 48 px
+|  Senha                                 |
+|  ( ••••••••••                        ) |   <- mín. 10 caracteres (AC01.9)
+|  [x] Li e aceito os termos e a         |
+|      política de privacidade           |   <- AC01.8
 |                                        |
-|  Não pedimos senha nesta demonstração. |
 |                                        |
 +----------------------------------------+
 | [        Criar conta                 ] |   <- ActionBar fixa
 +----------------------------------------+
 ```
 
-Desktop: card `max-w-form` centralizado sobre `paper`, ActionBar vira linha no fim do card. Papel "Administração" **não** aparece (só por seed).
+Desktop: card `max-w-form` centralizado sobre `paper`, ActionBar vira linha no fim do card. **Não há campo de papel nem de vínculo** (27/10/2026): o vínculo institucional/externo é derivado do domínio do e-mail e não é perguntado. Administração **não** é criável por esta tela.
 
 ### 9.3 `/itens` — Busca e listagem (logado; variante visitante em §9.14)
 
@@ -751,7 +752,7 @@ Mobile (360)                              Desktop (≥ 768): duas colunas
 | <-  Analisar reivindicação     |        | <-  Analisar reivindicação                                  |
 +--------------------------------+        +------------------------------+------------------------------+
 | {Clock Pendente}               |        | O QUE FOI PUBLICADO          | O QUE A PESSOA RESPONDEU     |
-| Maria Exemplo* (Aluno)         |        | ▒▒▒▒▒▒▒▒▒▒                   | Maria Exemplo* (Aluno)       |
+| Maria Exemplo*                 |        | ▒▒▒▒▒▒▒▒▒▒                   | Maria Exemplo*               |
 | Enviada em 18/10/2026          |        | Fone de ouvido preto*        | maria@exemplo.com*           |
 |                                |        | {Em reivindicação}           | {Clock Pendente}             |
 | O QUE FOI PUBLICADO            |        | Categoria · Local · Data     |                              |
@@ -828,7 +829,7 @@ Filtro por período usa a data da devolução (premissa de design: aqui o "perí
 
 ### 9.12 Telas de apoio (sem rota própria na SPEC)
 
-- **Acesso negado** (`/admin/**` para aluno/professor, AC01.5): EmptyState `restricted`, ícone `ShieldAlert`, "Acesso restrito" / "Esta área é só para a administração. Você entrou como Aluno." [Voltar para os itens]. Visitante vai a `/entrar` (sem tela de erro).
+- **Acesso negado** (`/admin/**` para usuário comum, AC01.5): EmptyState `restricted`, ícone `ShieldAlert`, "Acesso restrito" / "Esta área é só para a administração. Você entrou como Usuário." [Voltar para os itens]. Visitante vai a `/entrar` (sem tela de erro).
 - **Item não encontrado:** EmptyState `restricted`, ícone `FileText`, "Item não encontrado" / "Ele pode ter sido excluído." [Ver itens].
 - **Diálogo "Reiniciar demonstração":** confirm — ver §10.
 
@@ -1027,7 +1028,7 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Aviso de armazenamento (só se indisponível) | Seus dados desta demonstração não serão guardados neste navegador e serão perdidos ao recarregar. |
 | Nav usuário | Itens · Registrar · Reivindicações (`aria-label` "Minhas reivindicações") |
 | Nav admin | Painel · Itens · Registrar · Devoluções |
-| Menu da conta | {Nome} · {Papel} · Reiniciar demonstração · Sair |
+| Menu da conta | {Nome} · {Usuário|Administração} · Reiniciar demonstração · Sair |
 | Reiniciar (diálogo) | **Reiniciar a demonstração?** Todos os dados voltam ao estado inicial e você sairá da conta. [Reiniciar] [Cancelar] · toast: Demonstração reiniciada. |
 | Carregando | Carregando itens… · Entrando… · Salvando… · Enviando… · Registrando… |
 
@@ -1065,14 +1066,14 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 | Título `/entrar` | Achou ou perdeu algo no campus? |
 | Apoio | Entre para ver e registrar itens. |
 | Campo | E-mail · placeholder nome@exemplo.com |
-| Botões | Entrar · Criar conta · Aluno demo · Professor demo · Administração demo |
+| Botões | Entrar · Criar conta · Usuário (e-mail institucional) · Usuário (externo) · Administração |
 | Atalho (rótulo do bloco) | Ou entre com um perfil de demonstração |
 | E-mail vazio / inválido | Informe seu e-mail. / Esse e-mail não parece válido. Use o formato nome@exemplo.com. |
 | E-mail não cadastrado (AC01.2) | Não encontramos esse e-mail. Confira a digitação ou crie uma conta. |
 | E-mail já usado (AC01.1) | Esse e-mail já tem cadastro. Entre com ele. |
-| Nome vazio / papel não escolhido | Informe seu nome. / Escolha como você se identifica. |
-| Legenda do papel | Você é · opções: Aluno · Professor |
-| Aviso senha | Não pedimos senha nesta demonstração. |
+| Nome vazio | Informe seu nome. |
+| Termos não aceitos (AC01.8) | Aceite os termos e a política de privacidade para criar a conta. |
+| Vínculo (somente exibição, quando mostrado) | Vínculo pelo e-mail: institucional · externo. Não verificado. |
 
 **Itens e busca**
 
@@ -1146,7 +1147,7 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 | Devolução (diálogo) | **Registrar a devolução?** Item: {título}. Entregue a: {nome}. Esta ação não pode ser desfeita. [Registrar devolução] |
 | Toasts | Reivindicação aceita. · Reivindicação recusada. · Devolução registrada. O item saiu da busca. |
 | Devoluções | Devoluções · Devolvido de · até · Limpar período · Entregue a · Registrada por · Nenhuma devolução registrada ainda · Nenhuma devolução nesse período |
-| Acesso negado | **Acesso restrito** — Esta área é só para a administração. Você entrou como {papel}. [Voltar para os itens] |
+| Acesso negado | **Acesso restrito** — Esta área é só para a administração. Você entrou como {Usuário|Administração}. [Voltar para os itens] |
 
 **Erro genérico de ação:** "Não foi possível {verbo no infinitivo}. Tente de novo em instantes. Suas respostas foram mantidas." (ex.: "Não foi possível enviar a reivindicação. …").
 
@@ -1182,7 +1183,7 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 | R6 | Item **Devolvido** some da busca, mas continua acessível por link e em "Minhas reivindicações". | Usuário pode cair numa página sem ação e sem explicação. | Estado `neutral` read-only com a data da devolução (§9.4) e badge "Devolvido" nos cards de reivindicação. |
 | R7 | ~~Banner permanente de demonstração~~ | Removido em 20/10/2026 por decisão da usuária. | Sem banner nem rodapé de demonstração. |
 | R8 | Reivindicação aceita não informa **como retirar** (SPEC tem `storedAt`, mas não o exibe explicitamente no fluxo do usuário). | Usuário aceito não sabe o que fazer a seguir. | Mostrar "Guardado em: {local}" no card de "Minhas reivindicações" e no detalhe quando Aceita. |
-| R9 | Papel aluno/professor é autodeclarado (limitação já registrada) e o admin vê o papel na análise. | Informação pode induzir confiança indevida. | Exibir o papel como "informado no cadastro" em texto pequeno na análise (§9.9 mostra "(Aluno)"; **prefixo "informado:"** recomendado em implementação). |
+| R9 | O vínculo institucional/externo vem só do domínio do e-mail e não é verificado (P40); se a administração o vir na análise, pode confiar demais. | Informação pode induzir confiança indevida. | Se exibido, rotular como "Vínculo pelo e-mail (não verificado)" em texto pequeno; nunca como "aluno" ou "professor". |
 | R10 | Sheet de filtros sem contagem ao vivo exigiria cálculo duplicado de resultados. | Complexidade sem ganho. | Botão "Aplicar" simples; contagem só depois de aplicar. |
 
 ## 13. Notas de implementação para outros donos
@@ -1216,4 +1217,4 @@ Registro do que mudou na implementação em relação ao desenho original; vale 
 - **Voltar no celular (§6.12):** de `/itens/[id]` e `/itens/novo` volta à última busca; de itens abertos a partir de Minhas reivindicações, Devoluções, Painel ou análise, volta à tela de origem (parâmetro `?de=` validado por lista de permissão).
 - **Após registrar a devolução (§9.9):** o app abre `/admin/devolucoes` (premissa P25), não o painel, para mostrar a devolução recém-registrada.
 - **Admin no celular (§9.8):** os títulos dos cartões das abas são `h2` abaixo de `md` (`h3` na grade desktop).
-- **Mensagens de erro de formulário (§10):** e-mail, foto e data seguem esta seção; título, descrição, local e papel do cadastro ainda usam o texto do domínio (diferenças pequenas, listadas em PROGRESSO).
+- **Mensagens de erro de formulário (§10):** e-mail, foto e data seguem esta seção; título, descrição e local do cadastro ainda usam o texto do domínio (diferenças pequenas, listadas em PROGRESSO).

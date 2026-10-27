@@ -18,6 +18,7 @@ from .config import load_settings, random_id
 from .db import make_engine, make_session_factory
 from .errors import ServiceError
 from .models import Base, UserRow
+from .rules.google import affiliation_for_email
 from .rules.validation import normalize_email, validate_signup
 from .security import hash_password
 
@@ -29,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Senha (10 a 72 bytes): ")
     try:
-        data = validate_signup({"name": args.name, "email": args.email, "password": password, "role": "student", "acceptTerms": True})
+        data = validate_signup({"name": args.name, "email": args.email, "password": password, "acceptTerms": True})
     except ServiceError as exc:
         print("Dados inválidos:", exc.field_errors, file=sys.stderr)
         return 2
@@ -44,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         s.add(
             UserRow(
-                id=random_id("user"), name=data["name"], email=email, role="admin", provider="password",
+                id=random_id("user"), name=data["name"], email=email, role="admin", affiliation=affiliation_for_email(email, settings.google_allowed_domains), provider="password",
                 password_hash=hash_password(data["password"], settings.bcrypt_rounds), created_at=utc_now(), email_verified_at=utc_now(),
                 terms_accepted_at=utc_now(), terms_version=settings.terms_version,
             )

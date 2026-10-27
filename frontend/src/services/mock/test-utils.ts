@@ -54,9 +54,14 @@ export function userOf(result: SignInResult | GoogleSignInResult): User {
   return result.user;
 }
 
+/** Entra como Rafael Lima (usuário institucional de apoio do seed) pela senha de demonstração. */
+export async function signInAsRafael(services: Services): Promise<User> {
+  return userOf(await services.auth.signIn({ email: "rafael@demo.test", password: "demonstracao123" }));
+}
+
 /** "ID token" falso aceito pelo verificador do harness. */
 export const googleCredential = (profile: GoogleProfile): string => JSON.stringify(profile);
-/** Ticket de `needs_role` para um perfil (equivale a obter `needs_role` e guardar o ticket). */
+/** Ticket de `needs_terms` para um perfil (equivale a obter `needs_terms` e guardar o ticket). */
 export const googleTicket = (profile: GoogleProfile): string => encodeGoogleTicket(profile);
 
 /** Afirma que a promessa rejeita com `ServiceError` do código dado. */

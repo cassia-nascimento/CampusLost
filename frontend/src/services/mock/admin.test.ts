@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { totpCode } from "@/lib/rules";
 import { DEMO_PASSWORD } from "./seed";
-import { createHarness, expectCode, googleCredential, userOf, validItem, type Harness } from "./test-utils";
+import { createHarness, expectCode, googleCredential, signInAsRafael, userOf, validItem, type Harness } from "./test-utils";
 
 const PW = "senha-segura-1";
 const ADMIN_PW = "outra-senha-longa-9";
@@ -31,7 +31,7 @@ async function enable2fa(h: Harness) {
 describe("2FA: configurar, ligar e desligar", () => {
   it("setup devolve segredo base32 e URI otpauth; nada muda até enable", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const setup = await h.services.auth.setupTwoFactor();
     expect(setup.secret).toMatch(/^[A-Z2-7]{32}$/);
     expect(setup.otpauthUri).toBe(
@@ -45,7 +45,7 @@ describe("2FA: configurar, ligar e desligar", () => {
 
   it("enable: código errado é VALIDATION em fieldErrors.code; certo devolve 8 códigos de recuperação", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     await expectCode(h.services.auth.enableTwoFactor("123456"), "CONFLICT"); // sem setup
     const { secret } = await h.services.auth.setupTwoFactor();
     const wrong = await expectCode(h.services.auth.enableTwoFactor("000000"), "VALIDATION");
@@ -195,7 +195,7 @@ describe("login com 2FA", () => {
 
   it("signInAsDemo não passa pelo 2FA (atalho só do protótipo)", async () => {
     const { h } = await accountWith2fa();
-    expect((await h.services.auth.signInAsDemo("student")).id).toBe("user-marina");
+    expect((await h.services.auth.signInAsDemo("institutional")).id).toBe("user-marina");
   });
 });
 
@@ -215,7 +215,7 @@ describe("contas desativadas", () => {
 
   it("desativar derruba a sessão que a pessoa já tinha (próxima chamada = sem sessão)", async () => {
     const h = createHarness();
-    const marina = await h.services.auth.signInAsDemo("student"); // aba da Marina
+    const marina = await h.services.auth.signInAsDemo("institutional"); // aba da Marina
     const adminTab = createHarness({ storage: h.storage });
     await adminTab.services.auth.signInAsDemo("admin");
     await adminTab.services.admin.updateUser(marina.id, { active: false });
@@ -245,7 +245,7 @@ describe("administração de usuários", () => {
   it("só administração (FORBIDDEN) e logada (UNAUTHENTICATED)", async () => {
     const h = createHarness();
     await expectCode(h.services.admin.listUsers(), "UNAUTHENTICATED");
-    await h.services.auth.signInAsDemo("teacher");
+    await signInAsRafael(h.services);
     await expectCode(h.services.admin.listUsers(), "FORBIDDEN");
     await expectCode(h.services.admin.updateUser("user-marina", { role: "admin" }), "FORBIDDEN");
     await expectCode(h.services.admin.createInvite("x@demo.test"), "FORBIDDEN");
@@ -263,13 +263,18 @@ describe("administração de usuários", () => {
       expect.arrayContaining(["user-marina", "user-rafael", "user-admin", "user-externo", "user-lucas", "user-beatriz", "user-tiago"]),
     );
     expect(Object.keys(all.items[0]).sort()).toEqual(
-      ["active", "createdAt", "disabledAt", "email", "emailVerified", "id", "name", "provider", "role", "twoFactorEnabled"].sort(),
+      ["active", "affiliation", "createdAt", "disabledAt", "email", "emailVerified", "id", "name", "provider", "role", "twoFactorEnabled"].sort(),
     );
     const createdAts = all.items.map((u) => u.createdAt);
     expect([...createdAts].sort().reverse()).toEqual(createdAts);
     expect((await h.services.admin.listUsers({ q: "MARINA" })).items.map((u) => u.id)).toEqual(["user-marina"]);
     expect((await h.services.admin.listUsers({ q: "demo.test" })).total).toBe(7);
     expect((await h.services.admin.listUsers({ role: "admin" })).items.map((u) => u.id)).toEqual(["user-admin"]);
+    expect((await h.services.admin.listUsers({ role: "user" })).total).toBe(6);
+    expect((await h.services.admin.listUsers({ affiliation: "external" })).items.map((u) => u.id)).toEqual(["user-externo"]);
+    expect((await h.services.admin.listUsers({ affiliation: "institutional" })).total).toBe(6);
+    expect((await h.services.admin.listUsers({ affiliation: "institutional", role: "admin" })).items.map((u) => u.id)).toEqual(["user-admin"]);
+    await expectCode(h.services.admin.listUsers({ affiliation: "x" as never }), "VALIDATION");
     expect((await h.services.admin.listUsers({ status: "disabled" })).items.map((u) => u.id)).toEqual(["user-tiago"]);
     expect((await h.services.admin.listUsers({ status: "active" })).total).toBe(6);
     const p2 = await h.services.admin.listUsers({ pageSize: 3, page: 3 });
@@ -285,20 +290,20 @@ describe("administração de usuários", () => {
   it("updateUser: muda papel e estado; registra auditoria; ninguém altera a si mesmo", async () => {
     const h = createHarness();
     await asAdmin(h);
-    const promoted = await h.services.admin.updateUser("user-lucas", { role: "teacher" });
-    expect(promoted).toMatchObject({ id: "user-lucas", role: "teacher", active: true });
+    const promoted = await h.services.admin.updateUser("user-lucas", { role: "admin" });
+    expect(promoted).toMatchObject({ id: "user-lucas", role: "admin", affiliation: "institutional", active: true });
     const off = await h.services.admin.updateUser("user-lucas", { active: false });
     expect(off.active).toBe(false);
     expect(off.disabledAt).toBe(h.clock().toISOString());
     expect((await h.services.admin.updateUser("user-lucas", { active: true })).disabledAt).toBeNull();
-    await expectCode(h.services.admin.updateUser("user-admin", { role: "student" }), "CONFLICT");
+    await expectCode(h.services.admin.updateUser("user-admin", { role: "user" }), "CONFLICT");
     await expectCode(h.services.admin.updateUser("user-admin", { active: false }), "CONFLICT");
     await expectCode(h.services.admin.updateUser("nao-existe", { active: false }), "NOT_FOUND");
     await expectCode(h.services.admin.updateUser("user-lucas", {}), "VALIDATION");
     await expectCode(h.services.admin.updateUser("user-lucas", { role: "root" as never }), "VALIDATION");
     await expectCode(h.services.admin.updateUser("user-lucas", { active: "sim" as never }), "VALIDATION");
     const log = await h.services.admin.listAuditLog({ action: "user.role_change" });
-    expect(log.items[0]).toMatchObject({ actorId: "user-admin", actorName: "Administração Demo", targetId: "user-lucas", metadata: { from: "student", to: "teacher" } });
+    expect(log.items[0]).toMatchObject({ actorId: "user-admin", actorName: "Administração Demo", targetId: "user-lucas", metadata: { from: "user", to: "admin" } });
   });
 
   it("admin convidado pode rebaixar/desativar a demo; o último admin ativo não pode ser tirado", async () => {
@@ -314,7 +319,7 @@ describe("administração de usuários", () => {
     await expectCode(h.services.admin.updateUser(second.id, { active: false }), "CONFLICT");
     // reativa a demo e então rebaixa a demo: permitido; a outra continua admin
     await h.services.admin.updateUser("user-admin", { active: true });
-    await h.services.admin.updateUser("user-admin", { role: "teacher" });
+    await h.services.admin.updateUser("user-admin", { role: "user" });
     const admins = await h.services.admin.listUsers({ role: "admin" });
     expect(admins.items.map((u) => u.id)).toEqual([second.id]);
   });
@@ -444,7 +449,7 @@ describe("convites de administração", () => {
     const created = await h.services.admin.createInvite("tarde@demo.test");
     const token = new URL(created.devLink!, "http://x.test").searchParams.get("token")!;
     await h.services.auth.signOut();
-    await h.services.auth.signUp({ name: "Quem Chegou", email: "tarde@demo.test", password: PW, role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Quem Chegou", email: "tarde@demo.test", password: PW, acceptedTerms: true });
     await h.services.auth.signOut();
     await expectCode(h.services.auth.acceptInvite({ token, name: "Nova Admin", password: ADMIN_PW }), "EMAIL_TAKEN");
   });
@@ -478,7 +483,7 @@ describe("trilha de auditoria", () => {
 
   it("registra login, falha, cadastro, decisões, devolução, exclusão, convite e 2FA", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true });
     await h.services.auth.signOut();
     await expectCode(h.services.auth.signIn({ email: "carla@demo.test", password: "errada-errada-1" }), "INVALID_CREDENTIALS");
     await h.services.auth.signIn({ email: "carla@demo.test", password: PW });
@@ -526,7 +531,7 @@ describe("trilha de auditoria", () => {
 
   it("NUNCA guarda senha, token, segredo TOTP nem código (varre o JSON inteiro da trilha)", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true });
     await expectCode(h.services.auth.signIn({ email: "carla@demo.test", password: "segredo-digitado-no-campo-errado" }), "INVALID_CREDENTIALS");
     const { secret, recoveryCodes } = await enable2fa(h);
     await h.services.auth.signOut();
@@ -591,7 +596,7 @@ describe("2FA nas rotas administrativas antigas", () => {
 
   it("não-admin continua FORBIDDEN (não vira TWO_FACTOR_REQUIRED); admin demo isento segue normal", async () => {
     const h = createHarness({ twoFactorExemptUserIds: [] });
-    await h.services.auth.signInAsDemo("teacher");
+    await signInAsRafael(h.services);
     await expectCode(h.services.claims.accept("claim-01"), "FORBIDDEN");
     await expectCode(h.services.items.delete("item-01"), "FORBIDDEN");
     await expectCode(h.services.returns.list(), "FORBIDDEN");

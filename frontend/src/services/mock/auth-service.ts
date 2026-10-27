@@ -1,5 +1,5 @@
-import { ServiceError, type User, type UserRole } from "@/types/domain";
-import { emailFingerprint, isAllowedGoogleEmail, passwordIssue, PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
+import { ServiceError, type User } from "@/types/domain";
+import { affiliationForEmail, emailFingerprint, passwordIssue, PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
 import {
   forgotPasswordSchema,
   googleSignUpSchema,
@@ -10,7 +10,16 @@ import {
   toFieldErrors,
   verifyEmailSchema,
 } from "@/lib/validation";
-import type { AuthService, DemoProfile, EmailDispatch, GoogleProfile, GoogleSignInResult, MyDataExport } from "../contracts";
+import {
+  DEMO_PROFILE_KEYS,
+  type AuthService,
+  type DemoProfile,
+  type DemoProfileKey,
+  type EmailDispatch,
+  type GoogleProfile,
+  type GoogleSignInResult,
+  type MyDataExport,
+} from "../contracts";
 import { decodeGoogleTicket, encodeGoogleTicket } from "./google";
 import { recordAudit, recordAuditSafely } from "./audit";
 import { createAcceptInvite } from "./admin-service";
@@ -72,15 +81,16 @@ function assertEmailFree(db: Db, email: string): void {
   }
 }
 
-/** Cria a conta Google (sem senha, já verificada). `EMAIL_TAKEN` se o e-mail já existe. */
-function createGoogleUser(ctx: MockContext, profile: GoogleProfile, role: UserRole): User {
+/** Cria a conta Google (sem senha, já verificada, papel `user`). `EMAIL_TAKEN` se o e-mail já existe. */
+function createGoogleUser(ctx: MockContext, profile: GoogleProfile): User {
   return ctx.store.transaction((db) => {
     assertEmailFree(db, profile.email);
     const created: User = {
       id: ctx.newId("user"),
       name: profile.name,
       email: profile.email,
-      role,
+      role: "user",
+      affiliation: affiliationForEmail(profile.email, ctx.allowedGoogleDomains),
       emailVerified: true,
       hasPassword: false,
     };
@@ -91,7 +101,7 @@ function createGoogleUser(ctx: MockContext, profile: GoogleProfile, role: UserRo
       actorId: created.id,
       action: "signup",
       target: ["user", created.id],
-      metadata: { role, provider: "google" },
+      metadata: { role: created.role, affiliation: created.affiliation, provider: "google" },
     });
     return created;
   });
@@ -127,7 +137,8 @@ export function createAuthService(ctx: MockContext): AuthService {
             id: ctx.newId("user"),
             name: data.name,
             email: data.email,
-            role: data.role,
+            role: "user", // nunca vem do formulário: administração só por convite/seed
+            affiliation: affiliationForEmail(data.email, ctx.allowedGoogleDomains),
             emailVerified: false,
             hasPassword: true,
           };
@@ -144,7 +155,7 @@ export function createAuthService(ctx: MockContext): AuthService {
             actorId: created.id,
             action: "signup",
             target: ["user", created.id],
-            metadata: { role: created.role, provider: "password" },
+            metadata: { role: created.role, affiliation: created.affiliation, provider: "password" },
           });
           issueToken(ctx, db, created.id, "verify_email");
           return created;
@@ -178,12 +189,9 @@ export function createAuthService(ctx: MockContext): AuthService {
         const existing = store.read().users.find((u) => normalizeEmail(u.email) === normalized.email);
         if (existing) return completeLogin(ctx, existing.id, "google");
         const ticket = encodeGoogleTicket(normalized);
-        if (isAllowedGoogleEmail(normalized.email, ctx.allowedGoogleDomains)) {
-          return { status: "needs_role", profile: normalized, ticket };
-        }
-        // Fora do domínio institucional: comunidade externa. Sem aceite dos termos nada é criado (espelha a API).
+        // Conta nova (qualquer domínio): sem aceite dos termos nada é criado (espelha a API).
         if (options?.acceptedTerms !== true) return { status: "needs_terms", profile: normalized, ticket };
-        const user = createGoogleUser(ctx, normalized, "external");
+        const user = createGoogleUser(ctx, normalized);
         store.setSessionUserId(user.id);
         return { status: "signed_in", user };
       }),
@@ -191,22 +199,18 @@ export function createAuthService(ctx: MockContext): AuthService {
     completeGoogleSignUp: (input) =>
       ctx.run("auth.completeGoogleSignUp", () => {
         const profile = normalizeGoogleProfile(decodeGoogleTicket(input?.ticket));
-        const institutional = isAllowedGoogleEmail(profile.email, ctx.allowedGoogleDomains);
-        const parsed = googleSignUpSchema.safeParse({ ...profile, role: input?.role, acceptedTerms: input?.acceptedTerms });
-        const fieldErrors = parsed.success ? {} : toFieldErrors(parsed.error);
-        if (institutional && !input?.role && !fieldErrors.role) fieldErrors.role = "Escolha se você é aluno ou professor.";
-        if (Object.keys(fieldErrors).length > 0) {
-          throw new ServiceError("VALIDATION", "Confira os campos destacados.", { fieldErrors });
+        const parsed = googleSignUpSchema.safeParse({ ...profile, acceptedTerms: input?.acceptedTerms });
+        if (!parsed.success) {
+          throw new ServiceError("VALIDATION", "Confira os campos destacados.", { fieldErrors: toFieldErrors(parsed.error) });
         }
-        const role = institutional ? parsed.data!.role! : "external";
-        const user = createGoogleUser(ctx, { email: parsed.data!.email, name: parsed.data!.name }, role);
+        const user = createGoogleUser(ctx, { email: parsed.data.email, name: parsed.data.name });
         store.setSessionUserId(user.id);
         return user;
       }),
 
-    signInAsDemo: (role: UserRole) =>
+    signInAsDemo: (profile: DemoProfileKey) =>
       ctx.run("auth.signInAsDemo", () => {
-        const user = findUser(store.read(), DEMO_PROFILE_IDS[role]);
+        const user = findUser(store.read(), DEMO_PROFILE_IDS[profile]);
         recordAuditSafely(ctx, { actorId: user.id, action: "login.success", target: ["user", user.id], metadata: { method: "demo" } });
         store.setSessionUserId(user.id);
         return user;
@@ -215,10 +219,10 @@ export function createAuthService(ctx: MockContext): AuthService {
     listDemoProfiles: () =>
       ctx.run("auth.listDemoProfiles", (): DemoProfile[] => {
         const db = store.read();
-        return (["student", "teacher", "external", "admin"] as const).map((role) => ({
-          role,
-          label: DEMO_PROFILE_LABELS[role],
-          user: findUser(db, DEMO_PROFILE_IDS[role]),
+        return DEMO_PROFILE_KEYS.map((key) => ({
+          key,
+          label: DEMO_PROFILE_LABELS[key],
+          user: findUser(db, DEMO_PROFILE_IDS[key]),
         }));
       }),
 
@@ -286,6 +290,7 @@ export function createAuthService(ctx: MockContext): AuthService {
             name: user.name,
             email: user.email,
             role: user.role,
+            affiliation: user.affiliation,
             provider: hasPassword ? "password" : "google",
             createdAt: null,
             emailVerifiedAt: null,

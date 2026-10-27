@@ -88,7 +88,7 @@ def test_account_delete_is_recorded(client, app):
 
 
 def test_two_factor_events_are_recorded_without_secrets(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     secret = client.post("/auth/2fa/setup", headers=h).json()["secret"]
     client.post("/auth/2fa/enable", json={"code": "000000"}, headers=h)

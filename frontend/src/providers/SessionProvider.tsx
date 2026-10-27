@@ -3,9 +3,9 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forgetItemsSearch } from "@/components/items/last-search";
 import { services } from "@/services";
-import type { DeleteAccountConfirmation, GoogleSignInResult, GoogleSignUpInput, SignInResult } from "@/services";
+import type { DeleteAccountConfirmation, DemoProfileKey, GoogleSignInResult, GoogleSignUpInput, SignInResult } from "@/services";
 import type { SignInValues, SignUpValues } from "@/lib/validation";
-import type { User, UserRole } from "@/types/domain";
+import type { User } from "@/types/domain";
 
 /** `loading` só até a sessão ser lida do armazenamento; depois `ready` (com ou sem usuário). */
 export type SessionStatus = "loading" | "ready";
@@ -26,15 +26,15 @@ export interface SessionValue {
   signUp(input: SignUpValues): Promise<User>;
   /**
    * "Entrar com Google": recebe o ID token bruto (`credential`); o serviço o verifica no servidor. A sessão só é
-   * adotada quando o resultado é `signed_in`; em `needs_role`/`needs_terms` nada muda e a tela pede o papel (guardando
+   * adotada quando o resultado é `signed_in`; em `needs_terms` nada muda e a tela pede o aceite dos termos (guardando
    * o `ticket`); em `needs_2fa` a tela pede o código.
    * Lança `FORBIDDEN_DOMAIN`.
    */
   signInWithGoogle(credential: string): Promise<GoogleSignInResult>;
-  /** Conclui o cadastro via Google (aluno/professor, com o `ticket`) e abre a sessão. Lança `FORBIDDEN_DOMAIN`, `EMAIL_TAKEN`, `UNAUTHENTICATED` (ticket expirado). */
+  /** Conclui o cadastro via Google (aceite dos termos, com o `ticket`) e abre a sessão. Lança `EMAIL_TAKEN`, `UNAUTHENTICATED` (ticket expirado). */
   completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** Perfis de demonstração (AC01.3). */
-  signInAsDemo(role: UserRole): Promise<User>;
+  signInAsDemo(profile: DemoProfileKey): Promise<User>;
   signOut(): Promise<void>;
   /** Relê a sessão no serviço (ex.: depois de confirmar o e-mail, que não devolve o usuário). */
   refreshUser(): Promise<void>;
@@ -115,7 +115,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return result;
       },
       completeGoogleSignUp: async (input) => adopt(await services.auth.completeGoogleSignUp(input)),
-      signInAsDemo: async (role) => adopt(await services.auth.signInAsDemo(role)),
+      signInAsDemo: async (profile) => adopt(await services.auth.signInAsDemo(profile)),
       signOut: async () => {
         await services.auth.signOut();
         latestRead.current++;

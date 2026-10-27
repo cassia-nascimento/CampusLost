@@ -24,9 +24,9 @@ import type {
   Item,
   PublicUser,
   ReturnRecord,
-  GoogleSignupRole,
   User,
-  UserRole,
+  Affiliation,
+  Role,
 } from "@/types/domain";
 import type {
   AdminInvite,
@@ -104,9 +104,13 @@ export interface ReturnView extends ReturnRecord {
   registeredBy: PublicUser;
 }
 
+/** Perfis de entrada rápida: usuário com e-mail institucional, usuário externo e administração. */
+export const DEMO_PROFILE_KEYS = ["institutional", "external", "admin"] as const;
+export type DemoProfileKey = (typeof DEMO_PROFILE_KEYS)[number];
+
 export interface DemoProfile {
-  role: UserRole;
-  /** Rótulo do botão, ex.: "Entrar como aluno". */
+  key: DemoProfileKey;
+  /** Rótulo do botão, ex.: "Usuário (e-mail institucional)". */
   label: string;
   user: User;
 }
@@ -131,21 +135,16 @@ export type GoogleSignInResult =
   /** Conta com 2FA ligado: nenhuma sessão ainda. A UI pede o código e chama `verifyTwoFactor`. */
   | TwoFactorChallenge
   /**
-   * Conta nova com e-mail FORA do domínio institucional: nada foi criado. A UI mostra os termos e chama
+   * Conta nova (qualquer domínio): nada foi criado. A UI mostra os termos e chama
    * `signInWithGoogle(credential, { acceptedTerms: true })` OU `completeGoogleSignUp({ ticket, acceptedTerms: true })`.
+   * `ticket` é um valor OPACO (a UI só o repassa); na API é o `profileToken` assinado pelo servidor, que prova o
+   * perfil verificado por poucos minutos. O vínculo (institucional/externo) sai do domínio do e-mail.
    */
-  | { status: "needs_terms"; profile: GoogleProfile; ticket: string }
-  /**
-   * Conta nova: nada foi criado. `ticket` é um valor OPACO (a UI só o repassa a `completeGoogleSignUp`);
-   * na API é o `profileToken` assinado pelo servidor, que prova o perfil verificado por poucos minutos.
-   */
-  | { status: "needs_role"; profile: GoogleProfile; ticket: string };
+  | { status: "needs_terms"; profile: GoogleProfile; ticket: string };
 
 export interface GoogleSignUpInput {
-  /** `ticket` recebido em `needs_role` ou `needs_terms`. */
+  /** `ticket` recebido em `needs_terms`. */
   ticket: string;
-  /** Obrigatório no domínio institucional (`needs_role`); ignorado fora dele (a conta vira `external`). */
-  role?: GoogleSignupRole;
   /** Aceite dos termos de uso (sempre obrigatório). */
   acceptedTerms: boolean;
 }
@@ -178,7 +177,9 @@ export interface MyDataExport {
     id: string;
     name: string;
     email: string;
-    role: UserRole;
+    role: Role;
+    /** Vínculo pelo domínio do e-mail (não verificado). */
+    affiliation: Affiliation;
     /** `password` ou `google`. */
     provider: string;
     createdAt: string | null;
@@ -200,7 +201,8 @@ export interface AuthService {
   /** Sessão atual ou `null`. Sobrevive ao recarregamento da página (AC01.4). */
   getCurrentUser(): Promise<User | null>;
   /**
-   * Cria conta (aluno/professor/comunidade externa) com senha e abre sessão. Exige `acceptedTerms: true`.
+   * Cria conta com senha e abre sessão. NÃO há campo de papel: a conta nasce `user` (um `role` enviado é ignorado) e o
+   * vínculo (`institutional`/`externo`) é derivado do DOMÍNIO do e-mail, sem verificação. Exige `acceptedTerms: true`.
    * Política de senha: mín. 10 caracteres, máx. 72 bytes UTF-8, fora da lista de comuns, diferente de e-mail/nome.
    * A conta nasce NÃO verificada (`emailVerified: false`): não cadastra item nem reivindica até verificar
    * (`EMAIL_NOT_VERIFIED`). `EMAIL_TAKEN` se o e-mail já existe (AC01.1).
@@ -273,21 +275,19 @@ export interface AuthService {
    * "Entrar com Google" (P30). Recebe o ID token BRUTO (`credential`) do Google Identity Services; a
    * verificação (assinatura, `aud`, `iss`, `exp`, `email_verified`) é feita no servidor (FastAPI; no mock, pela
    * rota `/api/auth/google` do Next).
-   * Conta existente: abre sessão (`signed_in`). E-mail FORA do domínio institucional: cria a conta como
-   * `external` (já verificada): sem `acceptedTerms` responde `needs_terms` (nada criado); com `acceptedTerms: true`
-   * cria a conta e abre sessão (`signed_in`). Conta nova DENTRO do domínio: `needs_role`
-   * (nada é criado ainda) e a UI pede aluno/professor e chama `completeGoogleSignUp` com o `ticket`.
+   * Conta existente: abre sessão (`signed_in`) ou pede o 2FA (`needs_2fa`). Conta nova (qualquer domínio): sem
+   * `acceptedTerms` responde `needs_terms` (nada criado; a UI mostra os termos e chama `completeGoogleSignUp` com o
+   * `ticket`); com `acceptedTerms: true` cria a conta (`user`, já verificada) e abre sessão (`signed_in`).
    */
   signInWithGoogle(credential: string, options?: { acceptedTerms?: boolean }): Promise<GoogleSignInResult>;
   /**
-   * Conclui o cadastro via Google (sem senha) e abre sessão, usando o `ticket` de `needs_role` (domínio
-   * institucional: exige `role` aluno/professor + `acceptedTerms`) ou de `needs_terms` (exige só `acceptedTerms`;
-   * a conta vira `external`). `VALIDATION` (`fieldErrors.role` / `fieldErrors.acceptedTerms`),
+   * Conclui o cadastro via Google (sem senha) e abre sessão, com o `ticket` de `needs_terms` e `acceptedTerms`.
+   * `VALIDATION` (`fieldErrors.acceptedTerms`),
    * `UNAUTHENTICATED` se o ticket expirou/é inválido; `EMAIL_TAKEN` se já existe conta.
    */
   completeGoogleSignUp(input: GoogleSignUpInput): Promise<User>;
   /** [Somente protótipo] Entra com um dos perfis de demonstração (AC01.3). */
-  signInAsDemo(role: UserRole): Promise<User>;
+  signInAsDemo(profile: DemoProfileKey): Promise<User>;
   /** [Somente protótipo] Perfis de entrada rápida. */
   listDemoProfiles(): Promise<DemoProfile[]>;
   signOut(): Promise<void>;
@@ -313,7 +313,7 @@ export interface ItemService {
 }
 
 export interface ClaimService {
-  /** Aluno/professor/externo com e-mail verificado. Item Disponível passa a Em reivindicação. */
+  /** Usuário (`user`) com e-mail verificado. Item Disponível passa a Em reivindicação. */
   create(itemId: string, input: ClaimInput): Promise<Claim>;
   /** Reivindicações do usuário atual, mais recentes primeiro. */
   listMine(): Promise<ClaimView[]>;
@@ -366,7 +366,8 @@ export interface DemoService {
 /** Filtros de `AdminService.listUsers`. `status`: `active` | `disabled`. */
 export interface ListUsersFilters {
   q?: string;
-  role?: UserRole;
+  role?: Role;
+  affiliation?: Affiliation;
   status?: UserStatusFilter;
   page?: number;
   pageSize?: number;
@@ -384,7 +385,7 @@ export interface ListAuditFilters {
  * Listas paginadas: `page` a partir de 1, `pageSize` 1-100 (padrão 20); parâmetro inválido = `VALIDATION`.
  */
 export interface AdminService {
-  /** `q` (trecho de nome ou e-mail), `role`, `status`. Mais recentes primeiro. Contas excluídas (LGPD) não aparecem. */
+  /** `q` (trecho de nome ou e-mail), `role` (user|admin), `affiliation`, `status`. Mais recentes primeiro. Contas excluídas (LGPD) não aparecem. */
   listUsers(filters?: ListUsersFilters): Promise<Page<AdminUserRow>>;
   /**
    * PATCH /admin/users/{id}: `role` e/ou `active`. `CONFLICT` ao mexer na própria conta ou ao rebaixar/desativar o

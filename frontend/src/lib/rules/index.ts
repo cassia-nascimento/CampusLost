@@ -6,6 +6,7 @@ export * from "./claims";
 export * from "./items";
 export * from "./returns";
 export * from "./google-auth";
+export * from "./affiliation";
 export * from "./password";
 export * from "./totp";
 export * from "./admin";

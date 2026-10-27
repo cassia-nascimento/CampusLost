@@ -43,7 +43,7 @@ def export_my_data(response: Response, user: CurrentUser, db: DbDep, settings: S
         "format": "campuslost-export-v1",
         "exportedAt": to_iso(now()),
         "account": {
-            "id": user.id, "name": user.name, "email": user.email, "role": user.role, "provider": user.provider,
+            "id": user.id, "name": user.name, "email": user.email, "role": user.role, "affiliation": user.affiliation, "provider": user.provider,
             "createdAt": _iso(user.created_at), "emailVerifiedAt": _iso(user.email_verified_at),
             "termsAcceptedAt": _iso(user.terms_accepted_at), "termsVersion": user.terms_version,
         },

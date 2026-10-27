@@ -18,7 +18,7 @@ export function AccessDenied({ role }: { role: UserRole }) {
         title="Acesso restrito"
         action={<LinkButton href="/itens">Voltar para os itens</LinkButton>}
       >
-        <p>Esta área é só para a administração. Você entrou como {ROLE_LABEL[role]}.</p>
+        <p>Esta área é só para a administração. Você entrou com o papel {ROLE_LABEL[role]}.</p>
       </EmptyState>
     </Container>
   );

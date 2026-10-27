@@ -33,7 +33,7 @@ def test_export_has_my_data_and_no_secrets(client):
     assert r.headers["cache-control"] == "no-store"
     data = r.json()
     assert data["format"] == "campuslost-export-v1" and data["exportedAt"].endswith("Z")
-    assert data["account"]["email"] == "marina@demo.test" and data["account"]["role"] == "student"
+    assert data["account"]["email"] == "marina@demo.test" and data["account"]["role"] == "user" and data["account"]["affiliation"] == "institutional"
     assert data["account"]["emailVerifiedAt"] and data["account"]["termsVersion"] == "2026-10"
     assert [i["id"] for i in data["itemsRegistered"]] == ["item-08"]
     assert {c["id"] for c in data["claims"]} == {"claim-03", "claim-04", "claim-06"}
@@ -182,7 +182,7 @@ def fake_google(monkeypatch):
 
 def test_google_account_deletion_needs_a_fresh_google_credential(client, fake_google, app):
     created = client.post("/auth/google", json={"credential": "c", "acceptTerms": True}).json()
-    assert created["status"] == "signed_in" and created["user"]["role"] == "external"
+    assert created["status"] == "signed_in" and created["user"]["role"] == "user"
     h = bearer(created["token"])
     assert delete_me(client, h).status_code == 403  # sem confirmação
     assert delete_me(client, h, password="qualquer-coisa-1").status_code == 403  # conta sem senha

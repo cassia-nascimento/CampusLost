@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { GOOGLE_SIGNUP_ROLES, SIGNUP_ROLES } from "@/types/domain";
 import {
   PASSWORD_ISSUE_MESSAGE,
   PASSWORD_MAX_BYTES,
@@ -38,15 +37,11 @@ const loginPassword = requiredString("Informe sua senha.")
 
 const turnstileToken = z.string().max(4096).optional();
 
-const signupRole = z.enum(SIGNUP_ROLES, { error: "Escolha como você usa o CampusLost." });
-const googleRole = z.enum(GOOGLE_SIGNUP_ROLES, { error: "Escolha se você é aluno ou professor." });
-
 export const signUpSchema = z
   .object({
     name: boundedText("seu nome", 2, 80),
     email,
     password: newPassword,
-    role: signupRole,
     acceptedTerms: z.literal(true, { error: "Aceite os termos de uso para criar a conta." }),
     /** Token do captcha (Turnstile), só quando o servidor o exige. */
     turnstileToken: turnstileToken,
@@ -62,18 +57,13 @@ export type SignUpValues = z.infer<typeof signUpSchema>;
 export const signInSchema = z.object({ email, password: loginPassword, turnstileToken });
 export type SignInValues = z.infer<typeof signInSchema>;
 
-/** Passo de papel do Google (P30): só escolhe aluno/professor. */
-export const googleRoleSchema = z.object({ role: googleRole });
-export type GoogleRoleValues = z.infer<typeof googleRoleSchema>;
-
 /**
  * Conclusão do cadastro via Google: dados do perfil (já verificados no servidor) + aceite dos termos.
- * `role` só é exigido no domínio institucional (o serviço confere); fora dele a conta é `external`.
+ * Não há escolha de papel nem de vínculo: a conta nasce `user` e o vínculo vem do domínio do e-mail.
  */
 export const googleSignUpSchema = z.object({
   email,
   name: boundedText("seu nome", 2, 80),
-  role: googleRole.optional(),
   acceptedTerms: z.literal(true, { error: "Aceite os termos de uso para criar a conta." }),
 });
 export type GoogleSignUpValues = z.infer<typeof googleSignUpSchema>;

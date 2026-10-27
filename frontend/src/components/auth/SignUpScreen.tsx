@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import type { User } from "@/types/domain";
 import { AuthCard } from "./AuthCard";
 import { CheckEmailPanel } from "./CheckEmailPanel";
-import { GoogleRoleStep } from "./GoogleRoleStep";
+import { GoogleTermsStep } from "./GoogleTermsStep";
 import { GoogleSignIn, type GooglePending } from "./GoogleSignIn";
 import { TwoFactorStep } from "./TwoFactorStep";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
@@ -26,7 +26,7 @@ function SignUpContent() {
           onCancel={() => setChallengeToken(null)}
         />
       ) : googlePending ? (
-        <GoogleRoleStep pending={googlePending} onCancel={() => setGooglePending(null)} />
+        <GoogleTermsStep pending={googlePending} onCancel={() => setGooglePending(null)} />
       ) : created ? (
         <CheckEmailPanel email={created.email} role={created.role} />
       ) : (
