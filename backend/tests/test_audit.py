@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app import audit
 from app.models import AuditLogRow
 from tests.admin_helpers import PW, audit_rows, bearer, login, make_admin_with_2fa, make_user, token_of, user_row
-from tests.conftest import DEMO_PASSWORD, extract_token
+from tests.conftest import DEMO_PASSWORD, do_return_flow, extract_token
 from tests.helpers import CLAIM, signup, signup_payload
 
 ADMIN_EMAIL = "admin@demo.test"
@@ -63,7 +63,7 @@ def test_admin_decisions_are_recorded(client, app, admin, student):
     cid = pending[0]["id"]
     assert client.post(f"/claims/{cid}/accept", headers=admin).status_code == 200
     iid = pending[0]["item"]["id"]
-    assert client.post(f"/items/{iid}/return", headers=admin).status_code == 201
+    assert do_return_flow(client, student, admin, cid).status_code == 201
     assert client.delete(f"/items/{item['id']}", headers=admin).status_code == 204
     a = actions(app)
     assert "claim.accept" in a and "return.register" in a and "item.delete" in a

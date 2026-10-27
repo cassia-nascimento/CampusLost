@@ -7,6 +7,7 @@ import { formatInstantDate } from "@/lib/format";
 import { withOrigin } from "@/components/layout/navigation";
 import type { ClaimView } from "@/services";
 import { getClaimMessages } from "./claim-messages";
+import { ReturnCodePanel } from "./ReturnCodePanel";
 
 /** O que a pessoa deve fazer a seguir, por status da reivindicação e do item (DESIGN §10; textos em `claim-messages`). */
 function NextStep({ claim }: { claim: ClaimView }) {
@@ -29,7 +30,8 @@ function NextStep({ claim }: { claim: ClaimView }) {
 
 /**
  * Reivindicação do usuário em "Minhas reivindicações" (DESIGN §6.13 e §9.7): item, status (ícone + texto +
- * cor), data de envio, próximo passo por status e link para o item. O status do item só aparece quando
+ * cor), data de envio, próximo passo por status, código de retirada (reivindicação aceita aguardando devolução)
+ * e link para o item. O status do item só aparece quando
  * ele já foi devolvido (relevante para quem reivindicou).
  */
 export function ClaimCard({ claim }: { claim: ClaimView }) {
@@ -58,6 +60,7 @@ export function ClaimCard({ claim }: { claim: ClaimView }) {
         </div>
       </div>
       <NextStep claim={claim} />
+      {claim.status === "accepted" && item.status === "under_claim" ? <ReturnCodePanel claim={claim} /> : null}
       <div>
         <LinkButton href={withOrigin(`/itens/${item.id}`, "/minhas-reivindicacoes")} variant="secondary" width="mobile-full">
           Ver item

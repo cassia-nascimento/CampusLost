@@ -157,6 +157,7 @@ export function createItemService(ctx: MockContext): ItemService {
           });
           db.items = db.items.filter((i) => i.id !== id);
           db.claims = db.claims.filter((c) => c.itemId !== id);
+          db.returnCodes = db.returnCodes.filter((r) => r.itemId !== id);
         });
       }),
   };

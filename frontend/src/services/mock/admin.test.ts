@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { totpCode } from "@/lib/rules";
 import { DEMO_PASSWORD } from "./seed";
-import { createHarness, expectCode, googleCredential, signInAsRafael, userOf, validItem, type Harness } from "./test-utils";
+import { createHarness, deliverItem, expectCode, googleCredential, signInAsRafael, userOf, validItem, type Harness } from "./test-utils";
 
 const PW = "senha-segura-1";
 const ADMIN_PW = "outra-senha-longa-9";
@@ -490,7 +490,7 @@ describe("trilha de auditoria", () => {
     await h.services.auth.signInAsDemo("admin");
     await h.services.claims.accept("claim-01");
     await h.services.claims.reject("claim-06");
-    await h.services.returns.register("item-03");
+    await deliverItem(h, "item-03");
     await h.services.items.create({ ...validItem });
     await h.services.items.delete("item-01");
     await h.services.admin.createInvite("nova@demo.test");

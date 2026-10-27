@@ -16,7 +16,7 @@
  * Específicos do protótipo: `Services.demo` (reiniciar demonstração), `AuthService.signInAsDemo` e
  * `AuthService.listDemoProfiles`. Uma API real pode omiti-los ou implementá-los à parte
  * (por exemplo, atrás de uma flag de ambiente).
- * Código `RATE_LIMITED` de `ServiceError` é reservado para a API (o mock não limita tentativas); o mock só lança
+ * Código `RATE_LIMITED`: na API, o limite de login/2FA; o mock só o lança na conferência do código de retirada (5 erros = 15 min); o mock também lança
  * `NETWORK` na verificação do Google (rota de servidor inacessível) e `CONFLICT` nas regras de 2FA/administração.
  */
 import type {
@@ -104,6 +104,33 @@ export interface ReturnView extends ReturnRecord {
   item: Item;
   returnedTo: User;
   registeredBy: PublicUser;
+  /** Quando o código de retirada foi validado antes da entrega; `null` em devoluções antigas (sem código). */
+  codeVerifiedAt: string | null;
+}
+
+/**
+ * Estado do código de retirada. NUNCA traz o código. O proprietário (autor da reivindicação aceita) recebe só
+ * `issued`/`issuedAt`; a administração recebe também os campos de conferência (os do proprietário vêm ausentes).
+ */
+export interface ReturnCodeStatus {
+  issued: boolean;
+  issuedAt: string | null;
+  /** Conferência válida agora (feita, dentro do prazo e ainda não usada). Só administração. */
+  verified?: boolean;
+  verifiedAt?: string | null;
+  /** Até quando a conferência vale (TTL de 15 min). */
+  verifiedUntil?: string | null;
+  /** Tentativas erradas que ainda cabem antes do bloqueio (0 enquanto bloqueado). */
+  attemptsLeft?: number;
+  /** Fim do bloqueio por tentativas; `null` sem bloqueio. */
+  lockedUntil?: string | null;
+}
+
+/** Resposta de gerar o código: a ÚNICA vez em que ele aparece. */
+export interface IssuedReturnCode {
+  /** Formato de exibição `XXXX-XXXX`. */
+  code: string;
+  issuedAt: string;
 }
 
 /** Perfis de entrada rápida: usuário com e-mail institucional, usuário externo e administração. */
@@ -329,6 +356,18 @@ export interface ClaimService {
   accept(claimId: string): Promise<ClaimDecisionResult>;
   /** Administração. Se não restar reivindicação ativa, o item volta a Disponível. */
   reject(claimId: string): Promise<ClaimDecisionResult>;
+  /**
+   * Proprietário (autor de reivindicação ACEITA, item aguardando devolução): gera o código de retirada na própria
+   * conta (POST /claims/{id}/return-code). Só o hash é guardado; o código vem SÓ nesta resposta. Gerar de novo
+   * invalida o anterior e zera a conferência (não destrava um bloqueio). `FORBIDDEN` (não é o dono),
+   * `INVALID_TRANSITION` (reivindicação não aceita ou item não aguardando devolução).
+   */
+  issueReturnCode(claimId: string): Promise<IssuedReturnCode>;
+  /**
+   * Estado do código (GET /claims/{id}/return-code), sem o código. Dono: `{ issued, issuedAt }`; administração:
+   * com conferência, tentativas e bloqueio. Outras pessoas: `FORBIDDEN`.
+   */
+  getReturnCodeStatus(claimId: string): Promise<ReturnCodeStatus>;
 }
 
 export interface ClaimDecisionResult {
@@ -340,10 +379,20 @@ export interface ClaimDecisionResult {
 
 export interface ReturnService {
   /**
-   * Administração. Exige reivindicação aceita; item → Devolvido. A devolução não é desfeita.
-   * O destinatário é o autor da reivindicação aceita.
+   * Administração. Confirma a entrega: exige reivindicação aceita E o código de retirada validado há menos de
+   * 15 minutos (uso único); item → Devolvido. A devolução não é desfeita. O destinatário é o autor da
+   * reivindicação aceita. Sem validação: `INVALID_TRANSITION` ("Valide o código de retirada antes de confirmar a
+   * entrega." ou "A conferência do código expirou. Valide o código novamente."). Sem exceção para a administração.
    */
   register(itemId: string): Promise<ReturnView>;
+  /**
+   * Administração: confere o código que a pessoa informou (POST /claims/{id}/return-code/verify). Validar não
+   * devolve nada. Devolve o estado de administração com `verified: true`. Erros: `VALIDATION`
+   * (`fieldErrors.code`: vazio ou "Código incorreto. Restam k tentativas."), `RATE_LIMITED` (5 erros seguidos =
+   * bloqueio de 15 min; leia `lockedUntil` em `getReturnCodeStatus`), `INVALID_TRANSITION` (a pessoa ainda não
+   * gerou o código ou a reivindicação não está aceita).
+   */
+  verifyCode(claimId: string, code: string): Promise<ReturnCodeStatus>;
   /** Administração. Período sobre a data da devolução; mais recentes primeiro. Sem exportação. */
   list(period?: PeriodFilter): Promise<ReturnView[]>;
 }

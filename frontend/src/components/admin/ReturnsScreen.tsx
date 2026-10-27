@@ -14,7 +14,7 @@ import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { DATE_FILTER_DEBOUNCE_MS, periodError as getPeriodError } from "@/components/items/search-params";
-import { formatCount, formatInstantDate } from "@/lib/format";
+import { formatCount, formatDateTime, formatInstantDate } from "@/lib/format";
 import { services, type ReturnView } from "@/services";
 
 const RETURNS_PATH = "/admin/devolucoes";
@@ -119,7 +119,7 @@ function ReturnsResults({
           </EmptyState>
         ) : (
           <EmptyState title="Nenhuma devolução registrada ainda">
-            Quando você registrar a devolução de um item, ela aparece aqui.
+            Quando você confirmar a entrega de um item, a devolução aparece aqui.
           </EmptyState>
         )}
       </div>
@@ -155,6 +155,11 @@ function ReturnsResults({
               </time>{" "}
               · Registrada por {record.registeredBy.name}
             </p>
+            {record.codeVerifiedAt ? (
+              <p className="text-meta text-ink-subtle">
+                Código validado em <time dateTime={record.codeVerifiedAt}>{formatDateTime(record.codeVerifiedAt)}</time>
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -196,6 +201,12 @@ function ReturnsResults({
                   <time dateTime={record.returnedAt} className="tabular">
                     {formatInstantDate(record.returnedAt)}
                   </time>
+                  {record.codeVerifiedAt ? (
+                    <span className="block text-meta text-ink-subtle">
+                      Código validado em{" "}
+                      <time dateTime={record.codeVerifiedAt}>{formatDateTime(record.codeVerifiedAt)}</time>
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             ))}

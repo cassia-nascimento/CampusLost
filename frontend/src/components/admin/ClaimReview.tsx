@@ -12,6 +12,7 @@ import { ORIGIN_PARAM, parseOrigin, withOrigin } from "@/components/layout/navig
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
+import { ConfirmDeliveryPanel } from "./ConfirmDeliveryPanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ACCOUNT_TWO_FACTOR_PATH } from "@/components/account/two-factor";
 import { AdminQueryError } from "./AdminQueryError";
@@ -41,7 +42,7 @@ import { toStoredItem } from "./stored-item";
 /** Marcado ao trocar de reivindicação pelos links de `RelatedClaims` (a nova página lê e limpa). */
 let focusAfterSwitch = false;
 
-type Dialog = "accept" | "reject" | "return" | null;
+type Dialog = "accept" | "reject" | null;
 
 /**
  * Lê a reivindicação e o item. Na primeira leitura o `itemId` só se conhece depois de ler a reivindicação;
@@ -160,7 +161,7 @@ function ReviewContent({
   const toast = useToast();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
-  // Depois de registrar a devolução a tela navega: some com as ações para não haver um segundo clique.
+  // Depois de confirmar a entrega a tela navega: some com as ações para não haver um segundo clique.
   const [leaving, setLeaving] = useState(false);
 
   const { item } = detail;
@@ -186,6 +187,13 @@ function ReviewContent({
     if (stale) refetch();
   }
 
+  /** Entrega confirmada pelo painel "Confirmar entrega" (que já registrou a devolução). */
+  function handleDelivered() {
+    setLeaving(true);
+    toast.success("Devolução registrada. O item saiu da busca.");
+    router.replace("/admin/devolucoes");
+  }
+
   async function confirm() {
     if (!dialog) return;
     setBusy(true);
@@ -194,7 +202,7 @@ function ReviewContent({
         const result = await services.claims.accept(claim.id);
         onDecided(result);
         toast.success(acceptedMessage(result.autoRejectedIds.length));
-      } else if (dialog === "reject") {
+      } else {
         const result = await services.claims.reject(claim.id);
         onDecided(result);
         toast.success(
@@ -202,11 +210,6 @@ function ReviewContent({
             ? "Reivindicação recusada. O item voltou a ficar Disponível."
             : "Reivindicação recusada.",
         );
-      } else {
-        await services.returns.register(item.id);
-        setLeaving(true);
-        toast.success("Devolução registrada. O item saiu da busca.");
-        router.replace("/admin/devolucoes");
       }
       setDialog(null);
     } catch (error) {
@@ -302,11 +305,7 @@ function ReviewContent({
         </ActionBar>
       ) : null}
       {!leaving && claim.status === "accepted" && detail.viewer.registerReturn.allowed ? (
-        <ActionBar>
-          <Button size="lg" width="mobile-full" onClick={() => setDialog("return")}>
-            Registrar devolução
-          </Button>
-        </ActionBar>
+        <ConfirmDeliveryPanel claim={claim} onDelivered={handleDelivered} onFailure={handleFailure} />
       ) : null}
 
       <RelatedClaims claims={detail.claims} currentId={claim.id} />
@@ -320,7 +319,7 @@ function ReviewContent({
             {othersPending > 0
               ? `${othersPending === 1 ? "A outra reivindicação pendente deste item será recusada" : `As outras ${othersPending} reivindicações pendentes deste item serão recusadas`} automaticamente. `
               : null}
-            O item continua Em reivindicação até você registrar a devolução.
+            O item continua Em reivindicação até você confirmar a entrega, com o código de retirada.
           </>
         }
         confirmLabel="Aceitar reivindicação"
@@ -341,26 +340,6 @@ function ReviewContent({
         }
         confirmLabel="Recusar reivindicação"
         confirmingLabel="Recusando…"
-        busy={busy}
-        onConfirm={() => void confirm()}
-      />
-      <ConfirmDialog
-        open={dialog === "return"}
-        onClose={() => setDialog(null)}
-        title="Registrar a devolução?"
-        description={
-          <>
-            <span className="block">
-              Item: <strong>{item.title}</strong>.
-            </span>
-            <span className="block">
-              Entregue a: <strong>{claim.claimant.name}</strong>.
-            </span>
-            <span className="mt-2 block">Esta ação não pode ser desfeita.</span>
-          </>
-        }
-        confirmLabel="Registrar devolução"
-        confirmingLabel="Registrando…"
         busy={busy}
         onConfirm={() => void confirm()}
       />
@@ -403,7 +382,7 @@ function DecisionNotice({
     return (
       <Notice tone="success" title={`Reivindicação aceita${decidedOn}`}>
         {detail.viewer.registerReturn.allowed
-          ? `O item continua Em reivindicação até você registrar a devolução a ${claim.claimant.name}.`
+          ? `O item continua Em reivindicação até você confirmar a entrega a ${claim.claimant.name}, com o código de retirada.`
           : detail.viewer.registerReturn.message}
       </Notice>
     );

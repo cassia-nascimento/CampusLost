@@ -12,7 +12,7 @@ from ..clock import to_iso
 from ..deps import ClockDep, accepted_claims_of, CurrentUser, DbDep, LockDep, SettingsDep, client_ip
 from ..errors import ServiceError
 from ..google_auth import verify_google_credential
-from ..models import ClaimRow, EmailTokenRow, ItemRow, ReturnRow, SessionRow, UserRow
+from ..models import ClaimRow, EmailTokenRow, ItemRow, ReturnCodeRow, ReturnRow, SessionRow, UserRow
 from ..rules.items import can_view_stored_at
 from ..schemas import claim_json, item_json, return_json
 from ..security import verify_password
@@ -116,6 +116,7 @@ def _anonymize(db, user: UserRow, now) -> None:
         item = db.get(ItemRow, c.item_id)
         if c.status in ("pending", "accepted") and item is not None and item.status != "returned":
             c.status, c.reviewed_at = "rejected", now
+            db.execute(delete(ReturnCodeRow).where(ReturnCodeRow.claim_id == c.id))  # reivindicação encerrada: sem código
             others = db.scalars(select(ClaimRow).where(ClaimRow.item_id == item.id, ClaimRow.id != c.id)).all()
             if item.status == "under_claim" and not any(o.status in ("pending", "accepted") for o in others):
                 item.status = "available"

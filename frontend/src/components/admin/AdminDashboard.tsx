@@ -279,10 +279,10 @@ function AwaitingReturnList({ rows, heading: Heading }: { rows: AwaitingReturnRo
             href={`/admin/reivindicacoes/${accepted.id}`}
             variant="secondary"
             width="mobile-full"
-            aria-label={`Registrar devolução de ${item.title}`}
+            aria-label={`Confirmar entrega de ${item.title}`}
             className="self-start max-sm:self-stretch"
           >
-            Registrar devolução
+            Confirmar entrega
           </LinkButton>
         </li>
       ))}

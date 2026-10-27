@@ -49,7 +49,7 @@ Toda falha tem este corpo (mesmo para 404 de rota, 405, 413 e 500):
 | `DUPLICATE_CLAIM` | 409 | Usuário já tem reivindicação ativa/aceita no item. |
 | `CLAIM_BLOCKED` | 409 | Reivindicação recusada antes (sem reenviar) ou item já com reivindicação aceita (P14). |
 | `ITEM_RETURNED` | 409 | Item devolvido é somente leitura. |
-| `RATE_LIMITED` | 429 | **Novo, não existe em `ServiceErrorCode`** — adicionar ao tipo. Login (e confirmação de `DELETE /me`): 10 falhas por IP+e-mail bloqueiam por 60 s, depois 2 min, 4 min… até 1 h (§4.2.5). Rotas de e-mail/medidor: 20 pedidos/h por IP. Traz `Retry-After` (segundos). |
+| `RATE_LIMITED` | 429 | **Novo, não existe em `ServiceErrorCode`** — adicionar ao tipo. Também: conferência do código de retirada bloqueada após 5 falhas por 15 min (§4.5). Login (e confirmação de `DELETE /me`): 10 falhas por IP+e-mail bloqueiam por 60 s, depois 2 min, 4 min… até 1 h (§4.2.5). Rotas de e-mail/medidor: 20 pedidos/h por IP. Traz `Retry-After` (segundos). |
 | `ACCOUNT_DISABLED` | 403 | **Novo.** Conta desativada pela administração tentou entrar (senha ou Google; só depois de a senha estar certa) ou concluir o 2FA. Sessões e tokens de acesso da conta são revogados na hora da desativação. |
 | `TWO_FACTOR_REQUIRED` | 403 | **Novo.** Administração sem 2FA ligado chamou `/admin/*` (§4.2.7). As rotas `/auth/2fa/*` continuam liberadas. |
 | `UNEXPECTED` | 500 / 502 / 503 | Erro interno (sem detalhes), Google inacessível (502) ou não configurado (503). |
@@ -88,7 +88,10 @@ Ordem de verificação (igual à do mock): sessão → existência do recurso �
 | `claims.listByItem(itemId)` | `GET /items/{id}/claims` | `ClaimView[]`, mais antigas primeiro. |
 | `claims.get(claimId)` | `GET /claims/{id}` | `ClaimView`. |
 | `claims.accept(claimId)` / `reject` | `POST /claims/{id}/accept` / `/reject` | `ClaimDecisionResult`. |
-| `returns.register(itemId)` | `POST /items/{id}/return` | `ReturnView` (201). |
+| `returns.register(itemId)` | `POST /items/{id}/return` | `ReturnView` (201); exige código conferido (§4.5). |
+| `returns.issueCode(claimId)` | `POST /claims/{id}/return-code` | `{ code, issuedAt }` (200, só o dono; única vez em que o código aparece). |
+| `returns.codeStatus(claimId)` | `GET /claims/{id}/return-code` | Dono: `{ issued, issuedAt }`; admin: + `verified`, `verifiedAt`, `verifiedUntil`, `attemptsLeft`, `lockedUntil`. |
+| `returns.verifyCode(claimId, code)` | `POST /claims/{id}/return-code/verify` | Status de admin (200); 422 `fieldErrors.code`; 429 bloqueio. |
 | `returns.list(period)` | `GET /returns?from=&to=` | `ReturnView[]`, mais recentes primeiro. |
 | `demo.reset()` | `POST /demo/reset` | 204. Sem autenticação (como no mock). |
 | `demo.persistence()` | — | Constante `"durable"` no cliente. |
@@ -432,10 +435,35 @@ Sem corpo. **200** `ClaimDecisionResult`:
 
 ### 4.5 Devoluções
 
+#### Código de retirada (confirmação presencial da devolução)
+A devolução exige um **código que só o proprietário confirmado obtém na própria conta** e informa pessoalmente. Fluxo: (1) o dono gera o código (`POST /claims/{id}/return-code`); (2) a administração o digita e o backend confere (`.../verify`); (3) só então a administração confirma a entrega (`POST /items/{id}/return`). Conferir o código **não** devolve o item; não há atalho para a administração registrar sem código válido.
+
+- **Geração na conta do dono, não na aprovação**: aceitar uma reivindicação não gera nem devolve código; recusada/pendente não têm código. Gerar de novo **substitui** o anterior (o antigo deixa de valer e a conferência feita é zerada); falhas e bloqueio permanecem (**regenerar não destrava**).
+- **Formato**: 8 caracteres aleatórios (CSPRNG) de `23456789ABCDEFGHJKMNPQRSTVWXYZ` (sem 0/O/1/I/L/U), exibido `XXXX-XXXX`. Na entrada, espaços e hífens são removidos e as letras vão para maiúsculas (`k7m2 9qxb` = `K7M2-9QXB`).
+- **Armazenamento**: só o HMAC-SHA256 (chave derivada de `SECRET_KEY` + contexto fixo; mensagem = id da reivindicação + código), exclusivo de cada reivindicação; comparação em tempo constante. Tabela `return_codes` (uma linha por reivindicação).
+- **Privacidade**: o texto puro aparece **somente** na resposta de `POST .../return-code`, que sai com `Cache-Control: no-store`. Nunca em GET, listas, JSON de claim/item/return, auditoria, log nem mensagem de erro; a administração nunca o vê. O corpo do `verify` não é registrado por nenhum middleware.
+- **Limites** (`Settings`/env, valores padrão): `RETURN_CODE_MAX_ATTEMPTS=5` falhas, `RETURN_CODE_LOCK_SECONDS=900` de bloqueio, `RETURN_CODE_VERIFY_TTL_SECONDS=900` de validade da conferência (entre conferir e confirmar a entrega). O bloqueio é por reivindicação (não por IP/admin), persistido no banco; a escrita é serializada (`write_lock`), então tentativas simultâneas não passam do limite.
+
+##### `POST /claims/{claimId}/return-code` — só o solicitante
+Sem corpo. Exige conta de usuário com e-mail confirmado, `claim.claimantId == sessão` (nunca vem do corpo), reivindicação `accepted` e item `under_claim`.
+- **200** `{ "code": "K7M2-9QXB", "issuedAt": "2026-10-22T15:00:00.000Z" }` (`Cache-Control: no-store`).
+- 401; 403 `FORBIDDEN` (outro usuário, criador do item, admin: "Somente quem fez a reivindicação aceita pode gerar o código de retirada." / mensagem genérica para admin); 403 `EMAIL_NOT_VERIFIED`; 404 reivindicação inexistente; 409 `INVALID_TRANSITION` "Só reivindicações aceitas, de itens aguardando devolução, têm código de retirada." (pendente, recusada ou item devolvido).
+
+##### `GET /claims/{claimId}/return-code` — dono ou administração
+**Nunca devolve o código.** Dono: `{ "issued": bool, "issuedAt": ISO|null }`. Administração (2FA como nas demais rotas admin): `{ "issued", "issuedAt", "verified": bool, "verifiedAt": ISO|null, "verifiedUntil": ISO|null, "attemptsLeft": int, "lockedUntil": ISO|null }` — `verified` só é `true` dentro da validade e com o código ainda não usado; `attemptsLeft` é `0` durante o bloqueio; `lockedUntil` só existe enquanto bloqueado. 401; 403 (qualquer outro usuário); 404.
+
+##### `POST /claims/{claimId}/return-code/verify` — admin
+Corpo `{ "code": "K7M2-9QXB" }`. **200** = status de administração (acima) com `verified: true`.
+- Ordem: 401/403 (papel, 2FA) → 404 → 409 `ITEM_RETURNED` (item já devolvido) / 409 `INVALID_TRANSITION` (reivindicação não aceita ou item fora de `under_claim`: "Só reivindicações aceitas, de itens aguardando devolução, têm código de retirada."; código não gerado: "A pessoa ainda não gerou o código de retirada. Peça para ela gerar em Minhas reivindicações."; já usado) → 429 bloqueio → 422 entrada.
+- **422** `VALIDATION`: vazio ou não texto → `fieldErrors.code` "Informe o código de retirada." (**não** conta tentativa); código incorreto (inclui formato inválido não vazio) → `fieldErrors.code` "Código incorreto. Restam {k} tentativa(s).", conta uma falha.
+- **429** `RATE_LIMITED` com `Retry-After` (segundos): na falha que atinge o máximo (o contador zera e o bloqueio começa) e em toda tentativa durante o bloqueio, mesmo com o código certo: "Muitas tentativas incorretas. Aguarde {n} minuto(s) para tentar de novo.". Passado o bloqueio, volta a valer com tentativas cheias.
+- Sucesso: `verifiedAt=agora` (ator = admin da sessão), zera falhas.
+
 #### `POST /items/{id}/return` — admin
-Sem corpo. Exige reivindicação aceita; o destinatário é o autor dela (P19); item → `returned` (irreversível).
-- **201** `ReturnView`.
-- 404; 403 "Somente a administração pode registrar devoluções."; 409 `ITEM_RETURNED` "Este item já foi devolvido."; 409 `INVALID_TRANSITION` "Só é possível devolver um item que está em reivindicação." / "Aceite uma reivindicação antes de registrar a devolução.".
+Sem corpo. Exige reivindicação aceita **e código de retirada conferido** (dentro da validade e não usado); o destinatário é o autor dela (P19); item → `returned` (irreversível). Na mesma transação: cria a devolução, marca o código como usado e grava a auditoria (tudo ou nada); duplo clique/requisições concorrentes geram exatamente uma devolução (a outra recebe 409 `ITEM_RETURNED`).
+- **201** `ReturnView` (agora com `"codeVerifiedAt": ISO|null` — `null` em devoluções legadas, anteriores ao código; só na visão administrativa `ReturnView`, não em `ReturnRecord`).
+- 404; 403 "Somente a administração pode registrar devoluções."; 409 `ITEM_RETURNED` "Este item já foi devolvido."; 409 `INVALID_TRANSITION` "Só é possível devolver um item que está em reivindicação." / "Aceite uma reivindicação antes de registrar a devolução." / **"Valide o código de retirada antes de confirmar a entrega."** (código não gerado ou não conferido) / **"A conferência do código expirou. Valide o código novamente."** / "Este código de retirada já foi usado.".
+- `viewer.registerReturn` (detalhe do item) continua refletindo só papel/estado do item; a exigência do código é checada ao registrar.
 
 #### `GET /returns` — admin
 Query: `from`, `to` (`YYYY-MM-DD`, inclusivos, sobre a **data local** de `returnedAt`). **200** `ReturnView[]`, mais recentes primeiro. 422 como em `GET /items` (datas/período).
@@ -478,7 +506,7 @@ Restaura o seed (datas relativas a hoje) e apaga as fotos enviadas. **204**. Tok
 Sem sessão: 401; papel diferente de `admin`: 403 `FORBIDDEN`; admin sem 2FA: 403 `TWO_FACTOR_REQUIRED`. Listas paginadas devolvem `{ "items": [...], "page": 1, "pageSize": 20, "total": 57, "totalPages": 3 }`; `?page=` (≥ 1) e `?pageSize=` (1–100, padrão 20) inválidos ⇒ 422.
 
 #### `GET /admin/audit` — trilha de auditoria
-Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`. Mais recentes primeiro. Cada item: `{ id, at, actorId|null, actorName|null, action, targetType|null, targetId|null, ip|null, metadata|null }`. `metadata` nunca contém senha, token, segredo TOTP nem código (as chaves com esses nomes são descartadas na gravação; falhas de login guardam só `emailRef`, 12 hex de um SHA-256 do e-mail digitado).
+Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`. Mais recentes primeiro. Cada item: `{ id, at, actorId|null, actorName|null, action, targetType|null, targetId|null, ip|null, metadata|null }`. `metadata` nunca contém senha, token, segredo TOTP nem código (as chaves com esses nomes são descartadas na gravação — única exceção: o indicador booleano `codeVerified`; falhas de login guardam só `emailRef`, 12 hex de um SHA-256 do e-mail digitado).
 
 | `action` | Quando | `target` | `metadata` |
 |---|---|---|---|
@@ -492,7 +520,11 @@ Filtros: `?action=` (exato), `?actor=` (id do usuário), `?page=`, `?pageSize=`.
 | `user.role_change` | `PATCH /admin/users/{id}` mudou o papel | user | `from`, `to` |
 | `user.disable` / `user.enable` | Desativação / reativação | user | — |
 | `claim.accept` / `claim.reject` | Decisão sobre reivindicação | claim | `itemId`, `autoRejected` |
-| `return.register` | Devolução registrada | item | `returnId`, `claimId` |
+| `return.register` | Devolução registrada | item | `returnId`, `claimId`, `codeVerified` (sempre `true`) |
+| `return_code.issue` | Dono gerou (ou regenerou) o código de retirada | claim | `itemId` |
+| `return_code.verify` | Administração conferiu o código | claim | `itemId` |
+| `return_code.failure` | Código incorreto na conferência | claim | `itemId`, `attemptsLeft` |
+| `return_code.locked` | Limite de falhas atingido; conferência bloqueada | claim | `itemId`, `lockedSeconds` |
 | `item.delete` | Item excluído | item | `title`, `status` |
 | `account.delete` | Conta excluída (LGPD, `DELETE /me`) | user | — |
 | `2fa.enable` / `2fa.disable` / `2fa.failure` | Ligado / desligado / código errado em `enable` ou `disable` | user | `stage`, `with` |

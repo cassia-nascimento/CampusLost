@@ -68,6 +68,11 @@ export interface RequestOptions {
   query?: Record<string, string | undefined>;
   json?: unknown;
   form?: FormData;
+  /**
+   * Mantém a mensagem do servidor num 429. Padrão: o 429 vira a mensagem genérica com o `Retry-After` (login, 2FA).
+   * A conferência do código de retirada informa o tempo exato no texto do servidor.
+   */
+  keepRateLimitMessage?: boolean;
   /** `false`: chamada pública de sessão (login, cadastro, Google, demo, refresh): em 401 NÃO tenta renovar. Padrão `true`. */
   auth?: boolean;
 }
@@ -148,7 +153,7 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-function buildError(response: Response, body: unknown): ServiceError {
+function buildError(response: Response, body: unknown, keepRateLimitMessage = false): ServiceError {
   const record = isRecord(body) ? body : {};
   const declared = typeof record.code === "string" && KNOWN_CODES.has(record.code) ? (record.code as ServiceErrorCode) : null;
   // A API chama de INVALID_TOKEN (link inválido OU expirado); a UI trata um código só: TOKEN_INVALID.
@@ -159,7 +164,8 @@ function buildError(response: Response, body: unknown): ServiceError {
       : code === "UNAUTHENTICATED"
         ? SESSION_EXPIRED_MESSAGE
         : UNEXPECTED_MESSAGE;
-  if (code === "RATE_LIMITED") message = rateLimitMessage(retryAfterSeconds(response));
+  const serverMessage = typeof record.message === "string" && record.message.trim() !== "";
+  if (code === "RATE_LIMITED" && !(keepRateLimitMessage && serverMessage)) message = rateLimitMessage(retryAfterSeconds(response));
   const fieldErrors = parseFieldErrors(record.fieldErrors);
   return new ServiceError(code, message, fieldErrors ? { fieldErrors } : undefined);
 }
@@ -246,7 +252,7 @@ export function createHttpClient(options: HttpOptions): HttpClient {
 
     if (response.status === 204) return undefined as T;
     const parsed = await readBody(response);
-    if (!response.ok) throw buildError(response, parsed);
+    if (!response.ok) throw buildError(response, parsed, opts.keepRateLimitMessage);
     if (parsed === undefined) {
       throw new ServiceError("UNEXPECTED", UNEXPECTED_MESSAGE, { cause: new Error("resposta sem JSON") });
     }

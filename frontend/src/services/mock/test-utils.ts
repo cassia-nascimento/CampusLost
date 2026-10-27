@@ -6,6 +6,8 @@ import type { MockServicesOptions } from "./context";
 import type { GoogleProfile, GoogleSignInResult, SignInResult } from "../contracts";
 import type { User } from "@/types/domain";
 import { encodeGoogleTicket } from "./google";
+import { DEMO_PASSWORD } from "./seed";
+import type { ReturnView } from "../contracts";
 
 /** 19/10/2026 10:00 (hora local) — "hoje" fixo dos testes. */
 export const TEST_NOW = new Date(2026, 9, 19, 10, 0, 0);
@@ -94,3 +96,19 @@ export const validClaim = {
   proofDetails: "Tem um adesivo de estrela no fundo.",
   lostWhereWhen: "Cantina, hoje de manhã.",
 } as const;
+
+/**
+ * Fluxo completo de entrega com código de retirada: o proprietário (autor da reivindicação aceita) gera o código,
+ * a administração o valida e confirma a entrega. Exige uma sessão de administração para começar e termina nela.
+ * Só serve para contas demonstrativas do seed (senha de demonstração).
+ */
+export async function deliverItem(h: Harness, itemId: string): Promise<ReturnView> {
+  const { services } = h;
+  const accepted = (await services.claims.listByItem(itemId)).find((c) => c.status === "accepted");
+  if (!accepted) throw new Error(`O item ${itemId} não tem reivindicação aceita`);
+  userOf(await services.auth.signIn({ email: accepted.claimant.email, password: DEMO_PASSWORD }));
+  const issued = await services.claims.issueReturnCode(accepted.id);
+  await services.auth.signInAsDemo("admin");
+  await services.returns.verifyCode(accepted.id, issued.code);
+  return services.returns.register(itemId);
+}

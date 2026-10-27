@@ -23,23 +23,23 @@ describe("aceita", () => {
     const m = messages("accepted", "under_claim");
     expect(m.nextStep).toEqual({
       highlight: "Aceita!",
-      text: "Procure a administração para retirar o item.",
+      text: "Procure a administração para retirar o item. Leve o código de retirada.",
     });
-    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item. Gere seu código de retirada em Minhas reivindicações.");
     expect(m.blocked).toMatch(/foi aceita/);
   });
 
   it("sem storedAt (sem permissão): só manda procurar a administração, sem citar local", () => {
     const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim" });
-    expect(m.nextStep.text).toBe("Procure a administração para retirar o item.");
-    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
+    expect(m.nextStep.text).toBe("Procure a administração para retirar o item. Leve o código de retirada.");
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item. Gere seu código de retirada em Minhas reivindicações.");
     expect(JSON.stringify(m)).not.toMatch(/guardado|Guardado|undefined/);
   });
 
   it("com storedAt: cita onde o item está guardado", () => {
     const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim", storedAt: "Portaria" });
-    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em Portaria.");
-    expect(m.nextStep.text).toBe("Procure a administração para retirar o item. Ele está guardado em Portaria.");
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em Portaria. Gere seu código de retirada em Minhas reivindicações.");
+    expect(m.nextStep.text).toBe("Procure a administração para retirar o item. Ele está guardado em Portaria. Leve o código de retirada.");
     expect(m.blocked).toBe(m.notice);
   });
 

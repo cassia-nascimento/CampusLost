@@ -14,6 +14,7 @@ PERMISSIONS: dict[str, tuple[str, ...]] = {
     "search_items": ALL,
     "claim_item": COMMON,
     "view_own_claims": COMMON,
+    "generate_return_code": COMMON,
     "review_claims": ADMIN,
     "edit_item": ADMIN,
     "delete_item": ADMIN,
@@ -22,7 +23,7 @@ PERMISSIONS: dict[str, tuple[str, ...]] = {
 }
 
 # Capacidades que exigem e-mail confirmado (contas de senha nascem não verificadas).
-REQUIRES_VERIFIED_EMAIL = ("register_item", "claim_item")
+REQUIRES_VERIFIED_EMAIL = ("register_item", "claim_item", "generate_return_code")
 EMAIL_NOT_VERIFIED_MESSAGE = "Confirme seu e-mail para continuar. Enviamos um link de confirmação para a sua caixa de entrada."
 
 # Visitante (P26): só ver lista e detalhe.

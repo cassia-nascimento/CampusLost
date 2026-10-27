@@ -8,9 +8,11 @@ from sqlalchemy import select
 from .. import audit
 from ..config import random_id
 from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_user
-from ..models import ClaimRow, ReturnRow, UserRow
+from ..models import ClaimRow, ReturnCodeRow, ReturnRow, UserRow
 from ..rules.items import can_view_stored_at
-from ..rules.returns import filter_returns_by_period, register_return, sort_returns
+from ..rules import return_codes as rc
+from ..rules.returns import can_register_return, filter_returns_by_period, register_return, sort_returns
+from ..rules.decision import assert_allowed
 from ..rules.validation import validate_period
 from ..schemas import return_view_json
 
@@ -21,9 +23,11 @@ def _view(db, r: ReturnRow, viewer: UserRow):
     from ..models import ItemRow
 
     item = db.get(ItemRow, r.item_id)
+    code = db.scalar(select(ReturnCodeRow).where(ReturnCodeRow.claim_id == r.claim_id))
     return return_view_json(
         r, item, db.get(UserRow, r.returned_to_id), db.get(UserRow, r.registered_by_id), viewer,
         can_view_stored_at(viewer, item, []),  # só administração acessa devoluções
+        code.verified_at if code else None,
     )
 
 
@@ -35,11 +39,19 @@ def register_item_return(
     with lock:
         item = find_item(db, item_id)
         claims = list(db.scalars(select(ClaimRow).where(ClaimRow.item_id == item_id)).all())
-        record = register_return(actor=user, item=item, item_claims=claims, return_id=random_id("return"), now=now())
+        assert_allowed(can_register_return(user, item, claims))  # papel/estado primeiro (ITEM_RETURNED etc.)
+        accepted = next(c for c in claims if c.status == "accepted")
+        instant = now()
+        code_row = db.scalar(select(ReturnCodeRow).where(ReturnCodeRow.claim_id == accepted.id))
+        # Sem atalho para a administração: exige o código conferido, dentro da validade e ainda não usado.
+        rc.assert_ready_for_return(code_row, instant, settings.return_code_verify_ttl_seconds)
+        record = register_return(actor=user, item=item, item_claims=claims, return_id=random_id("return"), now=instant)
+        code_row.used_at = instant  # mesma transação da devolução: tudo ou nada
         db.add(record)
         audit.record(
-            db, now(), audit.RETURN_REGISTER, actor_id=user.id, target_type="item", target_id=item_id,
-            ip=client_ip(request), metadata={"returnId": record.id, "claimId": record.claim_id}, commit=False,
+            db, instant, audit.RETURN_REGISTER, actor_id=user.id, target_type="item", target_id=item_id,
+            ip=client_ip(request), metadata={"returnId": record.id, "claimId": record.claim_id, "codeVerified": True},
+            commit=False,
         )
         db.commit()
     return _view(db, record, user)

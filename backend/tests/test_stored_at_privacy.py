@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.models import ClaimRow, ItemRow
 from app.rules.items import can_view_stored_at
-from tests.conftest import FIXED_NOW, ITEM_FORM, password_login
+from tests.conftest import FIXED_NOW, ITEM_FORM, do_return_flow, password_login
 from tests.helpers import CLAIM
 
 ITEM_IDS = [f"item-{n:02d}" for n in range(1, 12)]
@@ -202,7 +202,7 @@ def test_flow_pending_accept_return(client, admin, marina, teacher, lucas):
     assert client.get("/items/item-03", headers=lucas).status_code == 200 and stored_of(client, lucas, "item-03") is None
     assert other
 
-    done = client.post(f"/items/{iid}/return", headers=admin)
+    done = do_return_flow(client, lucas, admin, cid)
     assert done.status_code == 201 and done.json()["item"]["storedAt"] == mark  # admin
     assert stored_of(client, lucas, iid) is None  # devolvido: volta a ficar oculto
     assert in_my_claims(client, lucas, iid)[1] == [None]

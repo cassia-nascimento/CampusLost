@@ -23,6 +23,12 @@ describe("cleanAuditMetadata (nunca grava segredos)", () => {
       }),
     ).toEqual({ method: "password", from: "student", autoRejected: 2, flag: true });
   });
+  it("mantém só o indicador `codeVerified` (nunca o código)", () => {
+    expect(cleanAuditMetadata({ returnId: "r1", codeVerified: true, code: "K7M29QXB", returnCode: "K7M29QXB", codeHash: "h" })).toEqual({
+      returnId: "r1",
+      codeVerified: true,
+    });
+  });
   it("sem nada a guardar vira null; valores longos são cortados; objetos viram texto", () => {
     expect(cleanAuditMetadata(undefined)).toBeNull();
     expect(cleanAuditMetadata({ token: "x" })).toBeNull();

@@ -70,14 +70,16 @@ export function getClaimMessages({ claimStatus, itemStatus, returnedAt, storedAt
       {
         const accepted = "Sua reivindicação foi aceita. Procure a administração para retirar o item.";
         const where = storedAt ? ` Ele está guardado em ${storedAt}.` : "";
+        // Convite ao código de retirada (sem citar o local de novo): o botão do aviso leva a Minhas reivindicações.
+        const notice = `${accepted}${where} Gere seu código de retirada em Minhas reivindicações.`;
         return {
           noticeTitle: "Reivindicação aceita",
-          notice: accepted + where,
+          notice,
           nextStep: {
             highlight: "Aceita!",
-            text: `Procure a administração para retirar o item.${where}`,
+            text: `Procure a administração para retirar o item.${where} Leve o código de retirada.`,
           },
-          blocked: accepted + where,
+          blocked: notice,
         };
       }
 

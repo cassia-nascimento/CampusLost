@@ -151,12 +151,34 @@ describe("mapeamento (API.md §3)", () => {
         item: rawItem,
         returnedTo: rawUser,
         registeredBy: { id: "user-admin", name: "Admin", role: "admin" },
+        codeVerifiedAt: "2026-10-22T15:50:00.000Z",
       },
     });
     const ret = await services.returns.register("item-03");
     expect(api.calls[1].url.pathname).toBe("/items/item-03/return");
     expect(ret.item.photoDataUrl).toContain("/uploads/seed/");
     expect(ret.registeredBy.name).toBe("Admin");
+    expect(ret.codeVerifiedAt).toBe("2026-10-22T15:50:00.000Z");
+  });
+
+  it("devolução antiga (sem codeVerifiedAt na resposta) vira null", async () => {
+    const { api, services } = createHarness();
+    api.reply({
+      json: [
+        {
+          id: "return-00",
+          itemId: "item-10",
+          claimId: "claim-08",
+          returnedToId: "user-beatriz",
+          registeredById: "user-admin",
+          returnedAt: "2026-10-01T16:00:00.000Z",
+          item: rawItem,
+          returnedTo: rawUser,
+          registeredBy: { id: "user-admin", name: "Admin", role: "admin" },
+        },
+      ],
+    });
+    expect((await services.returns.list())[0].codeVerifiedAt).toBeNull();
   });
 
   it("resposta com formato errado vira UNEXPECTED (sem vazar detalhes)", async () => {
@@ -750,5 +772,95 @@ describe("demonstração", () => {
       message: "A demonstração não está disponível neste servidor.",
     });
     expect(services.demo.persistence()).toBe("durable");
+  });
+});
+
+describe("código de retirada (contrato REST)", () => {
+  const adminStatus = {
+    issued: true,
+    issuedAt: "2026-10-22T15:00:00.000Z",
+    verified: true,
+    verifiedAt: "2026-10-22T15:10:00.000Z",
+    verifiedUntil: "2026-10-22T15:25:00.000Z",
+    attemptsLeft: 5,
+    lockedUntil: null,
+  };
+
+  it("gerar: POST /claims/{id}/return-code devolve o código (única vez) e avisa a UI", async () => {
+    const { api, services } = createHarness();
+    let notified = 0;
+    services.subscribe(() => notified++);
+    api.reply({ json: { code: "K7M2-9QXB", issuedAt: "2026-10-22T15:00:00.000Z" } });
+    const issued = await services.claims.issueReturnCode("claim-04");
+    expect(api.calls[0]).toMatchObject({ method: "POST" });
+    expect(api.calls[0].url.pathname).toBe("/claims/claim-04/return-code");
+    expect(issued).toEqual({ code: "K7M2-9QXB", issuedAt: "2026-10-22T15:00:00.000Z" });
+    expect(notified).toBeGreaterThan(0);
+  });
+
+  it("gerar: resposta sem código vira UNEXPECTED; 403 e 409 mantêm código e mensagem do servidor", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { issuedAt: "2026-10-22T15:00:00.000Z" } });
+    expect((await failure(services.claims.issueReturnCode("claim-04"))).code).toBe("UNEXPECTED");
+    api.reply({ status: 403, json: { code: "FORBIDDEN", message: "Somente quem fez a reivindicação pode gerar o código de retirada." } });
+    expect(await failure(services.claims.issueReturnCode("claim-04"))).toMatchObject({ code: "FORBIDDEN" });
+    api.reply({ status: 409, json: { code: "INVALID_TRANSITION", message: "Só reivindicações aceitas, de itens aguardando devolução, têm código de retirada." } });
+    expect(await failure(services.claims.issueReturnCode("claim-04"))).toMatchObject({
+      code: "INVALID_TRANSITION",
+      message: "Só reivindicações aceitas, de itens aguardando devolução, têm código de retirada.",
+    });
+  });
+
+  it("consultar: GET devolve só o que o servidor enviou (dono sem campos de administração; administração com todos)", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: { issued: true, issuedAt: "2026-10-22T15:00:00.000Z" } }, { json: { issued: false, issuedAt: null } }, { json: adminStatus });
+    expect(await services.claims.getReturnCodeStatus("claim-04")).toEqual({ issued: true, issuedAt: "2026-10-22T15:00:00.000Z" });
+    expect(api.calls[0]).toMatchObject({ method: "GET" });
+    expect(api.calls[0].url.pathname).toBe("/claims/claim-04/return-code");
+    const none = await services.claims.getReturnCodeStatus("claim-04");
+    expect(none).toEqual({ issued: false, issuedAt: null });
+    expect("verified" in none).toBe(false);
+    expect(await services.claims.getReturnCodeStatus("claim-04")).toEqual(adminStatus);
+  });
+
+  it("validar: POST .../return-code/verify com { code } e devolve o estado de administração", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: adminStatus });
+    expect(await services.returns.verifyCode("claim/04", "k7m2-9qxb")).toEqual(adminStatus);
+    expect(api.calls[0]).toMatchObject({ method: "POST" });
+    expect(api.calls[0].url.pathname).toBe("/claims/claim%2F04/return-code/verify");
+    expect(JSON.parse(String(api.calls[0].body))).toEqual({ code: "k7m2-9qxb" }); // normalizar é com o servidor
+  });
+
+  it("validar: 422 traz fieldErrors.code; 409 'ainda não gerou'; 429 mantém a mensagem do servidor", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 422, json: { code: "VALIDATION", message: "Confira os campos destacados.", fieldErrors: { code: "Código incorreto. Restam 4 tentativas." } } });
+    expect(await failure(services.returns.verifyCode("claim-04", "2222-2222"))).toMatchObject({
+      code: "VALIDATION",
+      fieldErrors: { code: "Código incorreto. Restam 4 tentativas." },
+    });
+    api.reply({ status: 409, json: { code: "INVALID_TRANSITION", message: "A pessoa ainda não gerou o código de retirada. Peça para ela gerar em Minhas reivindicações." } });
+    expect(await failure(services.returns.verifyCode("claim-04", "2222-2222"))).toMatchObject({
+      code: "INVALID_TRANSITION",
+      message: "A pessoa ainda não gerou o código de retirada. Peça para ela gerar em Minhas reivindicações.",
+    });
+    api.reply({
+      status: 429,
+      json: { code: "RATE_LIMITED", message: "Muitas tentativas incorretas. Aguarde 15 minutos para tentar de novo." },
+      headers: { "Retry-After": "900" },
+    });
+    expect(await failure(services.returns.verifyCode("claim-04", "2222-2222"))).toMatchObject({
+      code: "RATE_LIMITED",
+      message: "Muitas tentativas incorretas. Aguarde 15 minutos para tentar de novo.",
+    });
+  });
+
+  it("confirmar sem validar: 409 INVALID_TRANSITION com a mensagem do servidor", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 409, json: { code: "INVALID_TRANSITION", message: "Valide o código de retirada antes de confirmar a entrega." } });
+    expect(await failure(services.returns.register("item-05"))).toMatchObject({
+      code: "INVALID_TRANSITION",
+      message: "Valide o código de retirada antes de confirmar a entrega.",
+    });
   });
 });

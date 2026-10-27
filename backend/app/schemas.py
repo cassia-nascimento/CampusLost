@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from datetime import datetime
+
 from .clock import to_iso
 from .models import ClaimRow, ItemRow, ReturnRow, UserRow
 from .rules.decision import Decision
@@ -82,9 +84,14 @@ def return_json(r: ReturnRow) -> dict[str, Any]:
     }
 
 
-def return_view_json(r: ReturnRow, item: ItemRow, returned_to: UserRow, registered_by: UserRow, viewer: UserRow | None, stored_visible: bool) -> dict[str, Any]:
+def return_view_json(
+    r: ReturnRow, item: ItemRow, returned_to: UserRow, registered_by: UserRow, viewer: UserRow | None, stored_visible: bool,
+    code_verified_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Visão administrativa. `codeVerifiedAt`: quando o código de retirada foi conferido (`null` em devoluções legadas)."""
     return {
         **return_json(r),
+        "codeVerifiedAt": to_iso(code_verified_at),
         "item": item_json(item, viewer, stored_visible),
         "returnedTo": user_json(returned_to),
         "registeredBy": public_user_json(registered_by),

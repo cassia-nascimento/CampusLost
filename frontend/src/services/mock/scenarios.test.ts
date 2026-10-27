@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { addDays, toLocalDateString } from "@/lib/rules/dates";
 import { DEMO_PASSWORD } from "./seed";
 import { DB_KEY, SESSION_KEY } from "./store";
-import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness, signInAsRafael, userOf } from "./test-utils";
+import { createHarness, deliverItem, expectCode, fakeFile, validClaim, validItem, type Harness, signInAsRafael, userOf } from "./test-utils";
 
 const CREATOR_MESSAGE = "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração.";
 
@@ -425,7 +425,7 @@ describe("RF05 — devolução", () => {
     await expectCode(h.services.returns.register("item-01"), "INVALID_TRANSITION"); // Disponível
 
     h.advance(5000);
-    const view = await h.services.returns.register("item-05"); // aceita: Marina
+    const view = await deliverItem(h, "item-05"); // aceita: Marina (gera o código, a administração valida e confirma)
     expect(view).toMatchObject({
       itemId: "item-05",
       claimId: "claim-04",
@@ -455,7 +455,7 @@ describe("RF05 — devolução", () => {
     const claim = await h.services.claims.create(item.id, validClaim);
     await as(h, "admin");
     await h.services.claims.accept(claim.id);
-    const ret = await h.services.returns.register(item.id);
+    const ret = await deliverItem(h, item.id);
     expect(ret.returnedTo.id).toBe("user-marina");
     expect((await h.services.returns.list()).map((r) => r.itemId)).toContain(item.id);
     await as(h, "student");
@@ -549,7 +549,7 @@ describe("invariantes da máquina de estados após sequências de operações", 
     await as(h, "admin");
     await h.services.claims.accept("claim-06");
     await expectCode(h.services.claims.accept("claim-07"), "INVALID_TRANSITION"); // recusada automaticamente
-    await h.services.returns.register("item-07");
+    await deliverItem(h, "item-07");
     await expectCode(h.services.claims.reject("claim-06"), "ITEM_RETURNED");
     const detail = await h.services.items.get("item-07");
     expect(detail.claims.filter((c) => c.status === "accepted")).toHaveLength(1);
@@ -892,7 +892,7 @@ describe("privacidade de storedAt imposta no serviço (administração e reivind
     await h.services.auth.signOut();
 
     await as(h, "admin");
-    await h.services.returns.register(itemId);
+    await deliverItem(h, itemId);
     expect(await sees()).toBe(true); // admin sempre vê
     await h.services.auth.signOut();
 
@@ -947,7 +947,7 @@ describe("privacidade de storedAt imposta no serviço (administração e reivind
     expect((await h.services.claims.listByItem("item-05")).every((c) => c.item.storedAt)).toBe(true);
     const decision = await h.services.claims.accept("claim-06");
     expect(decision.item.storedAt).toBe("Portaria");
-    const returned = await h.services.returns.register("item-05");
+    const returned = await deliverItem(h, "item-05");
     expect(returned.item.storedAt).toBe("Portaria");
     expect((await h.services.returns.list()).every((r) => r.item.storedAt)).toBe(true);
   });

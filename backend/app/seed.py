@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from .clock import add_days_str, local_today, trunc_ms, utc_now
 from .config import Settings, load_settings
-from .models import Base, ClaimRow, EmailTokenRow, ItemRow, LoginAttemptRow, ReturnRow, SessionRow, UserRow
+from .models import Base, ClaimRow, EmailTokenRow, ItemRow, LoginAttemptRow, ReturnCodeRow, ReturnRow, SessionRow, UserRow
 from .photos import install_seed_images, purge_uploaded_photos
 from .security import hash_password
 
@@ -101,7 +101,7 @@ def seed_database(session: Session, settings: Settings, now=None) -> None:
         {c.name: getattr(s, c.name) for c in SessionRow.__table__.columns}
         for s in session.scalars(select(SessionRow).where(SessionRow.user_id.in_(seed_ids)))
     ]
-    for model in (ReturnRow, ClaimRow, ItemRow, SessionRow, EmailTokenRow, LoginAttemptRow, UserRow):
+    for model in (ReturnCodeRow, ReturnRow, ClaimRow, ItemRow, SessionRow, EmailTokenRow, LoginAttemptRow, UserRow):
         session.execute(delete(model))
 
     created = at(24 * 30)

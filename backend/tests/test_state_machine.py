@@ -7,7 +7,7 @@ item-07 em reivindicação (claim-06 Marina, claim-07 Beatriz pendentes); item-1
 
 from __future__ import annotations
 
-from tests.conftest import ITEM_FORM, login, password_login
+from tests.conftest import ITEM_FORM, do_return_flow, login, password_login
 
 BODY = {"proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWhen": "Biblioteca, ontem de manhã."}
 
@@ -201,7 +201,7 @@ def test_ac05_1_viewer_register_return_only_with_accepted_claim(client, admin):
 
 
 def test_ac05_2_return_flow(client, admin, student):
-    r = client.post("/items/item-05/return", headers=admin)
+    r = do_return_flow(client, student, admin, "claim-04")
     assert r.status_code == 201
     view = r.json()
     assert view["itemId"] == "item-05" and view["claimId"] == "claim-04"
@@ -272,6 +272,6 @@ def test_full_flow_register_claim_accept_return(client, student, teacher, admin)
     assert client.post(f"/items/{item_id}/claims", json=BODY, headers=student).status_code == 201
     claim_id = client.get(f"/items/{item_id}/claims", headers=admin).json()[0]["id"]
     assert client.post(f"/claims/{claim_id}/accept", headers=admin).status_code == 200
-    ret = client.post(f"/items/{item_id}/return", headers=admin)
+    ret = do_return_flow(client, student, admin, claim_id)
     assert ret.status_code == 201 and ret.json()["returnedToId"] == "user-marina"
     assert item_id not in [i["id"] for i in client.get("/items", headers=student).json()]

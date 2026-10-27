@@ -86,6 +86,7 @@ Veja `.env.example`. Nenhum valor real é versionado.
 | `GOOGLE_ALLOWED_DOMAINS` | `undb.edu.br` | Domínio exato ou subdomínio (hipótese P30). |
 | `APP_TIMEZONE` | `America/Fortaleza` | Fuso das datas de calendário ("hoje", filtros de período). |
 | `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `10` / `60` | Falhas de login por IP + e-mail até bloquear / duração do 1º bloqueio (dobra a cada novo, até 1 h). Persistido no banco. |
+| `RETURN_CODE_MAX_ATTEMPTS` / `RETURN_CODE_LOCK_SECONDS` / `RETURN_CODE_VERIFY_TTL_SECONDS` | `5` / `900` / `900` | Código de retirada da devolução: falhas até bloquear / duração do bloqueio / validade da conferência antes de confirmar a entrega. |
 | `MAIL_BACKEND` | `console` (dev) / `smtp` (produção) | `console` imprime o link no log; produção **exige** `smtp`. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | — / `587` / — / — / — | SMTP com STARTTLS. `SMTP_HOST` e `SMTP_FROM` são obrigatórios com `MAIL_BACKEND=smtp`. A senha nunca é logada. |
 | `APP_BASE_URL` | `http://localhost:3000` | Base dos links dos e-mails (`/verificar-email`, `/redefinir-senha`). |

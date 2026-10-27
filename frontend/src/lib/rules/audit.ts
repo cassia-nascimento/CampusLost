@@ -7,6 +7,8 @@ import { sha1Hex } from "./totp";
 
 const SENSITIVE_PARTS = ["password", "senha", "token", "secret", "segredo", "code", "codigo", "hash", "credential", "cookie"];
 const MAX_VALUE_LENGTH = 200;
+/** Chaves que contêm "code" mas são só um indicador (nunca o código em si). */
+const SAFE_KEYS: ReadonlySet<string> = new Set(["codeVerified"]);
 
 export type AuditMetadata = Record<string, string | number | boolean | null>;
 
@@ -15,7 +17,7 @@ export function cleanAuditMetadata(meta: Record<string, unknown> | null | undefi
   const out: AuditMetadata = {};
   for (const [key, value] of Object.entries(meta)) {
     const lower = key.toLowerCase();
-    if (SENSITIVE_PARTS.some((part) => lower.includes(part))) continue;
+    if (!SAFE_KEYS.has(key) && SENSITIVE_PARTS.some((part) => lower.includes(part))) continue;
     if (typeof value === "boolean" || typeof value === "number" || value === null) out[key] = value;
     else if (value !== undefined) out[key] = String(value).slice(0, MAX_VALUE_LENGTH);
   }

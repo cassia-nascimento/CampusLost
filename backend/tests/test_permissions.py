@@ -25,7 +25,7 @@ CASES = [
     ("claims.get", "GET", "/claims/claim-01", {}, dict(guest=401, user=403, external=403, admin=200)),
     ("claims.accept", "POST", "/claims/claim-01/accept", {}, dict(guest=401, user=403, external=403, admin=200)),
     ("claims.reject", "POST", "/claims/claim-01/reject", {}, dict(guest=401, user=403, external=403, admin=200)),
-    ("returns.register", "POST", "/items/item-05/return", {}, dict(guest=401, user=403, external=403, admin=201)),
+    ("returns.register", "POST", "/items/item-05/return", {}, dict(guest=401, user=403, external=403, admin=409)),  # admin passa da autorização; sem código conferido -> 409 (fluxo completo em test_return_code.py)
     ("returns.list", "GET", "/returns", {}, dict(guest=401, user=403, external=403, admin=200)),
 ]
 

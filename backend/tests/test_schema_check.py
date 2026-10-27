@@ -88,3 +88,12 @@ def test_banco_sem_category_detail_e_acusado(tmp_path):
 def test_stored_at_e_obrigatorio_no_esquema(tmp_path):
     cols = {c["name"]: c["nullable"] for c in inspect(_engine(tmp_path)).get_columns("items")}
     assert cols["stored_at"] is False and cols["category_detail"] is True
+
+
+def test_tabela_return_codes_ausente_e_acusada(tmp_path):
+    engine = _engine(tmp_path)
+    with engine.begin() as c:
+        c.execute(text("DROP TABLE return_codes"))
+    with pytest.raises(SchemaOutdatedError) as exc:
+        ensure_schema_current(engine)
+    assert "return_codes" in str(exc.value) and "alembic upgrade head" in str(exc.value)

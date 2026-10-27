@@ -28,6 +28,10 @@ USER_ENABLE = "user.enable"
 CLAIM_ACCEPT = "claim.accept"
 CLAIM_REJECT = "claim.reject"
 RETURN_REGISTER = "return.register"
+RETURN_CODE_ISSUE = "return_code.issue"
+RETURN_CODE_VERIFY = "return_code.verify"
+RETURN_CODE_FAILURE = "return_code.failure"
+RETURN_CODE_LOCKED = "return_code.locked"
 ITEM_DELETE = "item.delete"
 ACCOUNT_DELETE = "account.delete"
 TWOFA_ENABLE = "2fa.enable"
@@ -39,6 +43,8 @@ INVITE_ACCEPT = "invite.accept"
 
 _SENSITIVE_PARTS = ("password", "senha", "token", "secret", "segredo", "code", "codigo", "hash", "credential", "cookie")
 _MAX_VALUE = 200
+# Chaves que contêm um termo sensível mas são só indicadores booleanos (nunca o segredo em si).
+_SAFE_BOOL_KEYS = ("codeVerified",)
 
 
 def email_fingerprint(email: str) -> str:
@@ -51,6 +57,10 @@ def clean_metadata(meta: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
     out: dict[str, Any] = {}
     for key, value in meta.items():
+        if key in _SAFE_BOOL_KEYS:
+            if isinstance(value, bool):
+                out[key] = value
+            continue
         if any(part in str(key).lower() for part in _SENSITIVE_PARTS):
             continue
         if isinstance(value, (bool, int, float)) or value is None:

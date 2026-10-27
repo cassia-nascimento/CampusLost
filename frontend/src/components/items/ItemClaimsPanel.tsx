@@ -9,7 +9,7 @@ import type { ClaimWithClaimant } from "@/services";
 export interface ItemClaimsPanelProps {
   /** `detail.claims`: todas as reivindicações do item (só a administração as recebe). */
   claims: ClaimWithClaimant[];
-  /** `detail.viewer.registerReturn`: decide se o aviso de "falta registrar a devolução" aparece. */
+  /** `detail.viewer.registerReturn`: decide se o aviso de "falta confirmar a entrega" aparece. */
   registerReturn: Decision;
 }
 
@@ -17,8 +17,8 @@ export interface ItemClaimsPanelProps {
 const reviewHref = (claim: ClaimWithClaimant) => withOrigin(`/admin/reivindicacoes/${claim.id}`, `/itens/${claim.itemId}`);
 
 /**
- * Reivindicações do item para a administração (DESIGN §9.4). A análise (aceitar/recusar) e o registro da
- * devolução acontecem em `/admin/reivindicacoes/[id]`; aqui só há links para lá.
+ * Reivindicações do item para a administração (DESIGN §9.4). A análise (aceitar/recusar) e a confirmação da
+ * entrega acontecem em `/admin/reivindicacoes/[id]`; aqui só há links para lá.
  */
 export function ItemClaimsPanel({ claims, registerReturn }: ItemClaimsPanelProps) {
   const accepted = claims.find((claim) => claim.status === "accepted");
@@ -35,11 +35,11 @@ export function ItemClaimsPanel({ claims, registerReturn }: ItemClaimsPanelProps
           title="Pronto para devolução"
           action={
             <LinkButton href={reviewHref(accepted)} variant="secondary">
-              Registrar devolução
+              Confirmar entrega
             </LinkButton>
           }
         >
-          A reivindicação de {accepted.claimant.name} foi aceita. Falta registrar a devolução.
+          A reivindicação de {accepted.claimant.name} foi aceita. Falta confirmar a entrega, com o código de retirada.
         </Notice>
       ) : null}
 

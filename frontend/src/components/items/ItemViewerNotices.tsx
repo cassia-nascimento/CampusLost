@@ -28,7 +28,7 @@ function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) 
       title={message.noticeTitle}
       action={
         <LinkButton href={MY_CLAIMS_HREF} variant="secondary">
-          Ver minha reivindicação
+          {claim.status === "accepted" && item.status !== "returned" ? "Gerar código de retirada" : "Ver minha reivindicação"}
         </LinkButton>
       }
     >

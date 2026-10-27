@@ -79,6 +79,25 @@ export interface AuditRecord {
   metadata: Record<string, string | number | boolean | null> | null;
 }
 
+/**
+ * Código de retirada de uma reivindicação aceita (um registro por reivindicação; gerar de novo o substitui).
+ * Guarda SÓ o hash (SHA-256 de `claimId:CÓDIGO`); o código em claro existe apenas na resposta de `issueReturnCode`.
+ */
+export interface ReturnCodeRecord {
+  id: string;
+  claimId: string;
+  itemId: string;
+  codeHash: string;
+  issuedAt: string;
+  /** Erros seguidos desde a última conferência certa ou bloqueio (zera ao bloquear). */
+  failedAttempts: number;
+  lockedUntil: string | null;
+  verifiedAt: string | null;
+  verifiedById: string | null;
+  /** Preenchido quando a conferência foi consumida pela confirmação da entrega (uso único). */
+  usedAt: string | null;
+}
+
 export interface Db {
   /** Versão do formato persistido; muda junto com a chave do store. */
   version: number;
@@ -89,6 +108,8 @@ export interface Db {
   items: Item[];
   claims: Claim[];
   returns: ReturnRecord[];
+  /** Códigos de retirada (só hash). */
+  returnCodes: ReturnCodeRecord[];
   accounts: AccountMeta[];
   twoFactor: TwoFactorRecord[];
   invites: InviteRecord[];
@@ -111,9 +132,10 @@ export const AUDIT_LIMIT = 500;
  * (`/seed/*.webp`); `mochila` e `carregador` seguem ilustrações SVG (P27). O banco v6 é descartado.
  * v8: `categoryOther` nos itens ("Outros" traz a especificação), `foundLocation` virou texto livre e `storedAt` é
  * opcional/privado (só a administração o recebe). O banco v7 é descartado.
+ * v9: `returnCodes` (código de retirada: só o hash; a entrega exige a conferência). O banco v8 é descartado.
  * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 
 /** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
 export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
@@ -422,6 +444,6 @@ export function buildSeed(now: Date): Db {
   return { version: DB_VERSION, users: USERS.map((u) => ({ ...u })),
     credentials: [...DEMO_CREDENTIALS.map((c) => ({ ...c })), { userId: "user-tiago", provider: "google" as const }],
     tokens: [],
-    items, claims, returns,
+    items, claims, returns, returnCodes: [],
     accounts, twoFactor: [], invites, audit };
 }

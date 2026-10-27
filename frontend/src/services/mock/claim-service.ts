@@ -1,9 +1,18 @@
 import { ServiceError, type Claim, type User } from "@/types/domain";
-import { assertAllowed, canViewClaim, reviewClaim, submitClaim } from "@/lib/rules";
+import {
+  assertAllowed,
+  canIssueReturnCode,
+  canViewClaim,
+  formatReturnCode,
+  generateReturnCode,
+  reviewClaim,
+  submitClaim,
+} from "@/lib/rules";
 import { claimSchema } from "@/lib/validation";
-import type { ClaimDecisionResult, ClaimService, ClaimView } from "../contracts";
+import type { ClaimDecisionResult, ClaimService, ClaimView, IssuedReturnCode, ReturnCodeStatus } from "../contracts";
 import { recordAudit } from "./audit";
 import { findItem, findUser, parseInput, requireSession, requireUser, type MockContext } from "./context";
+import { adminReturnCodeStatus, hashReturnCode, ownerReturnCodeStatus } from "./return-code";
 import type { Db } from "./seed";
 import { toViewerItem } from "./viewer";
 
@@ -105,5 +114,61 @@ export function createClaimService(ctx: MockContext): ClaimService {
 
     accept: (claimId) => decide(claimId, "accept"),
     reject: (claimId) => decide(claimId, "reject"),
+
+    issueReturnCode: (claimId) =>
+      ctx.run("claims.issueReturnCode", async (who): Promise<IssuedReturnCode> => {
+        // O sorteio e o hash (assíncrono) ficam fora da transação síncrona; dentro dela só se grava o hash.
+        const code = generateReturnCode(ctx.randomBytes);
+        const codeHash = await hashReturnCode(claimId, code);
+        return store.transaction((db) => {
+          const actor = requireSession(db, who);
+          const claim = db.claims.find((c) => c.id === claimId);
+          if (!claim) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
+          assertAllowed(canIssueReturnCode(actor, findItem(db, claim.itemId), claim));
+          const issuedAt = ctx.now().toISOString();
+          const current = db.returnCodes.find((r) => r.claimId === claimId);
+          if (current) {
+            // Novo código: invalida o anterior e zera a conferência; tentativas e bloqueio permanecem.
+            Object.assign(current, { codeHash, issuedAt, verifiedAt: null, verifiedById: null, usedAt: null });
+          } else {
+            db.returnCodes.push({
+              id: ctx.newId("returncode"),
+              claimId,
+              itemId: claim.itemId,
+              codeHash,
+              issuedAt,
+              failedAttempts: 0,
+              lockedUntil: null,
+              verifiedAt: null,
+              verifiedById: null,
+              usedAt: null,
+            });
+          }
+          recordAudit(ctx, db, {
+            actorId: actor.id,
+            action: "return_code.issue",
+            target: ["claim", claimId],
+            metadata: { itemId: claim.itemId, reissued: current !== undefined },
+          });
+          return { code: formatReturnCode(code), issuedAt };
+        });
+      }),
+
+    getReturnCodeStatus: (claimId) =>
+      ctx.run("claims.getReturnCodeStatus", (who): ReturnCodeStatus => {
+        const db = store.read();
+        const user = requireSession(db, who);
+        const claim = db.claims.find((c) => c.id === claimId);
+        if (!claim) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
+        const record = db.returnCodes.find((r) => r.claimId === claimId);
+        if (user.role === "admin") {
+          ctx.requireAdmin(db, who, "register_return");
+          return adminReturnCodeStatus(record, ctx.now());
+        }
+        if (claim.claimantId !== user.id) {
+          throw new ServiceError("FORBIDDEN", "Você não tem permissão para ver o código de retirada desta reivindicação.");
+        }
+        return ownerReturnCodeStatus(record);
+      }),
   };
 }

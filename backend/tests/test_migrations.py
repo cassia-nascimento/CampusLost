@@ -18,7 +18,7 @@ from app.models import Base
 from tests.conftest import FIXED_NOW, Clock, make_settings
 
 BACKEND = Path(__file__).resolve().parent.parent
-EXPECTED_TABLES = {"users", "sessions", "email_tokens", "login_attempts", "items", "claims", "returns", "audit_log", "recovery_codes", "admin_invites", "alembic_version"}
+EXPECTED_TABLES = {"users", "sessions", "email_tokens", "login_attempts", "items", "claims", "returns", "audit_log", "recovery_codes", "admin_invites", "return_codes", "alembic_version"}
 
 
 def alembic_config(url: str) -> Config:
@@ -156,7 +156,7 @@ def test_0004_preserves_existing_items_and_keeps_stored_at_required(tmp_path):
         row = conn.execute(text("SELECT id, title, description, category, found_location, found_date, stored_at, photo_url, status, created_by_id, created_at, category_detail FROM items")).one()
         diff = compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True}), Base.metadata)
     assert tuple(row) == ("i1", "Chaveiro", "Chaveiro com três chaves.", "Chaves", "Biblioteca", "2026-10-20", "Portaria", "/uploads/a.jpg", "available", "u1", "2026-10-21 10:00:00", None)
-    assert diff == []
+    assert [(d[0], d[1].name) for d in diff] == [("add_table", "return_codes")]  # só falta a 0005
     stored = {c["name"]: c["nullable"] for c in inspect(engine).get_columns("items")}["stored_at"]
     assert stored is False  # o local de guarda continua obrigatório (NOT NULL)
     insert_i2 = (
@@ -176,4 +176,53 @@ def test_0004_preserves_existing_items_and_keeps_stored_at_required(tmp_path):
     assert back["i1"] == ("Biblioteca", "Portaria")
     assert back["i2"] == (loc[:40], "Secretaria")
     assert "category_detail" not in cols
+    engine.dispose()
+
+
+def test_0005_creates_return_codes_keeping_all_existing_data(tmp_path):
+    from sqlalchemy import text
+
+    url = f"sqlite:///{tmp_path / 'codes.db'}"
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "0004")
+    engine = create_engine(url)
+    assert "return_codes" not in inspect(engine).get_table_names()
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO users (id, name, email, role, affiliation, provider, created_at, token_version) "
+            "VALUES ('u1', 'Ana', 'ana@exemplo.com', 'user', 'institutional', 'password', '2026-10-01 00:00:00', 0), "
+            "('a1', 'Adm', 'adm@exemplo.com', 'admin', 'institutional', 'password', '2026-10-01 00:00:00', 0)"
+        ))
+        conn.execute(text(
+            "INSERT INTO items (id, title, description, category, found_location, found_date, stored_at, status, created_by_id, created_at) "
+            "VALUES ('i1', 'Chaveiro', 'Chaveiro com três chaves.', 'Chaves', 'Biblioteca', '2026-10-20', 'Portaria', 'returned', 'a1', '2026-10-21 10:00:00')"
+        ))
+        conn.execute(text(
+            "INSERT INTO claims (id, item_id, claimant_id, proof_details, lost_where_when, status, created_at) "
+            "VALUES ('c1', 'i1', 'u1', 'Prova', 'Biblioteca', 'accepted', '2026-10-21 11:00:00')"
+        ))
+        conn.execute(text(
+            "INSERT INTO returns (id, item_id, claim_id, returned_to_id, registered_by_id, returned_at) "
+            "VALUES ('r1', 'i1', 'c1', 'u1', 'a1', '2026-10-22 12:00:00')"
+        ))
+    command.upgrade(cfg, "0005")
+    with engine.connect() as conn:
+        counts = {t: conn.execute(text(f"SELECT count(*) FROM {t}")).scalar() for t in ("users", "items", "claims", "returns", "return_codes")}
+        diff = compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True}), Base.metadata)
+    assert counts == {"users": 2, "items": 1, "claims": 1, "returns": 1, "return_codes": 0}  # legado preservado, sem códigos
+    assert diff == []
+    cols = {c["name"] for c in inspect(engine).get_columns("return_codes")}
+    assert cols == {"id", "claim_id", "item_id", "code_hash", "issued_at", "failed_attempts", "locked_until", "verified_at", "verified_by_id", "used_at"}
+    with engine.begin() as conn:  # um código por reivindicação (UNIQUE)
+        ins = ("INSERT INTO return_codes (id, claim_id, item_id, code_hash, issued_at, failed_attempts) "
+               "VALUES (:id, 'c1', 'i1', :h, '2026-10-22 12:00:00', 0)")
+        conn.execute(text(ins), {"id": "k1", "h": "0" * 64})
+    with pytest.raises(IntegrityError):
+        with engine.begin() as conn:
+            conn.execute(text(ins), {"id": "k2", "h": "1" * 64})
+    command.downgrade(cfg, "0004")
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM returns")).scalar() == 1
+        assert conn.execute(text("SELECT count(*) FROM claims")).scalar() == 1
+    assert "return_codes" not in inspect(engine).get_table_names()
     engine.dispose()

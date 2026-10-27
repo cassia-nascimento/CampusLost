@@ -146,3 +146,20 @@ def strict_app(tmp_path, clock, mailbox):
 def strict_client(strict_app):
     with TestClient(strict_app) as c:
         yield c
+
+
+# --- Código de retirada: o fluxo completo (gerar -> conferir -> confirmar a entrega) ----------------------------------
+def issue_return_code(client: TestClient, owner: dict[str, str], claim_id: str) -> str:
+    """O proprietário gera o código na própria conta; devolve o texto puro (`XXXX-XXXX`)."""
+    r = client.post(f"/claims/{claim_id}/return-code", headers=owner)
+    assert r.status_code == 200, r.text
+    return r.json()["code"]
+
+
+def do_return_flow(client: TestClient, owner: dict[str, str], admin: dict[str, str], claim_id: str):
+    """Gera o código (dono), confere (admin) e confirma a entrega (admin). Devolve a resposta de `POST /items/{id}/return`."""
+    code = issue_return_code(client, owner, claim_id)
+    r = client.post(f"/claims/{claim_id}/return-code/verify", json={"code": code}, headers=admin)
+    assert r.status_code == 200 and r.json()["verified"] is True, r.text
+    item_id = client.get(f"/claims/{claim_id}", headers=admin).json()["itemId"]
+    return client.post(f"/items/{item_id}/return", headers=admin)

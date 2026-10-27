@@ -11,7 +11,9 @@ import type {
   ClaimWithClaimant,
   ItemDetail,
   ItemView,
+  IssuedReturnCode,
   ItemViewerPermissions,
+  ReturnCodeStatus,
   ReturnView,
 } from "../contracts";
 
@@ -48,6 +50,8 @@ export interface Mappers {
   claimDecision(raw: unknown): ClaimDecisionResult;
   returnRecord(raw: unknown): ReturnRecord;
   returnView(raw: unknown): ReturnView;
+  returnCodeStatus(raw: unknown): ReturnCodeStatus;
+  issuedReturnCode(raw: unknown): IssuedReturnCode;
   itemDetail(raw: unknown): ItemDetail;
   user(raw: unknown): User;
 }
@@ -89,7 +93,27 @@ export function createMappers(baseUrl: string): Mappers {
       item: item(r.item),
       returnedTo: user(r.returnedTo),
       registeredBy: asRecord(r.registeredBy, "usuário") as unknown as PublicUser,
+      codeVerifiedAt: typeof r.codeVerifiedAt === "string" ? r.codeVerifiedAt : null,
     };
+  };
+  const nullableText = (value: unknown): string | null => (typeof value === "string" ? value : null);
+  /** Só repassa o que o servidor enviou: a visão do proprietário não traz os campos de administração. */
+  const returnCodeStatus = (raw: unknown): ReturnCodeStatus => {
+    const r = asRecord(raw, "código de retirada");
+    return {
+      issued: r.issued === true,
+      issuedAt: nullableText(r.issuedAt),
+      ...("verified" in r ? { verified: r.verified === true } : {}),
+      ...("verifiedAt" in r ? { verifiedAt: nullableText(r.verifiedAt) } : {}),
+      ...("verifiedUntil" in r ? { verifiedUntil: nullableText(r.verifiedUntil) } : {}),
+      ...(typeof r.attemptsLeft === "number" ? { attemptsLeft: r.attemptsLeft } : {}),
+      ...("lockedUntil" in r ? { lockedUntil: nullableText(r.lockedUntil) } : {}),
+    };
+  };
+  const issuedReturnCode = (raw: unknown): IssuedReturnCode => {
+    const r = asRecord(raw, "código de retirada");
+    if (typeof r.code !== "string" || typeof r.issuedAt !== "string") throw unexpected("código de retirada");
+    return { code: r.code, issuedAt: r.issuedAt };
   };
   const claimDecision = (raw: unknown): ClaimDecisionResult => {
     const r = asRecord(raw, "decisão");
@@ -111,5 +135,5 @@ export function createMappers(baseUrl: string): Mappers {
     };
   };
 
-  return { item, itemView, claim, claimView, claimWithClaimant, claimDecision, returnRecord, returnView, itemDetail, user };
+  return { item, itemView, claim, claimView, claimWithClaimant, claimDecision, returnRecord, returnView, returnCodeStatus, issuedReturnCode, itemDetail, user };
 }

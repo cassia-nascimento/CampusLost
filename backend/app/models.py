@@ -135,6 +135,24 @@ class ReturnRow(Base):
     returned_at: Mapped[datetime] = mapped_column(DateTime, index=True)
 
 
+class ReturnCodeRow(Base):
+    """Código de retirada (confirmação presencial da devolução). Uma linha por reivindicação aceita; só o HMAC do
+    código é guardado (o texto puro existe apenas na resposta de geração). Ver `app/rules/return_codes.py`."""
+
+    __tablename__ = "return_codes"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    claim_id: Mapped[str] = mapped_column(ForeignKey("claims.id", ondelete="CASCADE"), unique=True)
+    item_id: Mapped[str] = mapped_column(ForeignKey("items.id"))
+    code_hash: Mapped[str] = mapped_column(String(64))
+    issued_at: Mapped[datetime] = mapped_column(DateTime)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verified_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class AuditLogRow(Base):
     """Trilha de auditoria (B2). Sem FK de propósito: o registro sobrevive à remoção do usuário.
     `meta` nunca recebe senha, token, segredo ou código (ver `app/audit.py`)."""

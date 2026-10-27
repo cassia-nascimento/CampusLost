@@ -25,5 +25,13 @@ export function createClaimService(http: HttpClient, mappers: Mappers, changed: 
     },
     accept: (claimId) => decide(claimId, "accept"),
     reject: (claimId) => decide(claimId, "reject"),
+    async issueReturnCode(claimId) {
+      const issued = mappers.issuedReturnCode(await http.request("POST", `/claims/${enc(claimId)}/return-code`));
+      changed();
+      return issued;
+    },
+    async getReturnCodeStatus(claimId) {
+      return mappers.returnCodeStatus(await http.request("GET", `/claims/${enc(claimId)}/return-code`));
+    },
   };
 }

@@ -99,6 +99,10 @@ class Settings:
     invite_token_hours: int = 48
     twofa_challenge_minutes: int = 5
     backup_dir: Path = BACKEND_DIR / "data" / "backups"
+    # Código de retirada da devolução: tentativas erradas antes do bloqueio, duração do bloqueio e validade da conferência.
+    return_code_max_attempts: int = 5
+    return_code_lock_seconds: int = 900
+    return_code_verify_ttl_seconds: int = 900
 
     @property
     def enforce_admin_2fa(self) -> bool:
@@ -195,6 +199,9 @@ def load_settings(environ: dict[str, str] | None = None, *, read_dotenv: bool = 
         terms_version=(environ.get("TERMS_VERSION") or "2026-10").strip(),
         admin_require_2fa=None if (environ.get("ADMIN_REQUIRE_2FA") or "") == "" else _bool(environ.get("ADMIN_REQUIRE_2FA"), True),
         invite_token_hours=_int(environ.get("INVITE_TOKEN_HOURS"), 48),
+        return_code_max_attempts=_int(environ.get("RETURN_CODE_MAX_ATTEMPTS"), 5),
+        return_code_lock_seconds=_int(environ.get("RETURN_CODE_LOCK_SECONDS"), 900),
+        return_code_verify_ttl_seconds=_int(environ.get("RETURN_CODE_VERIFY_TTL_SECONDS"), 900),
         backup_dir=Path(environ["BACKUP_DIR"]).resolve() if (environ.get("BACKUP_DIR") or "").strip() else BACKEND_DIR / "data" / "backups",
     )
 

@@ -431,7 +431,8 @@ Por que só "Entrar" a 360 px: a área útil é 328 px; marca (141) + "Entrar" (
 - **ActionBar fixa** (formulário e detalhe, < 768 px): base da tela, `surface`, `shadow-bar`, `px-gutter`, `py-3`, `pb-safe`, botões `lg` de largura total; ≥ 768 px vira linha comum no fim do conteúdo (não fixa).
 - **PageHeader:** `h1` + (opcional) texto de apoio `ink-muted` + (opcional) ações à direita em ≥ 768 px.
 - **DefinitionList** (detalhe/análise): pares rótulo (`text-meta` `ink-subtle`) / valor (`text-body` `ink`), com ícone de 16 px no rótulo; empilhados em mobile, 2 colunas ≥ 640 px.
-- **ClaimCard** (minhas reivindicações / lista do admin): título do item, `ClaimStatusBadge`, "Enviada em …", texto de próximo passo por status (§10), ação "Ver item" / "Analisar".
+- **ClaimCard** (minhas reivindicações / lista do admin): título do item, `ClaimStatusBadge`, "Enviada em …", texto de próximo passo por status (§10), ação "Ver item" / "Analisar". Em reivindicação **aceita** de item ainda aguardando devolução, inclui a seção **"Código de retirada"** (`ReturnCodePanel`, fundo `paper`, borda `line`): texto "Gere o código e mostre-o à administração no momento da entrega. Ele é pessoal: não compartilhe." + `[ Gerar código de retirada ]` (primary). Ao gerar: o código em `font-mono` `text-h1` com `tracking-widest` (para o leitor de tela, texto `sr-only` letra a letra), `[ Copiar código ]` (clipboard com fallback; anúncio em `aria-live`) e "Anote ou mantenha esta tela aberta: ele não aparece de novo.". Já gerado: "Código gerado em {data}. Por segurança ele não é exibido de novo." + `[ Gerar novo código ]` (secondary) com o aviso "O código anterior deixa de valer.".
+- **Painel "Confirmar entrega"** (`ConfirmDeliveryPanel`, análise de reivindicação aceita, 360 px sem rolagem lateral): card `surface` com dois passos visíveis. **1. Validar o código de retirada**: `Field` "Código informado por {nome}" (`autoComplete="off"`, maiúsculas, `font-mono`, ajuda "Peça o código à pessoa no momento da entrega. Ela o gera em Minhas reivindicações." ligada por `aria-describedby`) + `[ Validar código ]`; erro de campo "Código incorreto. Restam k tentativas." com foco no campo; bloqueio em `Notice` warning com a hora de desbloqueio e contagem regressiva (`aria-hidden`, o texto fixo é anunciado); sucesso em `Notice` success "Código validado às {hora}. Confirme a entrega." dentro de região `aria-live`, campo travado e foco no passo 2; aviso info "Código ainda não gerado" quando a pessoa não gerou. **2. Confirmar a entrega**: `[ Confirmar entrega ]` primary, **desabilitado** até validar (texto "Disponível depois de validar o código."; exceção consciente à regra de não usar `disabled`, porque o estado vem do serviço e o motivo está escrito ao lado) e de volta a desabilitado quando a validação (15 min) expira; abre o diálogo "Registrar a devolução?".
 - **Tabela de devoluções** (≥ 768 px): `<table>` real com `<caption class="sr-only">`, `<th scope="col">`, cabeçalho `sunken`, linhas separadas por `line`, texto `text-body`; < 768 px vira lista de cards empilhados (mesmos dados, rótulos visíveis por linha).
 
 ## 7. Padrões de feedback
@@ -602,7 +603,7 @@ Desktop: PageHeader com `h1` + contagem; FilterBar em linha (Categoria · Local 
 | Usuário com reivindicação **Pendente** | Notice info: "Você já reivindicou este item. Acompanhe em Minhas reivindicações." + `[ Ver minha reivindicação ]` |
 | Usuário com reivindicação **Aceita** | Notice success: "Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em {local}." (a linha "Guardado em" também aparece nos dados do item; depois da devolução some) |
 | Usuário com reivindicação **Recusada** | Notice danger: "Sua reivindicação foi recusada. Não é possível enviar outra para este item. Se acha que foi engano, procure a administração." (AC04.7) |
-| **Administração**, item não devolvido | Linha: `[ Editar ]` secondary · `[ Excluir ]` danger-quiet; seção **"Reivindicações deste item (n)"** com ClaimCards `[ Analisar ]`; se houver reivindicação **Aceita**: `[ Registrar devolução ]` primary no topo da seção (AC05.1) |
+| **Administração**, item não devolvido | Linha: `[ Editar ]` secondary · `[ Excluir ]` danger-quiet; seção **"Reivindicações deste item (n)"** com ClaimCards `[ Analisar ]`; se houver reivindicação **Aceita**: `[ Confirmar entrega ]` (link para a análise) no topo da seção (AC05.1) |
 | Item **Devolvido** (acesso por link) | Notice neutral: "Este item já foi devolvido em 12/10/2026." Sem ações; admin sem Editar/Excluir (AC06.1) |
 
 Desktop (≥ 1024): foto à esquerda (≈ 5/12), coluna de dados à direita; botões no fim da coluna (não fixos).
@@ -752,7 +753,7 @@ Cada card mostra o status da **reivindicação** e, quando relevante, o do **ite
 +----------------------------------------+
 ```
 
-Desktop (≥ 1024): as duas listas **lado a lado** (sem abas), contagens em linha no topo. A lista **"Aguardando devolução"** (dica "Da aceitação mais antiga para a mais nova.") mostra **somente** itens com reivindicação **Aceita** ainda sem devolução: linha "{CircleCheck Aceita} Para Maria Exemplo* · aguardando devolução" + [ Registrar devolução ] (`aria-label` "Registrar devolução de {título}", leva à reivindicação aceita). Itens que só têm pendentes **não** aparecem aí: ficam apenas na fila "Reivindicações pendentes" ([ Analisar ]). Nos contadores e na aba mobile o rótulo curto "Para devolver" cabe em 320/360 px (o nome completo "Aguardando devolução" vai em texto só para leitor de tela nos contadores; a aba usa o rótulo curto porque `Tabs` ainda não aceita nome acessível próprio). Vazio da fila: "Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui." Vazio da lista: "Nenhum item aguardando devolução. Quando você aceitar uma reivindicação, o item aparece aqui." (opcional da SPEC: indicador de contagem de pendências no item "Painel" do nav).
+Desktop (≥ 1024): as duas listas **lado a lado** (sem abas), contagens em linha no topo. A lista **"Aguardando devolução"** (dica "Da aceitação mais antiga para a mais nova.") mostra **somente** itens com reivindicação **Aceita** ainda sem devolução: linha "{CircleCheck Aceita} Para Maria Exemplo* · aguardando devolução" + [ Confirmar entrega ] (`aria-label` "Confirmar entrega de {título}", leva à reivindicação aceita). Itens que só têm pendentes **não** aparecem aí: ficam apenas na fila "Reivindicações pendentes" ([ Analisar ]). Nos contadores e na aba mobile o rótulo curto "Para devolver" cabe em 320/360 px (o nome completo "Aguardando devolução" vai em texto só para leitor de tela nos contadores; a aba usa o rótulo curto porque `Tabs` ainda não aceita nome acessível próprio). Vazio da fila: "Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui." Vazio da lista: "Nenhum item aguardando devolução. Quando você aceitar uma reivindicação, o item aparece aqui." (opcional da SPEC: indicador de contagem de pendências no item "Painel" do nav).
 
 ### 9.9 `/admin/reivindicacoes/[id]` — Análise (aceitar/recusar)
 
@@ -785,9 +786,9 @@ Mobile (360)                              Desktop (≥ 768): duas colunas
 
 A comparação **lado a lado** (desktop/tablet) usa duas colunas de altura igual com títulos em versalete `text-meta` 600; em mobile empilha na mesma ordem (publicado → resposta). A barra de decisão é **fixa no rodapé** da área de análise (desktop: sticky na base da viewport) para estar sempre visível ao rolar respostas longas. Diálogos:
 
-- **Aceitar:** "Aceitar esta reivindicação?" — "As outras *n* reivindicações deste item serão recusadas automaticamente. O item continua Em reivindicação até você registrar a devolução." [Aceitar reivindicação] [Cancelar].
+- **Aceitar:** "Aceitar esta reivindicação?" — "As outras *n* reivindicações deste item serão recusadas automaticamente. O item continua Em reivindicação até você confirmar a entrega, com o código de retirada." [Aceitar reivindicação] [Cancelar].
 - **Recusar:** "Recusar esta reivindicação?" — "Maria Exemplo* não poderá reenviar para este item." + (se for a última ativa) "O item voltará a ficar Disponível." [Recusar reivindicação] (`danger`) [Cancelar].
-- **Após aceitar** (reivindicação Aceita): a barra troca para **[ Registrar devolução ]** (primary, só aqui, AC05.1) → diálogo `confirm`: "Registrar a devolução?" — "Item: Fone de ouvido preto*. Entregue a: Maria Exemplo*. Esta ação não pode ser desfeita." [Registrar devolução] [Cancelar]. Sucesso: toast "Devolução registrada. O item saiu da busca." e volta ao painel.
+- **Após aceitar** (reivindicação Aceita): aparece o painel **"Confirmar entrega"** (§ componentes), sem botão único na barra: valida o código e só então libera **[ Confirmar entrega ]** → diálogo `confirm`: "Registrar a devolução?" — "Item: Fone de ouvido preto*. Entregue a: Maria Exemplo*. Código validado às 14:32. Esta ação não pode ser desfeita." [Registrar devolução] [Cancelar]. Sucesso: toast "Devolução registrada. O item saiu da busca." e volta às devoluções.
 - **Já decidida (Aceita/Recusada):** sem botões Aceitar/Recusar; Notice neutral com a decisão e a data.
 
 ### 9.10 `/admin/itens/[id]/editar` — Editar item
@@ -1151,12 +1152,14 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 |---|---|
 | Painel | Painel · Reivindicações pendentes · Aguardando devolução (curto: Para devolver) · Devoluções |
 | Vazio pendentes | Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui. |
-| Linha de item | Para {nome} · aguardando devolução · [Registrar devolução] |
+| Linha de item | Para {nome} · aguardando devolução · [Confirmar entrega] |
 | Vazio aguardando devolução | Nenhum item aguardando devolução. Quando você aceitar uma reivindicação, o item aparece aqui. |
 | Análise | Analisar reivindicação · O que foi publicado · O que a pessoa respondeu · Detalhes que só o dono saberia · Onde e quando perdeu |
 | Aviso | Outras {n} reivindicações neste item: se você aceitar, elas serão recusadas automaticamente. |
 | Aceitar (diálogo) | **Aceitar esta reivindicação?** As outras {n} reivindicações deste item serão recusadas automaticamente. O item continua Em reivindicação até você registrar a devolução. [Aceitar reivindicação] |
 | Recusar (diálogo) | **Recusar esta reivindicação?** {nome} não poderá reenviar para este item. (+ "O item voltará a ficar Disponível.") [Recusar reivindicação] |
+| Código de retirada (dono) | Gerar código de retirada · Copiar código · Gerar novo código · "O código anterior deixa de valer." · "Anote ou mantenha esta tela aberta: ele não aparece de novo." |
+| Confirmar entrega (admin) | Validar código · "Código validado às {hora}. Confirme a entrega." · Confirmar entrega · "Código incorreto. Restam k tentativas." |
 | Devolução (diálogo) | **Registrar a devolução?** Item: {título}. Entregue a: {nome}. Esta ação não pode ser desfeita. [Registrar devolução] |
 | Toasts | Reivindicação aceita. · Reivindicação recusada. · Devolução registrada. O item saiu da busca. |
 | Devoluções | Devoluções · Devolvido de · até · Limpar período · Entregue a · Registrada por · Nenhuma devolução registrada ainda · Nenhuma devolução nesse período |

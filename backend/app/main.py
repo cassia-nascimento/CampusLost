@@ -20,7 +20,7 @@ from .db import make_engine, make_session_factory
 from .errors import ServiceError
 from .models import Base
 from .mailer import Mailer, make_mailer
-from .routers import admin, auth, catalog, claims, demo, items, me, returns, twofa
+from .routers import admin, auth, catalog, claims, demo, items, me, return_codes, returns, twofa
 from .security import RateLimiter
 from .schema_check import ensure_schema_current
 from .seed import is_empty, seed_database
@@ -194,7 +194,7 @@ def create_app(
     def health():
         return {"status": "ok"}
 
-    for r in (auth.router, twofa.router, admin.router, me.router, catalog.router, items.router, claims.router, returns.router, demo.router):
+    for r in (auth.router, twofa.router, admin.router, me.router, catalog.router, items.router, claims.router, return_codes.router, returns.router, demo.router):
         app.include_router(r)
 
     app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")

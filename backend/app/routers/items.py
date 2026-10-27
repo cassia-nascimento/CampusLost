@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.datastructures import UploadFile
 
@@ -15,7 +15,7 @@ from ..clock import local_today
 from ..config import random_id
 from ..deps import ClockDep, accepted_claims_of, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_session, require_user
 from ..errors import ServiceError
-from ..models import ClaimRow, ItemRow, ReturnRow, UserRow
+from ..models import ClaimRow, ItemRow, ReturnCodeRow, ReturnRow, UserRow
 from ..photos import delete_photo_file, save_photo
 from ..rules.claims import can_claim
 from ..rules.decision import assert_allowed
@@ -186,7 +186,8 @@ def delete_item(item_id: str, request: Request, db: DbDep, actor: OptionalUser, 
         assert_allowed(can_delete_item(user, item))
         ensure_admin_2fa(settings, user)
         photo = item.photo_url
-        # P18: a exclusão remove também as reivindicações do item.
+        # P18: a exclusão remove também as reivindicações do item (e os códigos de retirada delas).
+        db.execute(delete(ReturnCodeRow).where(ReturnCodeRow.item_id == item_id))
         for c in db.scalars(select(ClaimRow).where(ClaimRow.item_id == item_id)).all():
             db.delete(c)
         db.flush()
