@@ -25,7 +25,7 @@ import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import { canReviewClaim, reviewClaim } from "@/lib/rules";
 import { itemPhotoAlt } from "@/lib/utils";
 import { services, type ClaimDecisionResult, type ClaimView, type ItemDetail } from "@/services";
-import { ROLE_LABEL, isServiceError, type ItemStatus, type User } from "@/types/domain";
+import { AFFILIATION_LABEL, AFFILIATION_NOTICE, isServiceError, type ItemStatus, type User } from "@/types/domain";
 import { applyDecision, type ReviewState } from "./apply-decision";
 import { toStoredItem } from "./stored-item";
 
@@ -250,8 +250,9 @@ function ReviewContent({
             <p className="user-text text-lead font-semibold">{claim.claimant.name}</p>
             <p className="user-text mt-0.5 text-meta text-ink-muted">{claim.claimant.email}</p>
             <p className="mt-0.5 text-meta text-ink-subtle">
-              Papel informado no cadastro: {ROLE_LABEL[claim.claimant.role]}
+              Vínculo: {AFFILIATION_LABEL[claim.claimant.affiliation]}
             </p>
+            <p className="mt-0.5 text-meta text-ink-subtle">{AFFILIATION_NOTICE}</p>
           </div>
           <Answer label="Detalhes que só o dono saberia">{claim.proofDetails}</Answer>
           <Answer label="Onde e quando perdeu">{claim.lostWhereWhen}</Answer>

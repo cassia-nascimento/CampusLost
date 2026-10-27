@@ -18,7 +18,7 @@ describe("store: persistência", () => {
 
     const { createMockServices } = await import("./index");
     const svc = createMockServices({ latency: 0 }); // storage padrão
-    await svc.auth.signInAsDemo("student");
+    await svc.auth.signInAsDemo("institutional");
     expect((await svc.items.list()).length).toBeGreaterThan(5);
   });
 
@@ -107,7 +107,7 @@ describe("store: persistência", () => {
 
   it("estado persiste entre instâncias que compartilham o armazenamento", async () => {
     const a = createHarness();
-    await a.services.auth.signInAsDemo("student");
+    await a.services.auth.signInAsDemo("institutional");
     const created = await a.services.items.create(validItem);
     // mesma aba recarregada: mesmo banco e mesma sessão (AC01.4)
     const reloaded = createHarness({ storage: a.storage, sessionStorage: a.sessionStorage });
@@ -142,7 +142,7 @@ describe("store: persistência", () => {
       },
     };
     const h = createHarness({ storage });
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const before = (await h.services.items.list()).length;
     full = true;
     await expectCode(h.services.items.create(validItem), "STORAGE_FULL");
@@ -154,7 +154,7 @@ describe("store: persistência", () => {
     const h = createHarness();
     const listener = vi.fn();
     const off = h.services.subscribe(listener);
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const afterLogin = listener.mock.calls.length;
     expect(afterLogin).toBeGreaterThan(0);
     await h.services.items.create(validItem);
@@ -167,7 +167,7 @@ describe("store: persistência", () => {
 
   it("reiniciar a demonstração restaura o seed e preserva sessão de usuário do seed", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const created = await h.services.items.create(validItem);
     await h.services.demo.reset();
     expect((await h.services.auth.getCurrentUser())?.id).toBe("user-marina");
@@ -176,7 +176,7 @@ describe("store: persistência", () => {
 
   it("reiniciar a demonstração encerra a sessão de usuário que não está no seed", async () => {
     const h = createHarness();
-    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", password: "senha-segura-1", role: "student", acceptedTerms: true });
+    await h.services.auth.signUp({ name: "Nova Pessoa", email: "nova@demo.test", password: "senha-segura-1", acceptedTerms: true });
     expect(await h.services.auth.getCurrentUser()).not.toBeNull();
     await h.services.demo.reset();
     expect(await h.services.auth.getCurrentUser()).toBeNull();
@@ -237,14 +237,14 @@ describe("latência e falhas simuladas", () => {
     const h = createHarness({
       failureInjector: (op) => (op === "items.list" ? new ServiceError("UNEXPECTED", "Falha simulada.") : null),
     });
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     await expectCode(h.services.items.list(), "UNEXPECTED");
     expect(await h.services.items.get("item-01")).toBeTruthy();
   });
 
   it("erros inesperados viram ServiceError UNEXPECTED", async () => {
     const h = createHarness({ photoProcessor: async () => { throw new Error("boom"); } });
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile() }), "UNEXPECTED");
   });
 });
@@ -266,7 +266,7 @@ describe("foto", () => {
     vi.stubGlobal("createImageBitmap", async () => ({ width: 4000, height: 3000, close: () => undefined }));
     try {
       const h = createHarness({ photoProcessor: undefined });
-      await h.services.auth.signInAsDemo("student");
+      await h.services.auth.signInAsDemo("institutional");
       const error = await expectCode(h.services.items.create({ ...validItem, photo: fakeFile() }), "PHOTO_INVALID");
       expect(error.message).toMatch(/grande demais/);
       expect(qualities).toEqual([0.8, 0.6, 0.45]);
@@ -294,7 +294,7 @@ describe("foto", () => {
     vi.stubGlobal("createImageBitmap", async () => ({ width: 4000, height: 2000, close: () => undefined }));
     try {
       const h = createHarness({ photoProcessor: undefined });
-      await h.services.auth.signInAsDemo("student");
+      await h.services.auth.signInAsDemo("institutional");
       const item = await h.services.items.create({ ...validItem, photo: fakeFile() });
       expect(item.photoDataUrl).toBe("data:image/jpeg;base64,OK");
       expect(size).toEqual({ w: 640, h: 320 });
@@ -312,7 +312,7 @@ describe("foto", () => {
 
   it("processador padrão rejeita formato inválido e ambiente sem DOM com PHOTO_INVALID", async () => {
     const h = createHarness({ photoProcessor: undefined });
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile("a.gif", "image/gif") }), "PHOTO_INVALID");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile("a.jpg", "image/jpeg", 6 * 1024 * 1024) }), "PHOTO_INVALID");
     await expectCode(h.services.items.create({ ...validItem, photo: fakeFile() }), "PHOTO_INVALID"); // node: sem canvas
@@ -354,7 +354,7 @@ describe("store: persistência declarada (demo.persistence)", () => {
     });
     const svc = createMockServices({ latency: 0 });
     expect(svc.demo.persistence()).toBe("volatile");
-    await svc.auth.signInAsDemo("student");
+    await svc.auth.signInAsDemo("institutional");
     expect((await svc.items.list()).length).toBeGreaterThan(5);
   });
 
@@ -369,7 +369,7 @@ describe("store: persistência declarada (demo.persistence)", () => {
       },
     };
     const h = createHarness({ storage });
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const error = await expectCode(h.services.items.create({ ...validItem, title: "Chaveiro de cota" }), "STORAGE_FULL");
     expect(error.message).not.toMatch(/foto menor/i);
     expect(error.message).toMatch(/Reiniciar demonstração/);

@@ -8,29 +8,29 @@ from tests.conftest import ITEM_FORM, JPEG, login
 
 CLAIM_BODY = {"proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWhen": "Biblioteca, ontem de manhã."}
 
-# nome, método, caminho, kwargs, {papel: status esperado}  (papéis: guest, student, teacher, admin)
+# nome, método, caminho, kwargs, {papel: status esperado}  (papéis: guest, user, external [user com vínculo externo], admin)
 CASES = [
-    ("catalog", "GET", "/catalog", {}, dict(guest=200, student=200, teacher=200, admin=200)),
-    ("health", "GET", "/health", {}, dict(guest=200, student=200, teacher=200, admin=200)),
-    ("items.list", "GET", "/items", {}, dict(guest=200, student=200, teacher=200, admin=200)),
-    ("items.get", "GET", "/items/item-01", {}, dict(guest=200, student=200, teacher=200, admin=200)),
-    ("items.create", "POST", "/items", dict(data=ITEM_FORM), dict(guest=401, student=201, teacher=201, admin=201)),
-    ("items.update", "PUT", "/items/item-01", dict(data=ITEM_FORM), dict(guest=401, student=403, teacher=403, admin=200)),
-    ("items.delete", "DELETE", "/items/item-01", {}, dict(guest=401, student=403, teacher=403, admin=204)),
-    ("claims.create", "POST", "/items/item-01/claims", dict(json=CLAIM_BODY), dict(guest=401, student=201, teacher=201, admin=403)),
-    ("claims.byItem", "GET", "/items/item-03/claims", {}, dict(guest=401, student=403, teacher=403, admin=200)),
-    ("claims.mine", "GET", "/claims/mine", {}, dict(guest=401, student=200, teacher=200, admin=403)),
-    ("claims.pending", "GET", "/claims/pending", {}, dict(guest=401, student=403, teacher=403, admin=200)),
+    ("catalog", "GET", "/catalog", {}, dict(guest=200, user=200, external=200, admin=200)),
+    ("health", "GET", "/health", {}, dict(guest=200, user=200, external=200, admin=200)),
+    ("items.list", "GET", "/items", {}, dict(guest=200, user=200, external=200, admin=200)),
+    ("items.get", "GET", "/items/item-01", {}, dict(guest=200, user=200, external=200, admin=200)),
+    ("items.create", "POST", "/items", dict(data=ITEM_FORM), dict(guest=401, user=201, external=201, admin=201)),
+    ("items.update", "PUT", "/items/item-01", dict(data=ITEM_FORM), dict(guest=401, user=403, external=403, admin=200)),
+    ("items.delete", "DELETE", "/items/item-01", {}, dict(guest=401, user=403, external=403, admin=204)),
+    ("claims.create", "POST", "/items/item-01/claims", dict(json=CLAIM_BODY), dict(guest=401, user=201, external=201, admin=403)),
+    ("claims.byItem", "GET", "/items/item-03/claims", {}, dict(guest=401, user=403, external=403, admin=200)),
+    ("claims.mine", "GET", "/claims/mine", {}, dict(guest=401, user=200, external=200, admin=403)),
+    ("claims.pending", "GET", "/claims/pending", {}, dict(guest=401, user=403, external=403, admin=200)),
     # claim-01 é de Beatriz: nenhum dos perfis de demonstração (Marina/Rafael) a vê, só a administração
-    ("claims.get", "GET", "/claims/claim-01", {}, dict(guest=401, student=403, teacher=403, admin=200)),
-    ("claims.accept", "POST", "/claims/claim-01/accept", {}, dict(guest=401, student=403, teacher=403, admin=200)),
-    ("claims.reject", "POST", "/claims/claim-01/reject", {}, dict(guest=401, student=403, teacher=403, admin=200)),
-    ("returns.register", "POST", "/items/item-05/return", {}, dict(guest=401, student=403, teacher=403, admin=201)),
-    ("returns.list", "GET", "/returns", {}, dict(guest=401, student=403, teacher=403, admin=200)),
+    ("claims.get", "GET", "/claims/claim-01", {}, dict(guest=401, user=403, external=403, admin=200)),
+    ("claims.accept", "POST", "/claims/claim-01/accept", {}, dict(guest=401, user=403, external=403, admin=200)),
+    ("claims.reject", "POST", "/claims/claim-01/reject", {}, dict(guest=401, user=403, external=403, admin=200)),
+    ("returns.register", "POST", "/items/item-05/return", {}, dict(guest=401, user=403, external=403, admin=201)),
+    ("returns.list", "GET", "/returns", {}, dict(guest=401, user=403, external=403, admin=200)),
 ]
 
 
-@pytest.mark.parametrize("role", ["guest", "student", "teacher", "admin"])
+@pytest.mark.parametrize("role", ["guest", "user", "external", "admin"])
 @pytest.mark.parametrize("name, method, path, kwargs, expected", CASES, ids=[c[0] for c in CASES])
 def test_role_matrix(client, name, method, path, kwargs, expected, role):
     headers = {} if role == "guest" else login(client, role)

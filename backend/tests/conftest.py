@@ -72,8 +72,18 @@ def client(app):
         yield c
 
 
+# Personas do seed (todas com papel de acesso `user`, exceto admin). `external` = vínculo externo (domínio fora do institucional).
+PERSONAS = {
+    "user": "marina@demo.test", "student": "marina@demo.test", "teacher": "rafael@demo.test",
+    "external": "externo@demo.test",
+}
+
+
 def login(client: TestClient, role: str) -> dict[str, str]:
-    r = client.post(f"/demo/login/{role}")
+    if role in PERSONAS:
+        r = client.post("/auth/login", json={"email": PERSONAS[role], "password": DEMO_PASSWORD})
+    else:
+        r = client.post(f"/demo/login/{role}")
     assert r.status_code == 200, r.text
     client.cookies.clear()  # os testes autenticam por Bearer; cookies deixariam chamadas "de visitante" logadas
     return {"Authorization": f"Bearer {r.json()['token']}"}

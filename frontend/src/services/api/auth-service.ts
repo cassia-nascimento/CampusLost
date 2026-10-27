@@ -1,7 +1,7 @@
 import type { TwoFactorChallenge } from "@/types/admin";
-import { isServiceError, ServiceError, type User, type UserRole } from "@/types/domain";
+import { isServiceError, ServiceError, type User } from "@/types/domain";
 import type { TwoFactorEnabled, TwoFactorSetup } from "@/types/admin";
-import type { AuthService, DemoProfile, EmailDispatch, GoogleSignInResult, MyDataExport, SignInResult } from "../contracts";
+import type { AuthService, DemoProfile, DemoProfileKey, EmailDispatch, GoogleSignInResult, MyDataExport, SignInResult } from "../contracts";
 import type { HttpClient } from "./http";
 import { asArray, asRecord, type Mappers } from "./mappers";
 
@@ -45,8 +45,10 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
 
     async signUp(input) {
       // O contrato do frontend chama `acceptedTerms`; o backend, `acceptTerms`.
-      const { acceptedTerms, ...rest } = input;
-      return adopt(await http.request("POST", "/auth/signup", { json: { ...rest, acceptTerms: acceptedTerms }, auth: false }));
+      // Campos EXPLÍCITOS: um `role` extra (vindo de chamada não tipada) nunca sai do cliente. A conta nasce `user`.
+      const { name, email, password, acceptedTerms, turnstileToken } = input;
+      const json = { name, email, password, acceptTerms: acceptedTerms, ...(turnstileToken ? { turnstileToken } : {}) };
+      return adopt(await http.request("POST", "/auth/signup", { json, auth: false }));
     },
 
     async signIn(input): Promise<SignInResult> {
@@ -89,7 +91,7 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
       if (raw.status === "signed_in") return { status: "signed_in", user: adopt(raw) };
       if (raw.status === "needs_2fa") return challenge(raw);
       const profile = asRecord(raw.profile, "perfil");
-      if ((raw.status !== "needs_role" && raw.status !== "needs_terms") || typeof raw.profileToken !== "string" || typeof profile.email !== "string") {
+      if (raw.status !== "needs_terms" || typeof raw.profileToken !== "string" || typeof profile.email !== "string") {
         throw new ServiceError("UNEXPECTED", "Algo deu errado. Tente novamente.", { cause: new Error("resposta do Google") });
       }
       return {
@@ -99,8 +101,9 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
       };
     },
 
-    async completeGoogleSignUp({ ticket, role, acceptedTerms }) {
-      const json = { profileToken: ticket, ...(role ? { role } : {}), acceptTerms: acceptedTerms };
+    async completeGoogleSignUp({ ticket, acceptedTerms }) {
+      // Sem `role`: a conta nasce `user`; o vínculo vem do domínio do e-mail, no servidor.
+      const json = { profileToken: ticket, acceptTerms: acceptedTerms };
       return adopt(await http.request("POST", "/auth/google/complete", { json, auth: false }));
     },
 
@@ -150,8 +153,8 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
       return null;
     },
 
-    async signInAsDemo(role: UserRole) {
-      return adopt(await http.request("POST", `/demo/login/${encodeURIComponent(role)}`, { auth: false }));
+    async signInAsDemo(profile: DemoProfileKey) {
+      return adopt(await http.request("POST", `/demo/login/${encodeURIComponent(profile)}`, { auth: false }));
     },
 
     async listDemoProfiles() {
@@ -159,7 +162,7 @@ export function createAuthService(http: HttpClient, mappers: Mappers, changed: (
         const raw = asArray(await http.request("GET", "/demo/profiles", { auth: false }), "perfis");
         return raw.map((entry): DemoProfile => {
           const r = asRecord(entry, "perfil");
-          return { role: r.role as UserRole, label: String(r.label ?? ""), user: mappers.user(r.user) };
+          return { key: String(r.key ?? r.role) as DemoProfileKey, label: String(r.label ?? ""), user: mappers.user(r.user) };
         });
       } catch (error) {
         // Demonstração desligada no servidor: sem atalhos, sem erro.

@@ -2,7 +2,7 @@
  * Tipos da administração (usuários, convites, auditoria) e do 2FA. Espelham `docs/api/API.md` §4.8 e §4.2.7.
  * Dados de demonstração no mock são fictícios.
  */
-import type { UserRole } from "./domain";
+import type { Affiliation, Role } from "./domain";
 
 /** Página de uma lista paginada (`?page=` a partir de 1; `pageSize` padrão 20, máx. 100). */
 export interface Page<T> {
@@ -23,7 +23,9 @@ export interface AdminUserRow {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: Role;
+  /** Vínculo pelo domínio do e-mail (não verificado). */
+  affiliation: Affiliation;
   /** `password` ou `google`. */
   provider: string;
   active: boolean;

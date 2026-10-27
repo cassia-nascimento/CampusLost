@@ -10,28 +10,27 @@ import {
 } from "./permissions";
 
 describe("permissões por papel (SPEC §2)", () => {
-  // [capacidade, aluno, professor, administração]
-  const matrix: [Capability, boolean, boolean, boolean][] = [
-    ["register_item", true, true, true],
-    ["search_items", true, true, true],
-    ["claim_item", true, true, false],
-    ["view_own_claims", true, true, false],
-    ["review_claims", false, false, true],
-    ["edit_item", false, false, true],
-    ["delete_item", false, false, true],
-    ["register_return", false, false, true],
-    ["view_returns", false, false, true],
-    ["manage_users", false, false, true],
-    ["view_audit", false, false, true],
+  // [capacidade, usuário (institucional ou externo: mesmas capacidades), administração]
+  const matrix: [Capability, boolean, boolean][] = [
+    ["register_item", true, true],
+    ["search_items", true, true],
+    ["claim_item", true, false],
+    ["view_own_claims", true, false],
+    ["review_claims", false, true],
+    ["edit_item", false, true],
+    ["delete_item", false, true],
+    ["register_return", false, true],
+    ["view_returns", false, true],
+    ["manage_users", false, true],
+    ["view_audit", false, true],
   ];
 
   it("cobre todas as capacidades declaradas", () => {
     expect(matrix.map((m) => m[0]).sort()).toEqual(Object.keys(PERMISSIONS).sort());
   });
 
-  it.each(matrix)("%s", (capability, student, teacher, admin) => {
-    expect(hasCapability({ role: "student" }, capability)).toBe(student);
-    expect(hasCapability({ role: "teacher" }, capability)).toBe(teacher);
+  it.each(matrix)("%s", (capability, user, admin) => {
+    expect(hasCapability({ role: "user" }, capability)).toBe(user);
     expect(hasCapability({ role: "admin" }, capability)).toBe(admin);
     // visitante (P26): só ver/buscar itens
     expect(hasCapability(null, capability)).toBe(capability === "search_items");
@@ -39,8 +38,7 @@ describe("permissões por papel (SPEC §2)", () => {
 
   it("guarda de /admin: só administração", () => {
     expect(canAccessAdminArea({ role: "admin" })).toBe(true);
-    expect(canAccessAdminArea({ role: "student" })).toBe(false);
-    expect(canAccessAdminArea({ role: "teacher" })).toBe(false);
+    expect(canAccessAdminArea({ role: "user" })).toBe(false);
     expect(canAccessAdminArea(null)).toBe(false);
   });
 
@@ -49,15 +47,16 @@ describe("permissões por papel (SPEC §2)", () => {
     for (const cap of ["register_item", "claim_item", "view_own_claims", "review_claims", "edit_item", "delete_item", "register_return", "view_returns"] as const) {
       expect(checkCapability(null, cap)).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
     }
-    expect(checkCapability({ role: "student" }, "review_claims")).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(checkCapability({ role: "user" }, "review_claims")).toMatchObject({ allowed: false, code: "FORBIDDEN" });
     expect(checkCapability({ role: "admin" }, "review_claims")).toEqual({ allowed: true });
   });
 });
 
-describe("papel external e e-mail verificado", () => {
-  it("external tem as mesmas permissões de student/teacher em todas as capacidades", () => {
+describe("vínculo não muda permissões", () => {
+  it("usuário institucional e externo têm exatamente as mesmas capacidades (só o papel conta)", () => {
     for (const c of Object.keys(PERMISSIONS) as Capability[]) {
-      expect(hasCapability({ role: "external" }, c)).toBe(hasCapability({ role: "student" }, c));
+      expect(hasCapability(externalUser, c)).toBe(hasCapability({ role: "user" }, c));
+      expect(checkCapability(externalUser, c)).toEqual(checkCapability({ role: "user", emailVerified: true }, c));
     }
     expect(canAccessAdminArea(externalUser)).toBe(false);
   });

@@ -24,7 +24,7 @@ const FAQ: readonly FaqEntry[] = [
   {
     question: "Posso entrar com a minha conta Google?",
     answer:
-      "Sim, com o e-mail institucional. No primeiro acesso, basta escolher se você é aluno ou professor.",
+      "Sim. No primeiro acesso, basta aceitar os termos. O vínculo (e-mail institucional ou externo) é definido pelo domínio do e-mail, sem verificação.",
   },
   {
     question: "O que acontece depois que a reivindicação é aceita?",

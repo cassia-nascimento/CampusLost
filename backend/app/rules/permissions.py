@@ -4,8 +4,8 @@ from typing import Protocol
 
 from .decision import ALLOW, Decision, deny
 
-ALL = ("student", "teacher", "external", "admin")
-COMMON = ("student", "teacher", "external")
+ALL = ("user", "admin")
+COMMON = ("user",)
 ADMIN = ("admin",)
 
 # Matriz de permissões por papel (SPEC §2).

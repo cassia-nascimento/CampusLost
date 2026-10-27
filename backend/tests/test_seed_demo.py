@@ -90,16 +90,18 @@ def test_demo_profiles_and_login(client):
     r = client.get("/demo/profiles")
     assert r.status_code == 200
     assert r.json() == [
-        {"role": "student", "label": "Entrar como aluno", "user": {"id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "student"}},
-        {"role": "teacher", "label": "Entrar como professor", "user": {"id": "user-rafael", "name": "Rafael Lima", "email": "rafael@demo.test", "role": "teacher"}},
-        {"role": "admin", "label": "Entrar como administração", "user": {"id": "user-admin", "name": "Administração Demo", "email": "admin@demo.test", "role": "admin"}},
+        {"key": "institutional", "label": "Usuário (e-mail institucional)", "user": {"id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user"}},
+        {"key": "external", "label": "Usuário (externo)", "user": {"id": "user-externo", "name": "Visitante Externo", "email": "externo@demo.test", "role": "user"}},
+        {"key": "admin", "label": "Administração", "user": {"id": "user-admin", "name": "Administração Demo", "email": "admin@demo.test", "role": "admin"}},
     ]
-    for role, uid in (("student", "user-marina"), ("teacher", "user-rafael"), ("admin", "user-admin")):
-        body = client.post(f"/demo/login/{role}").json()
-        assert body["user"]["id"] == uid
+    for key, uid, aff in (("institutional", "user-marina", "institutional"), ("external", "user-externo", "external"), ("admin", "user-admin", "institutional")):
+        body = client.post(f"/demo/login/{key}").json()
+        assert body["user"]["id"] == uid and body["user"]["affiliation"] == aff
         me = client.get("/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
         assert me.json()["id"] == uid
     assert client.post("/demo/login/root").status_code == 404
+    for old in ("student", "teacher", "user"):
+        assert client.post(f"/demo/login/{old}").status_code == 404
 
 
 def test_demo_reset_restores_seed_and_removes_uploads(client, student, admin, settings):
@@ -107,7 +109,7 @@ def test_demo_reset_restores_seed_and_removes_uploads(client, student, admin, se
     created = client.post("/items", data=ITEM_FORM, files={"photo": ("a.jpg", JPEG, "image/jpeg")}, headers=student).json()
     client.post("/claims/claim-01/accept", headers=admin)
     client.delete("/items/item-02", headers=admin)
-    new_user = client.post("/auth/signup", json={"name": "Nova Pessoa", "email": "nova@exemplo.com", "password": "senha-forte-1", "role": "student", "acceptTerms": True}).json()
+    new_user = client.post("/auth/signup", json={"name": "Nova Pessoa", "email": "nova@exemplo.com", "password": "senha-forte-1", "acceptTerms": True}).json()
     photo = settings.uploads_dir / created["photoUrl"].split("/")[-1]
     assert photo.exists()
 
@@ -132,7 +134,7 @@ def test_seed_not_applied_when_db_has_data_or_startup_seed_off(tmp_path):
     s = make_settings(tmp_path, seed_on_startup=False)
     with TestClient(create_app(s, clock=Clock(FIXED_NOW))) as c:
         assert c.get("/items").json() == []
-        assert c.post("/demo/login/student").status_code == 404  # sem usuários
+        assert c.post("/demo/login/institutional").status_code == 404  # sem usuários
 
 
 # ---------- produção ----------

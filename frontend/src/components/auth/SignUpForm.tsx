@@ -10,12 +10,11 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
-import { RadioCard, RadioGroup } from "@/components/ui/RadioCard";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { useTurnstile } from "@/hooks/use-turnstile";
 import { signUpSchema, type SignUpValues } from "@/lib/validation";
-import { ROLE_LABEL, SIGNUP_ROLES, isServiceError, type User } from "@/types/domain";
+import { isServiceError, type User } from "@/types/domain";
 import { accountErrorMessage } from "./error-messages";
 import { PASSWORD_HINT } from "./password-strength";
 import { PasswordInput } from "./PasswordInput";
@@ -26,7 +25,7 @@ import { useNextPath } from "./use-next-path";
 const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
 /**
- * Cadastro com senha (RF01 / AC01.1) de aluno, professor ou comunidade externa, com aceite dos termos.
+ * Cadastro com senha (RF01 / AC01.1) com nome, e-mail, senha e aceite dos termos.
  * `onCreatingChange` avisa a tela quando o envio começa/termina (segura o redirecionamento da sessão nova)
  * e `onCreated` entrega a conta criada, para a tela mostrar "Confirme seu e-mail".
  */
@@ -121,15 +120,6 @@ export function SignUpForm({
           </Field>
           <PasswordStrengthMeter password={password} className="mt-3" />
         </div>
-        <RadioGroup
-          legend="Você é"
-          hint="O papel é informado por você no cadastro e não é verificado."
-          error={errors.role?.message}
-        >
-          {SIGNUP_ROLES.map((role) => (
-            <RadioCard key={role} label={ROLE_LABEL[role]} value={role} {...register("role")} />
-          ))}
-        </RadioGroup>
         <Checkbox
           error={errors.acceptedTerms?.message}
           label={

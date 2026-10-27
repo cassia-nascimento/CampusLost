@@ -3,7 +3,8 @@
  * demonstrativos (nomes, itens, locais; ver `DEMO_DATA_NOTICE`). Os locais usados
  * são apenas os do catálogo demonstrativo. Datas são relativas a `now`.
  */
-import type { AuthProvider, Claim, Item, ReturnRecord, User, UserRole } from "@/types/domain";
+import type { AuthProvider, Claim, Item, ReturnRecord, User } from "@/types/domain";
+import type { DemoProfileKey } from "../contracts";
 import { addDays, addHours, toLocalDateString } from "@/lib/rules/dates";
 
 /** Aviso para a interface: todo o conteúdo do seed é fictício. */
@@ -104,9 +105,11 @@ export const AUDIT_LIMIT = 500;
  * seed antigo receberem o novo (o antigo é removido).
  * v4: papel `external`, `emailVerified` no usuário, política de senha nova (senha demo `demonstracao123`) e `tokens`
  * (verificação de e-mail e redefinição de senha).
+ * v6: papéis `user`/`admin` e `affiliation` (vínculo pelo domínio do e-mail). Contas antigas do mock NÃO são migradas:
+ * o banco v5 é descartado e o seed novo o substitui.
  * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 /** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
 export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
@@ -137,30 +140,28 @@ export function demoSalt(userId: string): string {
 }
 
 /** Perfis de entrada rápida (AC01.3). Os demais usuários do seed existem, mas não são atalhos. */
-export const DEMO_PROFILE_IDS: Readonly<Record<UserRole, string>> = {
-  student: "user-marina",
-  teacher: "user-rafael",
+export const DEMO_PROFILE_IDS: Readonly<Record<DemoProfileKey, string>> = {
+  institutional: "user-marina",
   external: "user-externo",
   admin: "user-admin",
 };
 
-export const DEMO_PROFILE_LABELS: Readonly<Record<UserRole, string>> = {
-  student: "Entrar como aluno",
-  teacher: "Entrar como professor",
-  external: "Entrar como comunidade externa",
-  admin: "Entrar como administração",
+export const DEMO_PROFILE_LABELS: Readonly<Record<DemoProfileKey, string>> = {
+  institutional: "Usuário (e-mail institucional)",
+  external: "Usuário (externo)",
+  admin: "Administração",
 };
 
 const USERS: User[] = [
-  { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", emailVerified: true, hasPassword: true },
-  { id: "user-rafael", name: "Rafael Lima", email: "rafael@demo.test", role: "teacher", emailVerified: true, hasPassword: true },
-  { id: "user-admin", name: "Administração Demo", email: "admin@demo.test", role: "admin", emailVerified: true, hasPassword: true },
-  { id: "user-externo", name: "Camila Torres", email: "externo@demo.test", role: "external", emailVerified: true, hasPassword: true },
+  { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "user", affiliation: "institutional", emailVerified: true, hasPassword: true },
+  { id: "user-rafael", name: "Rafael Lima", email: "rafael@demo.test", role: "user", affiliation: "institutional", emailVerified: true, hasPassword: true },
+  { id: "user-admin", name: "Administração Demo", email: "admin@demo.test", role: "admin", affiliation: "institutional", emailVerified: true, hasPassword: true },
+  { id: "user-externo", name: "Camila Torres", email: "externo@demo.test", role: "user", affiliation: "external", emailVerified: true, hasPassword: true },
   // Usuários de apoio (autores de reivindicações); não aparecem como perfis de demonstração.
-  { id: "user-lucas", name: "Lucas Prado", email: "lucas@demo.test", role: "student", emailVerified: true, hasPassword: true },
-  { id: "user-beatriz", name: "Beatriz Nunes", email: "beatriz@demo.test", role: "student", emailVerified: true, hasPassword: true },
+  { id: "user-lucas", name: "Lucas Prado", email: "lucas@demo.test", role: "user", affiliation: "institutional", emailVerified: true, hasPassword: true },
+  { id: "user-beatriz", name: "Beatriz Nunes", email: "beatriz@demo.test", role: "user", affiliation: "institutional", emailVerified: true, hasPassword: true },
   // Conta desativada (só Google): aparece na administração com status "desativada".
-  { id: "user-tiago", name: "Tiago Rocha", email: "tiago@demo.test", role: "student", emailVerified: true, hasPassword: false },
+  { id: "user-tiago", name: "Tiago Rocha", email: "tiago@demo.test", role: "user", affiliation: "institutional", emailVerified: true, hasPassword: false },
 ];
 
 export function buildSeed(now: Date): Db {

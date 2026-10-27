@@ -24,11 +24,15 @@ describe("seed", () => {
     expect(new Set(db.claims.map((c) => c.status))).toEqual(new Set(["pending", "accepted", "rejected"]));
   });
 
-  it("tem os 3 perfis de demonstração com e-mail @demo.test", () => {
-    for (const role of ["student", "teacher", "admin"] as const) {
-      expect(db.users.filter((u) => u.role === role && u.email.endsWith("@demo.test")).length).toBeGreaterThan(0);
+  it("tem os 3 perfis de demonstração com e-mail @demo.test, papel user/admin e vínculo gravado explicitamente", () => {
+    const byId = (id: string) => db.users.find((u) => u.id === id)!;
+    for (const id of ["user-marina", "user-rafael", "user-lucas", "user-beatriz", "user-tiago"]) {
+      expect(byId(id), id).toMatchObject({ role: "user", affiliation: "institutional" });
     }
+    expect(byId("user-externo")).toMatchObject({ role: "user", affiliation: "external" });
+    expect(byId("user-admin")).toMatchObject({ role: "admin", affiliation: "institutional" });
     expect(db.users.every((u) => u.email.endsWith("@demo.test"))).toBe(true);
+    expect(db.users.every((u) => u.role === "user" || u.role === "admin")).toBe(true);
   });
 
   it("datas são relativas a hoje e nunca futuras", () => {

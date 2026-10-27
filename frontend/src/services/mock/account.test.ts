@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest";
 import { DB_KEY } from "./store";
 import { DEMO_PASSWORD } from "./seed";
-import { createHarness, expectCode, validClaim, validItem, type Harness, userOf } from "./test-utils";
+import { createHarness, expectCode, validClaim, validItem, type Harness, signInAsRafael, userOf } from "./test-utils";
 
 const PW = "uma senha longa 1";
-const base = { name: "Carla Dias", email: "carla@demo.test", password: PW, role: "student" as const, acceptedTerms: true as const };
+const base = { name: "Carla Dias", email: "carla@demo.test", password: PW, acceptedTerms: true as const };
 const HOUR = 3_600_000;
 
 const tokenOf = (link?: string) => new URL(link ?? "", "http://x").searchParams.get("token") ?? "";
@@ -27,11 +27,32 @@ describe("cadastro por senha: conta nasce não verificada", () => {
     expect(token).toHaveLength(32);
   });
 
-  it("papel external é aceito no cadastro; termos são obrigatórios; admin não", async () => {
+  it("cadastro: termos obrigatórios; conta nasce user; um `role` enviado (admin) é ignorado", async () => {
     const h = createHarness();
     await expectCode(h.services.auth.signUp({ ...base, acceptedTerms: false as never }), "VALIDATION");
-    await expectCode(h.services.auth.signUp({ ...base, role: "admin" as never }), "VALIDATION");
-    expect((await h.services.auth.signUp({ ...base, role: "external" })).role).toBe("external");
+    const user = await h.services.auth.signUp({ ...base, role: "admin" } as never);
+    expect(user.role).toBe("user");
+    expect(user.affiliation).toBe("external"); // demo.test não é domínio institucional
+    // nenhuma conta do banco ganhou papel admin além da administração do seed
+    const admins = (await h.services.auth.signInAsDemo("admin")) && (await h.services.admin.listUsers({ role: "admin" }));
+    expect(admins.items.map((u) => u.id)).toEqual(["user-admin"]);
+  });
+
+  it("vínculo vem só do domínio do e-mail no cadastro: domínio e subdomínio institucionais; parecidos não", async () => {
+    const cases: [string, "institutional" | "external"][] = [
+      ["ana@undb.edu.br", "institutional"],
+      ["ana@ALUNOS.UNDB.edu.br", "institutional"],
+      ["ana@evilundb.edu.br", "external"],
+      ["ana@undb.edu.br.evil.com", "external"],
+      ["ana@gmail.com", "external"],
+    ];
+    for (const [email, affiliation] of cases) {
+      const h = createHarness();
+      const user = await h.services.auth.signUp({ ...base, email });
+      expect(user.affiliation, email).toBe(affiliation);
+    }
+    const custom = createHarness({ allowedGoogleDomains: ["demo.test"] });
+    expect((await custom.services.auth.signUp({ ...base })).affiliation).toBe("institutional");
   });
 
   it("política de senha: comum, igual ao e-mail e longa demais (bytes) são recusadas", async () => {
@@ -162,10 +183,10 @@ describe("exportMyData / deleteMyAccount", () => {
   it("exporta só os dados do usuário atual; exige sessão", async () => {
     const h = createHarness();
     await expectCode(h.services.auth.exportMyData(), "UNAUTHENTICATED");
-    await h.services.auth.signInAsDemo("student");
+    await h.services.auth.signInAsDemo("institutional");
     const data = await h.services.auth.exportMyData();
     expect(data.format).toBe("campuslost-export-v1");
-    expect(data.account).toMatchObject({ id: "user-marina", provider: "password", role: "student" });
+    expect(data.account).toMatchObject({ id: "user-marina", provider: "password", role: "user", affiliation: "institutional" });
     expect(data.itemsRegistered.length).toBeGreaterThan(0);
     expect(data.itemsRegistered.every((i) => i.createdById === "user-marina")).toBe(true);
     expect(data.claims.every((c) => "itemTitle" in c)).toBe(true);
@@ -204,7 +225,7 @@ describe("exportMyData / deleteMyAccount", () => {
 
   it("itens do usuário removido ficam, com o autor anonimizado (\"Usuário removido\")", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("teacher"); // Rafael registrou o item-01
+    await signInAsRafael(h.services); // Rafael registrou o item-01
     await h.services.auth.deleteMyAccount({ password: DEMO_PASSWORD });
     await h.services.auth.signInAsDemo("admin");
     const detail = await h.services.items.get("item-01");
@@ -234,7 +255,7 @@ describe("exportMyData / deleteMyAccount", () => {
 
   it("excluir a conta de quem reivindicou devolve o item a Disponível se não restar reivindicação ativa", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("student"); // Marina: item-05 aceita; item-06/07 pendentes
+    await h.services.auth.signInAsDemo("institutional"); // Marina: item-05 aceita; item-06/07 pendentes
     const mine = await h.services.claims.listMine();
     const pendingOnly = mine.find((c) => c.status === "pending" && c.item.status === "under_claim");
     expect(pendingOnly).toBeDefined();
@@ -250,7 +271,7 @@ describe("papel external (seed)", () => {
   it("externo@demo.test é verificado, tem perfil de demonstração e age como aluno/professor", async () => {
     const h = createHarness();
     const user = userOf(await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD }));
-    expect(user).toMatchObject({ role: "external", emailVerified: true });
+    expect(user).toMatchObject({ role: "user", affiliation: "external", emailVerified: true });
     const created = await h.services.items.create(validItem);
     expect(created.createdById).toBe(user.id);
     const claim = await h.services.claims.create("item-01", validClaim);

@@ -30,6 +30,7 @@ export function createAdminService(http: HttpClient, changed: () => void): Admin
       const query: Query = {
         q: filters?.q?.trim() || undefined,
         role: filters?.role || undefined,
+        affiliation: filters?.affiliation || undefined,
         status: filters?.status || undefined,
         page: num(filters?.page),
         pageSize: num(filters?.pageSize),

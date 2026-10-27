@@ -21,7 +21,7 @@ describe("administração sem 2FA", () => {
     expect(adminNeedsTwoFactor({ role: "admin", twoFactorEnabled: false })).toBe(true);
     expect(adminNeedsTwoFactor({ role: "admin" })).toBe(true);
     expect(adminNeedsTwoFactor({ role: "admin", twoFactorEnabled: true })).toBe(false);
-    expect(adminNeedsTwoFactor({ role: "student", twoFactorEnabled: false })).toBe(false);
+    expect(adminNeedsTwoFactor({ role: "user", twoFactorEnabled: false })).toBe(false);
   });
 });
 

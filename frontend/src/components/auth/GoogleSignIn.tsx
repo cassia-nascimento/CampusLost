@@ -12,13 +12,13 @@ import { GoogleSignInButton } from "./GoogleSignInButton";
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 /** Conta nova: a tela pede o papel (domínio institucional) e/ou o aceite dos termos e repassa o `ticket` opaco. */
-export type GooglePending = Extract<GoogleSignInResult, { status: "needs_role" | "needs_terms" }>;
+export type GooglePending = Extract<GoogleSignInResult, { status: "needs_terms" }>;
 
 const GENERIC_ERROR = "Não foi possível entrar com o Google. Tente de novo ou use e-mail e senha.";
 
 /**
  * "Ou" + "Entrar com Google" (P30). Sem `NEXT_PUBLIC_GOOGLE_CLIENT_ID` nada é mostrado.
- * Quando a conta é nova, avisa `onPending` para a tela pedir o papel e/ou o aceite dos termos.
+ * Quando a conta é nova, avisa `onPending` para a tela pedir o aceite dos termos.
  * A verificação do ID token é do serviço: no mock, a rota `/api/auth/google` do Next; na API, o FastAPI.
  */
 export function GoogleSignIn({
@@ -68,8 +68,8 @@ export function GoogleSignIn({
       ) : null}
       <GoogleSignInButton clientId={CLIENT_ID} onCredential={(c) => void handleCredential(c)} mode={mode} />
       <p className="text-center text-meta text-ink-muted">
-        Com e-mail institucional da UNDB, você escolhe aluno ou professor no primeiro acesso. Contas Google de
-        outros domínios entram direto como comunidade externa.
+        No primeiro acesso, você só precisa aceitar os termos. O vínculo (e-mail institucional ou externo) é
+        definido pelo domínio do e-mail, sem verificação.
       </p>
       <p role="status" className="flex items-center justify-center gap-2 text-meta text-ink-muted empty:hidden">
         {sending ? (

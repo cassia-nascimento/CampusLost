@@ -34,7 +34,7 @@ python -m app.seed             # APAGA os dados e recria o seed
 python -m app.seed --if-empty  # só se não houver usuários
 ```
 
-Contas de demonstração (senha **`demonstracao123`**): `marina@demo.test` (aluno), `rafael@demo.test` (professor), `externo@demo.test` (comunidade externa), `admin@demo.test` (administração), `lucas@demo.test`, `beatriz@demo.test` (todas com e-mail verificado). O seed copia as ilustrações para `uploads/seed/`.
+Contas de demonstração (senha **`demonstracao123`**): `marina@demo.test`, `rafael@demo.test`, `lucas@demo.test`, `beatriz@demo.test` (papel `user`, vínculo `institutional`), `externo@demo.test` (`user`, vínculo `external`), `admin@demo.test` (`admin`, `institutional`); todas com e-mail verificado. Atalhos de demonstração (`GET /demo/profiles`, `POST /demo/login/{key}`): `institutional` (Marina), `external` (`externo@demo.test`) e `admin`. O seed copia as ilustrações para `uploads/seed/`.
 
 Com `ENV=production` o seed se recusa a rodar (cria contas de senha pública). Para criar uma administração real:
 
@@ -52,6 +52,7 @@ alembic revision --autogenerate -m "descricao"   # após mudar app/models.py; RE
 alembic upgrade head --sql           # só imprime o SQL (modo offline)
 ```
 
+- `0003_role_user_admin_affiliation` converte `users.role` (`student|teacher|external` → `user`) e cria `users.affiliation` (student/teacher → `institutional`, external → `external`, admin → pelo domínio do e-mail com `GOOGLE_ALLOWED_DOMAINS`). O downgrade devolve `student` (institutional) ou `external`; a diferença aluno/professor não é recuperável.
 - `0001_initial_schema` cria o esquema completo (usuários, sessões, tokens de e-mail, tentativas de login, itens, reivindicações, devoluções). `0002_audit_2fa_invites` acrescenta `audit_log`, `recovery_codes`, `admin_invites` e as colunas `users.disabled_at`, `totp_secret`, `totp_enabled_at`, `totp_last_step` (bancos em 0001 sobem sem perder dados; há teste). Um teste (`tests/test_migrations.py`) compara a migração com os modelos e falha se divergirem.
 - Com `ENV=production` a aplicação **não** chama `create_all`: rode `alembic upgrade head` no deploy, antes de subir.
 - Bancos de desenvolvimento criados antes desta versão (por `create_all`) não têm as colunas/tabelas novas: apague `data/campuslost.db` (o seed recria) ou use `alembic stamp` só se o esquema já for idêntico. Não há migração de dados antigos.
@@ -163,4 +164,4 @@ Senhas com bcrypt (nunca devolvidas; política: 10+ caracteres, <= 72 bytes, lis
 - O segredo TOTP fica **em claro** em `users.totp_secret` (sem biblioteca de cifra no projeto): quem lê o banco ou um backup gera códigos. Proteja `data/` e os backups. Não há reset de 2FA por outra pessoa nesta versão.
 - Convites e 2FA dependem do envio de e-mail/relógio corretos: o envio real (SMTP), o Google e o captcha **não foram testados**.
 - `POST /demo/reset` não exige login (como no mock): mantenha `DEMO_MODE=false` fora de demonstrações.
-- O papel aluno/professor é autodeclarado (limitação do documento de decisões).
+- **Papel x vínculo**: `role` (`user`|`admin`) é o único que decide permissões, sempre no servidor. `affiliation` (`institutional`|`external`) vem só do DOMÍNIO do e-mail (`GOOGLE_ALLOWED_DOMAINS`, domínio ou subdomínio) na criação da conta e **não prova** vínculo real com a instituição; não muda se o domínio configurado mudar depois. Não há mais distinção aluno/professor.

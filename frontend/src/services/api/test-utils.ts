@@ -54,7 +54,7 @@ export function createHarness(overrides: Partial<Parameters<typeof createApiServ
   return { api, storage, legacyStorage, services };
 }
 
-export const rawUser = { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", emailVerified: true } as const;
+export const rawUser = { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "user", affiliation: "institutional", emailVerified: true } as const;
 export const rawSession = { token: "tok-1", tokenType: "bearer", expiresAt: "2026-10-22T23:00:00.000Z", user: rawUser };
 
 export const rawItem = {

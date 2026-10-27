@@ -11,6 +11,7 @@ import {
   passwordIssue,
   PASSWORD_ISSUE_MESSAGE,
   addHours,
+  affiliationForEmail,
   type Capability,
 } from "@/lib/rules";
 import {
@@ -42,6 +43,7 @@ function toUserRow(db: Db, user: User, meta: AccountMeta | undefined, fallbackCr
     name: user.name,
     email: user.email,
     role: user.role,
+    affiliation: user.affiliation,
     provider: providerOf(db, user.id),
     active: !meta?.disabledAt,
     disabledAt: meta?.disabledAt ?? null,
@@ -84,6 +86,7 @@ export function createAdminService(ctx: MockContext): AdminService {
           .filter((u) => !db.accounts.find((a) => a.userId === u.id)?.deletedAt)
           .map((u) => toUserRow(db, u, db.accounts.find((a) => a.userId === u.id), epoch))
           .filter((r) => !f.role || r.role === f.role)
+          .filter((r) => !f.affiliation || r.affiliation === f.affiliation)
           .filter((r) => !f.status || r.active === (f.status === "active"))
           .filter((r) => !q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q))
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
@@ -243,6 +246,7 @@ export function createAcceptInvite(ctx: MockContext): AuthService["acceptInvite"
           name: data.name,
           email: invite.email,
           role: "admin",
+          affiliation: affiliationForEmail(invite.email, ctx.allowedGoogleDomains),
           emailVerified: true,
           hasPassword: true,
           twoFactorEnabled: false,

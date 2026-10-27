@@ -5,7 +5,6 @@ import {
   createItemSchema,
   itemFiltersSchema,
   periodSchema,
-  googleRoleSchema,
   googleSignUpSchema,
   signInSchema,
   signUpSchema,
@@ -27,24 +26,26 @@ const messages = (result: { success: boolean; error?: { issues: { message: strin
   result.error?.issues.map((i) => i.message) ?? [];
 
 describe("cadastro e login (AC01.1, AC01.2)", () => {
-  const valid = { name: "Ana Souza", email: "ana@demo.test", password: "uma senha longa 1", role: "student", acceptedTerms: true };
+  const valid = { name: "Ana Souza", email: "ana@demo.test", password: "uma senha longa 1", acceptedTerms: true };
 
   it("aceita dados válidos e normaliza e-mail/nome", () => {
     const r = signUpSchema.parse({ ...valid, name: "  Ana Souza ", email: "  ANA@Demo.Test ", password: " senha de teste 123 " });
     expect(r).toEqual({ ...valid, password: " senha de teste 123 " });
   });
 
-  it("aceita os papéis aluno, professor e comunidade externa", () => {
+  it("aceita só os papéis de usuário e administração", () => {
     for (const role of ["student", "teacher", "external"]) expect(signUpSchema.safeParse({ ...valid, role }).success).toBe(true);
   });
 
-  it("exige nome, e-mail válido e papel de cadastro (admin não)", () => {
-    const r = signUpSchema.safeParse({ name: "", email: "nao-e-email", role: "admin" });
+  it("exige nome e e-mail válido; um `role` enviado é ignorado (nunca cria admin)", () => {
+    expect(signUpSchema.parse({ ...valid, role: "admin" })).not.toHaveProperty("role");
+    expect(Object.keys(signUpSchema.parse({ ...valid, role: "admin", affiliation: "institutional" })).sort()).toEqual(["acceptedTerms", "email", "name", "password"]);
+    const r = signUpSchema.safeParse({ name: "", email: "nao-e-email" });
     expect(r.success).toBe(false);
     const errors = toFieldErrors(r.error!);
     expect(errors.name).toBe("Informe seu nome.");
     expect(errors.email).toBe("Esse e-mail não parece válido. Use o formato nome@exemplo.com.");
-    expect(errors.role).toBe("Escolha como você usa o CampusLost.");
+    expect(errors.role).toBeUndefined();
   });
 
   it("termos: acceptedTerms precisa ser true", () => {
@@ -84,7 +85,6 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
       name: "Informe seu nome.",
       email: "Informe seu e-mail.",
       password: "Crie uma senha.",
-      role: "Escolha como você usa o CampusLost.",
       acceptedTerms: "Aceite os termos de uso para criar a conta.",
     });
   });
@@ -108,17 +108,13 @@ describe("cadastro e login (AC01.1, AC01.2)", () => {
     expect(signInSchema.safeParse({ email: "A@b.co", password: "x" }).data).toEqual({ email: "a@b.co", password: "x" });
   });
 
-  it("passo de papel e cadastro via Google", () => {
-    expect(toFieldErrors(googleRoleSchema.safeParse({ role: "admin" }).error!)).toEqual({
-      role: "Escolha se você é aluno ou professor.",
-    });
-    expect(googleRoleSchema.safeParse({ role: "external" }).success).toBe(false); // externo não passa pelo passo do Google
-    expect(googleSignUpSchema.safeParse({ email: "A@undb.edu.br", name: "Ana", role: "teacher", acceptedTerms: true }).data).toEqual({
+  it("cadastro via Google: só perfil e aceite dos termos (sem papel)", () => {
+    expect(googleSignUpSchema.safeParse({ email: "A@undb.edu.br", name: "Ana", role: "admin", acceptedTerms: true }).data).toEqual({
       email: "a@undb.edu.br",
       name: "Ana",
-      role: "teacher",
       acceptedTerms: true,
     });
+    expect(googleSignUpSchema.safeParse({ email: "a@undb.edu.br", name: "Ana", acceptedTerms: false }).success).toBe(false);
   });
 });
 

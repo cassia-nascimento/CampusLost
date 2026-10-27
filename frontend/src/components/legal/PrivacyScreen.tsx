@@ -29,8 +29,8 @@ export function PrivacyScreen() {
       <LegalSection id="dados" title="Quais dados coletamos">
         <ul className={LEGAL_LIST}>
           <li>
-            <strong>Cadastro:</strong> nome, e-mail e o papel que você informa (aluno, professor ou comunidade
-            externa). O papel não é verificado.
+            <strong>Cadastro:</strong> nome, e-mail e o vínculo, definido apenas pelo domínio do e-mail (institucional
+            ou externo). O vínculo não é verificado.
           </li>
           <li>
             <strong>Acesso:</strong> sua senha, guardada apenas de forma protegida (nunca em texto legível). Se você

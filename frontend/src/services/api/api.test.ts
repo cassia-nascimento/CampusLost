@@ -57,7 +57,7 @@ describe("mapeamento (API.md §3)", () => {
     api.reply({
       json: {
         item: rawItem,
-        createdBy: { id: "user-lucas", name: "Lucas Prado", role: "student" },
+        createdBy: { id: "user-lucas", name: "Lucas Prado", role: "user" },
         myClaims: [rawClaim],
         claims: [{ ...rawClaim, claimant: rawUser }],
         returnRecord: null,
@@ -259,7 +259,7 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
       json: {
         format: "campuslost-export-v1",
         exportedAt: "2026-10-25T10:00:00.000Z",
-        account: { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "student", provider: "password" },
+        account: { id: "user-marina", name: "Marina Alves", email: "marina@demo.test", role: "user", affiliation: "institutional", provider: "password" },
         itemsRegistered: [rawItem],
         claims: [{ ...rawClaim, itemTitle: "Chaveiro" }],
         returns: [],
@@ -310,23 +310,30 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
   it("signUp envia acceptTerms (nome da API) e turnstileToken; Google: needs_terms e acceptTerms", async () => {
     const { api, services } = createHarness();
     api.reply({ status: 201, json: rawSession });
-    await services.auth.signUp({ name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", role: "external", acceptedTerms: true, turnstileToken: "cf" });
+    await services.auth.signUp({ name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", acceptedTerms: true, turnstileToken: "cf" });
     expect(JSON.parse(String(api.calls[0].body))).toEqual({
-      name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", role: "external", acceptTerms: true, turnstileToken: "cf",
+      name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", acceptTerms: true, turnstileToken: "cf",
     });
+    // um `role`/`affiliation` extra (chamada não tipada) NUNCA sai do cliente: a conta nasce user no servidor
+    api.reply({ status: 201, json: rawSession });
+    await services.auth.signUp({ name: "Marina Alves", email: "m@demo.test", password: "uma senha longa 1", acceptedTerms: true, role: "admin", affiliation: "institutional" } as never);
+    const sent = JSON.parse(String(api.calls[1].body));
+    expect(sent).not.toHaveProperty("role");
+    expect(sent).not.toHaveProperty("affiliation");
+    expect(sent.acceptTerms).toBe(true);
     const profile = { email: "ana@gmail.com", name: "Ana" };
     api.reply({ json: { status: "needs_terms", profile, profileToken: "pt-1" } });
     expect(await services.auth.signInWithGoogle("idt")).toEqual({ status: "needs_terms", profile, ticket: "pt-1" });
-    expect(JSON.parse(String(api.calls[1].body))).toEqual({ credential: "idt" });
+    expect(JSON.parse(String(api.calls[2].body))).toEqual({ credential: "idt" });
     api.reply({ json: { status: "signed_in", ...rawSession } });
     await services.auth.signInWithGoogle("idt", { acceptedTerms: true });
-    expect(JSON.parse(String(api.calls[2].body))).toEqual({ credential: "idt", acceptTerms: true });
+    expect(JSON.parse(String(api.calls[3].body))).toEqual({ credential: "idt", acceptTerms: true });
     api.reply({ status: 201, json: rawSession });
     await services.auth.completeGoogleSignUp({ ticket: "pt-1", acceptedTerms: true });
-    expect(JSON.parse(String(api.calls[3].body))).toEqual({ profileToken: "pt-1", acceptTerms: true });
+    expect(JSON.parse(String(api.calls[4].body))).toEqual({ profileToken: "pt-1", acceptTerms: true });
     api.reply({ status: 204 });
     await services.auth.deleteMyAccount({ credential: "idt2" });
-    expect(JSON.parse(String(api.calls[4].body))).toEqual({ credential: "idt2" });
+    expect(JSON.parse(String(api.calls[5].body))).toEqual({ credential: "idt2" });
   });
 });
 
@@ -386,7 +393,7 @@ describe("sessão por cookie HttpOnly", () => {
   it("signUp, demo e Google marcam a sessão", async () => {
     const { api, storage, services } = createHarness();
     api.reply({ status: 201, json: rawSession });
-    await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demonstracao123", role: "student", acceptedTerms: true });
+    await services.auth.signUp({ name: "Marina Alves", email: "marina@demo.test", password: "demonstracao123", acceptedTerms: true });
     expect(api.calls[0].url.pathname).toBe("/auth/signup");
     expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
     storage.removeItem(SESSION_HINT_KEY);
@@ -402,15 +409,15 @@ describe("sessão por cookie HttpOnly", () => {
     expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
-  it("Google conta nova: needs_role não marca sessão; completar usa o ticket e marca", async () => {
+  it("Google conta nova: needs_terms não marca sessão; completar usa o ticket e marca", async () => {
     const { api, storage, services } = createHarness();
-    api.reply({ json: { status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, profileToken: "ptok" } });
+    api.reply({ json: { status: "needs_terms", profile: { email: "ana@undb.edu.br", name: "Ana" }, profileToken: "ptok" } });
     const result = await services.auth.signInWithGoogle("id-token");
-    expect(result).toEqual({ status: "needs_role", profile: { email: "ana@undb.edu.br", name: "Ana" }, ticket: "ptok" });
+    expect(result).toEqual({ status: "needs_terms", profile: { email: "ana@undb.edu.br", name: "Ana" }, ticket: "ptok" });
     expect(storage.getItem(SESSION_HINT_KEY)).toBeNull();
     api.reply({ status: 201, json: rawSession });
-    await services.auth.completeGoogleSignUp({ ticket: "ptok", role: "teacher", acceptedTerms: true });
-    expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", role: "teacher", acceptTerms: true });
+    await services.auth.completeGoogleSignUp({ ticket: "ptok", acceptedTerms: true });
+    expect(JSON.parse(String(api.calls[1].body))).toEqual({ profileToken: "ptok", acceptTerms: true });
     expect(storage.getItem(SESSION_HINT_KEY)).toBe("1");
   });
 
@@ -599,7 +606,7 @@ describe("erros", () => {
     const validation = await failure(services.claims.create("item-03", { proofDetails: "", lostWhereWhen: "" }));
     expect(validation.fieldErrors).toEqual({ title: "Use pelo menos 3 caracteres." });
     api.reply({ status: 409, json: { code: "EMAIL_TAKEN", message: "Este e-mail já está cadastrado.", fieldErrors: { email: "Este e-mail já está cadastrado." } } });
-    const taken = await failure(services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "demonstracao123", role: "student", acceptedTerms: true }));
+    const taken = await failure(services.auth.signUp({ name: "Marina", email: "marina@demo.test", password: "demonstracao123", acceptedTerms: true }));
     expect(taken).toMatchObject({ code: "EMAIL_TAKEN", fieldErrors: { email: "Este e-mail já está cadastrado." } });
   });
 
@@ -652,8 +659,8 @@ describe("erros", () => {
 describe("demonstração", () => {
   it("listDemoProfiles devolve perfis; 404/403 (demo desligado) devolvem lista vazia sem erro", async () => {
     const { api, services } = createHarness();
-    api.reply({ json: [{ role: "student", label: "Entrar como aluno", user: rawUser }] });
-    expect(await services.auth.listDemoProfiles()).toEqual([{ role: "student", label: "Entrar como aluno", user: rawUser }]);
+    api.reply({ json: [{ key: "institutional", label: "Usuário (e-mail institucional)", user: rawUser }] });
+    expect(await services.auth.listDemoProfiles()).toEqual([{ key: "institutional", label: "Usuário (e-mail institucional)", user: rawUser }]);
     api.reply({ status: 404, json: { code: "NOT_FOUND", message: "Não encontrado." } });
     expect(await services.auth.listDemoProfiles()).toEqual([]);
     api.reply({ status: 403, json: { code: "FORBIDDEN", message: "Não permitido." } });

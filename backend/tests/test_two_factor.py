@@ -35,7 +35,7 @@ def test_verify_window_and_replay():
 
 
 def test_setup_returns_secret_and_otpauth_uri(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     r = client.post("/auth/2fa/setup", headers=h)
     assert r.status_code == 200
@@ -48,7 +48,7 @@ def test_setup_returns_secret_and_otpauth_uri(client, app, clock):
 
 
 def test_enable_requires_valid_code_and_returns_eight_recovery_codes(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     assert client.post("/auth/2fa/enable", json={"code": "123456"}, headers=h).status_code == 409  # sem setup
     secret = client.post("/auth/2fa/setup", headers=h).json()["secret"]
@@ -66,7 +66,7 @@ def test_enable_requires_valid_code_and_returns_eight_recovery_codes(client, app
 
 
 def test_login_with_2fa_needs_challenge_then_totp(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     secret, _ = enable_2fa(client, clock, h)
     r = login(client, "u@exemplo.com")
@@ -87,7 +87,7 @@ def test_login_with_2fa_needs_challenge_then_totp(client, app, clock):
 
 
 def test_verify_with_recovery_code_is_single_use(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     _, codes = enable_2fa(client, clock, h)
     ch = login(client, "u@exemplo.com").json()["challengeToken"]
@@ -108,7 +108,7 @@ def test_verify_rejects_garbage_and_foreign_tokens(client, app, clock):
 
 
 def test_verify_is_throttled(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     secret, _ = enable_2fa(client, clock, h)
     ch = login(client, "u@exemplo.com").json()["challengeToken"]
@@ -119,7 +119,7 @@ def test_verify_is_throttled(client, app, clock):
 
 
 def test_disable_needs_password_and_code(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     h = token_of(client, "u@exemplo.com")
     secret, _ = enable_2fa(client, clock, h)
     wrong_pw = client.post("/auth/2fa/disable", json={"password": "errada-errada", "code": current_code(clock, secret)}, headers=h)
@@ -170,7 +170,7 @@ def test_non_admin_gets_403_forbidden_on_admin_routes(client, student):
 
 
 def test_google_login_of_a_2fa_user_also_asks_for_the_second_factor(client, app, clock, monkeypatch):
-    make_user(app, "u@undb.edu.br", role="student")
+    make_user(app, "u@undb.edu.br", role="user")
     h = token_of(client, "u@undb.edu.br")
     enable_2fa(client, clock, h)
     import app.routers.auth as auth_router
@@ -181,7 +181,7 @@ def test_google_login_of_a_2fa_user_also_asks_for_the_second_factor(client, app,
 
 
 def test_account_json_exposes_two_factor_enabled(client, app, clock):
-    make_user(app, "u@exemplo.com", role="student")
+    make_user(app, "u@exemplo.com", role="user")
     r = login(client, "u@exemplo.com")
     h = bearer(r.json()["token"])
     client.cookies.clear()
@@ -229,3 +229,22 @@ def test_legacy_admin_routes_keep_forbidden_for_other_roles_and_demo_exemption(s
     assert client.get("/returns", headers=admin).status_code == 200  # demo: isento
     r = strict_client.post("/demo/login/admin")
     assert strict_client.get("/returns", headers=bearer(r.json()["token"])).status_code == 200  # user-admin isento
+
+
+def test_create_admin_cli_sets_role_and_affiliation(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app import create_admin
+    from app.models import UserRow
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'ca.db'}")
+    monkeypatch.setenv("SECRET_KEY", "x" * 40)
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.setenv("ADMIN_PASSWORD", "senha-forte-1")
+    monkeypatch.setenv("BCRYPT_ROUNDS", "4")
+    assert create_admin.main(["--email", "adm@undb.edu.br", "--name", "Adm Teste"]) == 0
+    assert create_admin.main(["--email", "adm2@gmail.com", "--name", "Adm Dois"]) == 0
+    with Session(create_engine(f"sqlite:///{tmp_path / 'ca.db'}")) as s:
+        rows = {u.email: (u.role, u.affiliation) for u in s.scalars(select(UserRow))}
+    assert rows == {"adm@undb.edu.br": ("admin", "institutional"), "adm2@gmail.com": ("admin", "external")}

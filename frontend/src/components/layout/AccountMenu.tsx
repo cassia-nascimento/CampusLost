@@ -9,7 +9,7 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { getInitial } from "@/lib/format";
 import { services } from "@/services";
-import { ROLE_LABEL, isServiceError } from "@/types/domain";
+import { AFFILIATION_LABEL, ROLE_LABEL, isServiceError } from "@/types/domain";
 
 const ITEM_CLASSES =
   "touch-target flex w-full items-center gap-2 rounded-md px-3 text-left text-body font-semibold text-ink " +
@@ -118,7 +118,7 @@ export function AccountMenu() {
         >
           <div role="none" className="mb-1 border-b border-line px-3 pt-1 pb-3">
             <p className="user-text font-semibold text-ink">{user.name}</p>
-            <p className="text-meta text-ink-muted">{ROLE_LABEL[user.role]}</p>
+            <p className="text-meta text-ink-muted">{ROLE_LABEL[user.role]} · {AFFILIATION_LABEL[user.affiliation]}</p>
           </div>
           <Link href="/conta" role="menuitem" className={ITEM_CLASSES} onClick={() => setOpen(false)}>
             <UserRound aria-hidden="true" className="size-5 shrink-0 text-ink-muted" />

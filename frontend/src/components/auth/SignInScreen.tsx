@@ -6,7 +6,7 @@ import { Brand } from "@/components/layout/Brand";
 import { Notice } from "@/components/ui/Notice";
 import { HOW_IT_WORKS_STEPS } from "@/components/landing/steps";
 import { DemoProfiles } from "./DemoProfiles";
-import { GoogleRoleStep } from "./GoogleRoleStep";
+import { GoogleTermsStep } from "./GoogleTermsStep";
 import { GoogleSignIn, type GooglePending } from "./GoogleSignIn";
 import { withNext } from "./next-param";
 import { AuthLoading, RedirectIfAuthenticated } from "./RedirectIfAuthenticated";
@@ -84,7 +84,7 @@ function SignInContent() {
                 onCancel={() => setChallengeToken(null)}
               />
             ) : googlePending ? (
-              <GoogleRoleStep pending={googlePending} onCancel={() => setGooglePending(null)} />
+              <GoogleTermsStep pending={googlePending} onCancel={() => setGooglePending(null)} />
             ) : (
               <>
                 <div>

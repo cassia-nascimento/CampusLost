@@ -3,16 +3,28 @@
  * Identificadores em inglês; os rótulos em português vivem nas constantes `*_LABEL`.
  */
 
-export const USER_ROLES = ["student", "teacher", "external", "admin"] as const;
-export type UserRole = (typeof USER_ROLES)[number];
+/** Papel de acesso: só `user` e `admin`. A administração nunca é escolhida no cadastro (convite ou seed). */
+export const ROLES = ["user", "admin"] as const;
+export type Role = (typeof ROLES)[number];
+/** Nomes antigos (`USER_ROLES`/`UserRole`) mantidos como apelidos para não quebrar importações. */
+export const USER_ROLES = ROLES;
+export type UserRole = Role;
 
-/** Papéis que podem ser escolhidos no cadastro (administração só existe por seed). */
-export const SIGNUP_ROLES = ["student", "teacher", "external"] as const;
-export type SignupRole = (typeof SIGNUP_ROLES)[number];
+/**
+ * Vínculo: `institutional` (e-mail de um domínio institucional) ou `external`. Derivado SÓ do domínio do e-mail na
+ * criação da conta e gravado; o vínculo NÃO é verificado (ninguém comprova ser aluno, professor ou servidor).
+ */
+export const AFFILIATIONS = ["institutional", "external"] as const;
+export type Affiliation = (typeof AFFILIATIONS)[number];
 
-/** Papéis escolhíveis no passo do Google (domínio institucional): comunidade externa entra direto, sem escolher. */
-export const GOOGLE_SIGNUP_ROLES = ["student", "teacher"] as const;
-export type GoogleSignupRole = (typeof GOOGLE_SIGNUP_ROLES)[number];
+export const AFFILIATION_LABEL: Record<Affiliation, string> = {
+  institutional: "E-mail institucional",
+  external: "Externo",
+};
+
+/** Aviso a exibir junto do vínculo: ele não é uma verificação. */
+export const AFFILIATION_NOTICE =
+  "O vínculo é definido apenas pelo domínio do e-mail informado; não verificamos se a pessoa é aluno, professor ou servidor.";
 
 export const ITEM_STATUSES = ["available", "under_claim", "returned"] as const;
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
@@ -21,9 +33,7 @@ export const CLAIM_STATUSES = ["pending", "accepted", "rejected"] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
 export const ROLE_LABEL: Record<UserRole, string> = {
-  student: "Aluno",
-  teacher: "Professor",
-  external: "Comunidade externa",
+  user: "Usuário",
   admin: "Administração",
 };
 
@@ -47,7 +57,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: Role;
+  /** Vínculo pelo domínio do e-mail (`institutional` | `external`), gravado na criação. Não é verificação. */
+  affiliation: Affiliation;
   /** E-mail confirmado. Conta por senha nasce `false`; Google nasce `true`. */
   emailVerified: boolean;
   /**

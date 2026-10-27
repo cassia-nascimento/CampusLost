@@ -17,18 +17,18 @@ router = APIRouter(prefix="/demo", tags=["demo"], dependencies=[Depends(demo_gua
 @router.get("/profiles")
 def demo_profiles(db: DbDep):
     out = []
-    for role in ("student", "teacher", "admin"):
-        user = db.get(UserRow, DEMO_PROFILE_IDS[role])
+    for key in DEMO_PROFILE_IDS:
+        user = db.get(UserRow, DEMO_PROFILE_IDS[key])
         if user is not None:
-            out.append({"role": role, "label": DEMO_PROFILE_LABELS[role], "user": user_json(user)})
+            out.append({"key": key, "label": DEMO_PROFILE_LABELS[key], "user": user_json(user)})
     return out
 
 
-@router.post("/login/{role}")
-def demo_login(role: str, response: Response, db: DbDep, settings: SettingsDep, now: ClockDep):
-    if role not in DEMO_PROFILE_IDS:
+@router.post("/login/{key}")
+def demo_login(key: str, response: Response, db: DbDep, settings: SettingsDep, now: ClockDep):
+    if key not in DEMO_PROFILE_IDS:
         raise ServiceError("NOT_FOUND", "Perfil de demonstração não encontrado.")
-    user = db.get(UserRow, DEMO_PROFILE_IDS[role])
+    user = db.get(UserRow, DEMO_PROFILE_IDS[key])
     if user is None:
         raise ServiceError("NOT_FOUND", "Perfil de demonstração não encontrado. Rode o seed.")
     return issue_session(db, settings, user, now(), response)

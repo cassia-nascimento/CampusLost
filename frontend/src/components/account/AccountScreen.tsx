@@ -14,7 +14,7 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { checkEmailVerified, isAdmin } from "@/lib/rules";
 import { services } from "@/services";
-import { ROLE_LABEL } from "@/types/domain";
+import { AFFILIATION_LABEL, AFFILIATION_NOTICE, ROLE_LABEL } from "@/types/domain";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
 import { TwoFactorSection } from "./TwoFactorSection";
 import { AdminTwoFactorNotice } from "./TwoFactorNotice";
@@ -84,9 +84,11 @@ export function AccountScreen() {
             { label: "Nome", value: user.name },
             { label: "E-mail", value: user.email },
             { label: "Papel", value: ROLE_LABEL[user.role] },
+            { label: "Vínculo", value: AFFILIATION_LABEL[user.affiliation] },
             { label: "Situação do e-mail", value: verified ? "Confirmado" : "Ainda não confirmado" },
           ]}
         />
+        <p className="text-meta text-ink-muted">{AFFILIATION_NOTICE}</p>
         {verified ? null : (
           <Notice tone="warning" title="Confirme seu e-mail">
             Enquanto não confirmar, você não pode cadastrar itens nem reivindicar.

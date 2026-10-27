@@ -157,11 +157,11 @@ def test_resend_malformed_email_is_validation_error(client):
 
 def test_google_login_discards_unverified_password_account_of_the_same_email(client, fake_google, app):
     """Atacante cadastra por senha o e-mail institucional da vítima; a vítima entra com Google."""
-    attacker = signup(client, email="ana.souza@undb.edu.br", role="student")
+    attacker = signup(client, email="ana.souza@undb.edu.br")
     attacker_login = client.post("/auth/login", json={"email": "ana.souza@undb.edu.br", "password": PASSWORD})
     assert attacker_login.status_code == 200
     r = client.post("/auth/google", json={"credential": "x"})
-    assert r.status_code == 200 and r.json()["status"] == "needs_role"  # a conta falsa não é herdada
+    assert r.status_code == 200 and r.json()["status"] == "needs_terms"  # a conta falsa não é herdada
     assert db_user(app, "ana.souza@undb.edu.br") is None
     # a senha e as sessões do atacante morreram
     assert client.post("/auth/login", json={"email": "ana.souza@undb.edu.br", "password": PASSWORD}).status_code == 401
@@ -169,7 +169,7 @@ def test_google_login_discards_unverified_password_account_of_the_same_email(cli
     assert client.get("/auth/me", headers=bearer(attacker_login.json()["token"])).status_code == 401
     # a vítima conclui o cadastro: conta Google verificada, sem senha
     done = client.post(
-        "/auth/google/complete", json={"profileToken": r.json()["profileToken"], "role": "student", "acceptTerms": True}
+        "/auth/google/complete", json={"ticket": r.json()["ticket"], "acceptTerms": True}
     )
     assert done.status_code == 201
     row = db_user(app, "ana.souza@undb.edu.br")
@@ -182,7 +182,7 @@ def test_google_login_discards_unverified_non_institutional_account_too(client, 
     r = client.post("/auth/google", json={"credential": "x"})
     assert r.json()["status"] == "needs_terms"
     done = client.post("/auth/google", json={"credential": "x", "acceptTerms": True}).json()
-    assert done["status"] == "signed_in" and done["user"]["role"] == "external"
+    assert done["status"] == "signed_in" and done["user"]["role"] == "user" and done["user"]["affiliation"] == "external"
     assert client.post("/auth/login", json={"email": "vitima@gmail.com", "password": PASSWORD}).status_code == 401
 
 

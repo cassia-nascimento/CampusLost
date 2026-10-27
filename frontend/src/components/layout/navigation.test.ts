@@ -11,14 +11,8 @@ import {
 } from "./navigation";
 
 describe("itens de navegação por perfil", () => {
-  it("aluno e professor: Itens, Registrar, Reivindicações", () => {
-    for (const role of ["student", "teacher"] as const) {
-      expect(getBottomNavItems(role).map((i) => i.href)).toEqual([
-        "/itens",
-        "/itens/novo",
-        "/minhas-reivindicacoes",
-      ]);
-    }
+  it("usuário: Itens, Registrar, Reivindicações", () => {
+    expect(getBottomNavItems("user").map((i) => i.href)).toEqual(["/itens", "/itens/novo", "/minhas-reivindicacoes"]);
   });
 
   it("administração: Painel, Itens, Registrar, Devoluções (sem Minhas reivindicações)", () => {
@@ -28,21 +22,21 @@ describe("itens de navegação por perfil", () => {
   });
 
   it("header desktop não repete Registrar (é botão)", () => {
-    expect(getHeaderNavItems("student").map((i) => i.href)).toEqual(["/itens", "/minhas-reivindicacoes"]);
+    expect(getHeaderNavItems("user").map((i) => i.href)).toEqual(["/itens", "/minhas-reivindicacoes"]);
     expect(getHeaderNavItems("admin").map((i) => i.href)).toEqual(["/admin", "/itens", "/admin/devolucoes"]);
   });
 
   it("Minhas reivindicações tem rótulo completo para leitor de tela", () => {
-    const item = getBottomNavItems("student").find((i) => i.href === "/minhas-reivindicacoes");
+    const item = getBottomNavItems("user").find((i) => i.href === "/minhas-reivindicacoes");
     expect(item?.fullLabel).toBe("Minhas reivindicações");
   });
 });
 
 describe("item ativo", () => {
   it("escolhe o href mais específico", () => {
-    expect(getActiveHref("student", "/itens")).toBe("/itens");
-    expect(getActiveHref("student", "/itens/abc")).toBe("/itens");
-    expect(getActiveHref("student", "/itens/novo")).toBe("/itens/novo");
+    expect(getActiveHref("user", "/itens")).toBe("/itens");
+    expect(getActiveHref("user", "/itens/abc")).toBe("/itens");
+    expect(getActiveHref("user", "/itens/novo")).toBe("/itens/novo");
     expect(getActiveHref("admin", "/admin")).toBe("/admin");
     expect(getActiveHref("admin", "/admin/devolucoes")).toBe("/admin/devolucoes");
     expect(getActiveHref("admin", "/admin/reivindicacoes/x")).toBe("/admin");
@@ -51,7 +45,7 @@ describe("item ativo", () => {
   });
 
   it("sem correspondência, nenhum ativo", () => {
-    expect(getActiveHref("student", "/outra")).toBeNull();
+    expect(getActiveHref("user", "/outra")).toBeNull();
   });
 });
 
