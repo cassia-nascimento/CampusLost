@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PASSWORD_ISSUE_MESSAGE } from "@/lib/rules";
+import { PASSWORD_ISSUE_MESSAGE, isOtherCategory } from "@/lib/rules";
 import {
   claimSchema,
   createItemSchema,
@@ -19,6 +19,8 @@ import {
   CLAIM_WHERE_WHEN_MAX,
   ITEM_DESCRIPTION_MAX,
   ITEM_STORED_AT_MAX,
+  ITEM_LOCATION_MAX,
+  ITEM_CATEGORY_OTHER_MAX,
   ITEM_TITLE_MAX,
 } from "./index";
 
@@ -163,10 +165,77 @@ describe("item (AC02.1, AC02.2)", () => {
     expect(toFieldErrors(schema.safeParse({ ...valid, title: "     " }).error!).title).toBe("Informe um título.");
   });
 
-  it("categoria e local devem estar nas listas demonstrativas", () => {
-    const errors = toFieldErrors(schema.safeParse({ ...valid, category: "Joias", foundLocation: "Lua" }).error!);
+  it("categoria deve estar na lista demonstrativa", () => {
+    const errors = toFieldErrors(schema.safeParse({ ...valid, category: "Joias" }).error!);
     expect(errors.category).toBe("Escolha uma categoria.");
-    expect(errors.foundLocation).toBe("Escolha o local onde foi encontrado.");
+  });
+
+  describe("local encontrado (texto livre, 3–120)", () => {
+    it("aceita texto livre, inclusive o exemplo longo, e apara espaços", () => {
+      const example = "Bloco C, segundo andar, próximo ao laboratório 04";
+      expect(schema.parse({ ...valid, foundLocation: example }).foundLocation).toBe(example);
+      expect(schema.parse({ ...valid, foundLocation: "  Lua  " }).foundLocation).toBe("Lua");
+      expect(schema.safeParse({ ...valid, foundLocation: "l".repeat(ITEM_LOCATION_MAX) }).success).toBe(true);
+    });
+
+    it("mensagens: vazio, só espaços, ausente, curto e longo", () => {
+      const msg = (foundLocation: unknown) => toFieldErrors(schema.safeParse({ ...valid, foundLocation }).error!).foundLocation;
+      expect(msg("")).toBe("Informe o local onde foi encontrado.");
+      expect(msg("     ")).toBe("Informe o local onde foi encontrado.");
+      expect(msg(undefined)).toBe("Informe o local onde foi encontrado.");
+      expect(msg("ab")).toBe("Use pelo menos 3 caracteres.");
+      expect(msg("l".repeat(ITEM_LOCATION_MAX + 1))).toBe("Use no máximo 120 caracteres.");
+    });
+  });
+
+  describe("categoria Outros e categoryOther", () => {
+    it("Outros exige categoryOther (3–40, com trim)", () => {
+      const msg = (categoryOther: unknown) =>
+        toFieldErrors(schema.safeParse({ ...valid, category: "Outros", categoryOther }).error!).categoryOther;
+      expect(msg(undefined)).toBe("Especifique a categoria.");
+      expect(msg(null)).toBe("Especifique a categoria.");
+      expect(msg("")).toBe("Especifique a categoria.");
+      expect(msg("    ")).toBe("Especifique a categoria.");
+      expect(msg("ab")).toBe("Use pelo menos 3 caracteres.");
+      expect(msg("c".repeat(ITEM_CATEGORY_OTHER_MAX + 1))).toBe("Use no máximo 40 caracteres.");
+      expect(schema.parse({ ...valid, category: "Outros", categoryOther: "  Mochila escolar " }).categoryOther).toBe("Mochila escolar");
+      expect(schema.safeParse({ ...valid, category: "Outros", categoryOther: "c".repeat(ITEM_CATEGORY_OTHER_MAX) }).success).toBe(true);
+    });
+
+    it("categoria predefinida descarta categoryOther (trocar de Outros não deixa dado inconsistente)", () => {
+      expect(schema.parse({ ...valid, category: "Roupas", categoryOther: "Mochila escolar" }).categoryOther).toBeNull();
+      expect(schema.parse({ ...valid, category: "Roupas" }).categoryOther).toBeNull();
+      // texto que deixou de valer não gera erro
+      expect(schema.safeParse({ ...valid, category: "Roupas", categoryOther: "x" }).success).toBe(true);
+    });
+
+    it("o erro de categoryOther aparece junto dos demais", () => {
+      const errors = toFieldErrors(schema.safeParse({ ...valid, title: "", category: "Outros" }).error!);
+      expect(Object.keys(errors).sort()).toEqual(["categoryOther", "title"]);
+    });
+
+    it("isOtherCategory só vale para Outros", () => {
+      expect(isOtherCategory("Outros")).toBe(true);
+      expect(isOtherCategory("Roupas")).toBe(false);
+      expect(isOtherCategory("")).toBe(false);
+      expect(isOtherCategory(undefined)).toBe(false);
+    });
+  });
+
+  describe("storedAt opcional", () => {
+    it("vazio, só espaços, null ou ausente viram null", () => {
+      for (const storedAt of ["", "   ", null, undefined]) {
+        expect(schema.parse({ ...valid, storedAt }).storedAt).toBeNull();
+      }
+      const { storedAt: _s, ...without } = valid;
+      void _s;
+      expect(schema.parse(without).storedAt).toBeNull();
+    });
+
+    it("quando vem, apara e exige 3–120", () => {
+      expect(schema.parse({ ...valid, storedAt: "  Armário 2 " }).storedAt).toBe("Armário 2");
+      expect(toFieldErrors(schema.safeParse({ ...valid, storedAt: "ab" }).error!).storedAt).toBe("Use pelo menos 3 caracteres.");
+    });
   });
 
   it("valida arquivo de foto (formato e tamanho)", () => {
@@ -217,14 +286,19 @@ describe("filtros", () => {
 
   it("mensagens pt-BR nos valores inválidos (I3)", () => {
     const errors = toFieldErrors(
-      itemFiltersSchema.safeParse({ category: "Joias", location: "Lua", status: "returned", sort: "random" }).error!,
+      itemFiltersSchema.safeParse({ category: "Joias", location: "l".repeat(121), status: "returned", sort: "random" }).error!,
     );
     expect(errors).toEqual({
       category: "Categoria inválida.",
-      location: "Local inválido.",
+      location: "Use no máximo 120 caracteres.",
       status: "Situação inválida.",
       sort: "Ordenação inválida.",
     });
+  });
+
+  it("local do filtro é texto livre (apara; vazio vira sem filtro)", () => {
+    expect(itemFiltersSchema.parse({ location: "  Lua  " }).location).toBe("Lua");
+    expect(itemFiltersSchema.parse({ location: "   " }).location).toBeUndefined();
   });
 
   it("não aceita status Devolvido na busca", () => {
@@ -243,7 +317,7 @@ describe("limites exportados (usados nos maxLength dos formulários)", () => {
       foundDate: "2026-10-19",
       storedAt: "Portaria",
     };
-    expect([ITEM_TITLE_MAX, ITEM_DESCRIPTION_MAX, ITEM_STORED_AT_MAX]).toEqual([80, 500, 120]);
+    expect([ITEM_TITLE_MAX, ITEM_DESCRIPTION_MAX, ITEM_STORED_AT_MAX, ITEM_LOCATION_MAX, ITEM_CATEGORY_OTHER_MAX]).toEqual([80, 500, 120, 120, 40]);
     expect(schema.safeParse({ ...valid, title: "t".repeat(ITEM_TITLE_MAX) }).success).toBe(true);
     expect(schema.safeParse({ ...valid, title: "t".repeat(ITEM_TITLE_MAX + 1) }).success).toBe(false);
     expect(schema.safeParse({ ...valid, description: "d".repeat(ITEM_DESCRIPTION_MAX) }).success).toBe(true);

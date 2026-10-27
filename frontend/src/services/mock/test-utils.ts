@@ -84,6 +84,7 @@ export const validItem = {
   title: "Garrafa azul",
   description: "Garrafa de plástico azul com tampa preta.",
   category: "Outros",
+  categoryOther: "Garrafa térmica",
   foundLocation: "Cantina",
   foundDate: "2026-10-19",
   storedAt: "Portaria",

@@ -83,11 +83,17 @@ export interface Item {
   /** Descrição pública. */
   description: string;
   category: string;
+  /** Especificação da categoria; só existe quando `category === "Outros"` (a opção "Outro"), senão `null`. */
+  categoryOther: string | null;
+  /** Local onde foi encontrado: texto livre (3–120 caracteres). */
   foundLocation: string;
   /** Data em que foi encontrado, `YYYY-MM-DD` (calendário local). */
   foundDate: string;
-  /** Onde o item está guardado agora. */
-  storedAt: string;
+  /**
+   * Onde o item está guardado agora (opcional). PRIVADO: só a administração o recebe; para os demais a chave é
+   * AUSENTE (`undefined`). `null` = administração sem local informado.
+   */
+  storedAt?: string | null;
   /**
    * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário no mock), um
    * caminho público `/seed/<slug>.svg|webp` (imagens demonstrativas do seed, P27) OU, em modo API, a URL absoluta de

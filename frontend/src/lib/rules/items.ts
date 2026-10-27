@@ -3,10 +3,27 @@ import { ALLOW, deny, type Decision } from "./decision";
 import { checkEmailVerified, hasCapability } from "./permissions";
 import { isItemLocked } from "./item-status";
 
+export { isOtherCategory } from "@/types/catalog";
+
+/** Limite do filtro de local (igual ao do campo `foundLocation`). */
+export const LOCATION_FILTER_MAX = 120;
+
+/** Minúsculas, sem acentos e sem espaços nas pontas: base da busca por local ("Cantína " = "cantina"). */
+export function normalizeSearchText(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+}
+
+/** Regra "contém" do filtro de local, sem diferenciar maiúsculas/minúsculas nem acentos. Filtro vazio casa tudo. */
+export function matchesLocation(foundLocation: string, query: string): boolean {
+  const needle = normalizeSearchText(query);
+  return needle === "" || normalizeSearchText(foundLocation).includes(needle);
+}
+
 export type ItemSort = "registered" | "found";
 
 export interface ItemFilters {
   category?: string;
+  /** Texto livre (máx. 120): "contém" em `foundLocation`, sem diferenciar caixa nem acentos. */
   location?: string;
   /** Início do período (inclusive), `YYYY-MM-DD`, sobre a data em que foi encontrado (P11). */
   from?: string;
@@ -61,7 +78,7 @@ export function filterItems(items: readonly Item[], filters: ItemFilters = {}): 
     if (!isVisibleInSearch(item)) return false;
     if (filters.status && item.status !== filters.status) return false;
     if (filters.category && item.category !== filters.category) return false;
-    if (filters.location && item.foundLocation !== filters.location) return false;
+    if (filters.location && !matchesLocation(item.foundLocation, filters.location)) return false;
     if (filters.from && item.foundDate < filters.from) return false;
     if (filters.to && item.foundDate > filters.to) return false;
     return true;

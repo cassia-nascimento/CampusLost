@@ -18,6 +18,8 @@ from .password import password_error
 ITEM_TITLE_MAX = 80
 ITEM_DESCRIPTION_MAX = 500
 ITEM_STORED_AT_MAX = 120
+ITEM_LOCATION_MAX = 120
+ITEM_CATEGORY_OTHER_MAX = 40
 CLAIM_PROOF_MAX = 500
 CLAIM_WHERE_WHEN_MAX = 300
 PHOTO_MAX_BYTES = 10 * 1024 * 1024
@@ -183,7 +185,7 @@ def validate_claim(data: Any) -> dict[str, str]:
     )
 
 
-def validate_item(data: Any, today: str) -> dict[str, str]:
+def validate_item(data: Any, today: str) -> dict[str, str | None]:
     """Campos de texto do item (RF02). `today`: dia local de referência (data não pode ser futura)."""
 
     def found_date(v: Any) -> str:
@@ -192,15 +194,26 @@ def validate_item(data: Any, today: str) -> dict[str, str]:
             raise _Fail("A data não pode ser no futuro.")
         return d
 
+    src = data if isinstance(data, dict) else {}
+
+    def category_other(v: Any) -> str | None:
+        # Só vale com a categoria "Outros"; com categoria predefinida o valor enviado é ignorado (nunca persistido).
+        if src.get("category") != "Outros":
+            return None
+        if not isinstance(v, str) or v.strip() == "":
+            raise _Fail("Especifique a categoria.")
+        return _bounded_text(v, "a categoria", 3, ITEM_CATEGORY_OTHER_MAX)
+
     return _run(
         data,
         {
             "title": lambda v: _bounded_text(v, "um título", 3, ITEM_TITLE_MAX),
             "description": lambda v: _bounded_text(v, "uma descrição", 10, ITEM_DESCRIPTION_MAX),
             "category": lambda v: _enum(v, catalog.CATEGORIES, "Escolha uma categoria."),
-            "foundLocation": lambda v: _enum(v, catalog.LOCATIONS, "Escolha o local onde foi encontrado."),
+            "categoryOther": category_other,
+            "foundLocation": lambda v: _bounded_text(v, "o local onde foi encontrado", 3, ITEM_LOCATION_MAX),
             "foundDate": found_date,
-            "storedAt": lambda v: _bounded_text(v, "onde o item está guardado", 3, ITEM_STORED_AT_MAX),
+            "storedAt": _optional(lambda v: _bounded_text(v, "onde o item está guardado", 3, ITEM_STORED_AT_MAX)),
         },
     )
 
@@ -253,7 +266,7 @@ def validate_item_filters(params: dict[str, Any]) -> dict[str, Any]:
         params,
         {
             "category": _optional(lambda v: _enum(v, catalog.CATEGORIES, "Categoria inválida.")),
-            "location": _optional(lambda v: _enum(v, catalog.LOCATIONS, "Local inválido.")),
+            "location": _optional(lambda v: _bounded_text(v, "o local", 1, ITEM_LOCATION_MAX)),
             "from": _optional_date,
             "to": _optional_date,
             "status": _optional(lambda v: _enum(v, ("available", "under_claim"), "Situação inválida.")),

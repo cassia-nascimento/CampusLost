@@ -109,9 +109,11 @@ export const AUDIT_LIMIT = 500;
  * o banco v5 é descartado e o seed novo o substitui.
  * v7: o seed trocou a "Carteira de estudante" por "Boné bege" e 9 dos 11 itens passaram a usar fotos reais
  * (`/seed/*.webp`); `mochila` e `carregador` seguem ilustrações SVG (P27). O banco v6 é descartado.
+ * v8: `categoryOther` nos itens ("Outros" traz a especificação), `foundLocation` virou texto livre e `storedAt` é
+ * opcional/privado (só a administração o recebe). O banco v7 é descartado.
  * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 
 /** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
 export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
@@ -186,6 +188,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/fones-de-ouvido.webp",
       description: "Fones intra-auriculares brancos, com estojo de carregamento pequeno.",
       category: "Eletrônicos",
+      categoryOther: null,
       foundLocation: "Biblioteca",
       storedAt: "Biblioteca",
       status: "available",
@@ -196,6 +199,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/bone.webp",
       description: "Boné bege com um bordado verde na frente, encontrado no pátio.",
       category: "Roupas",
+      categoryOther: null,
       foundLocation: "Portaria",
       storedAt: "Portaria",
       status: "available",
@@ -206,6 +210,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/chaveiro.webp",
       description: "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.",
       category: "Chaves",
+      categoryOther: null,
       foundLocation: "Bloco A",
       storedAt: "Portaria",
       status: "under_claim",
@@ -216,6 +221,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/calculadora.webp",
       description: "Calculadora científica preta com capa deslizante e arranhões na tampa.",
       category: "Eletrônicos",
+      categoryOther: null,
       foundLocation: "Bloco A",
       storedAt: "Portaria",
       status: "under_claim",
@@ -226,6 +232,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/casaco.webp",
       description: "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.",
       category: "Roupas",
+      categoryOther: null,
       foundLocation: "Cantina",
       storedAt: "Portaria",
       status: "available",
@@ -236,6 +243,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/notebook.webp",
       description: "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.",
       category: "Eletrônicos",
+      categoryOther: null,
       foundLocation: "Biblioteca",
       storedAt: "Portaria",
       status: "under_claim",
@@ -246,6 +254,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/garrafa-termica.webp",
       description: "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.",
       category: "Outros",
+      categoryOther: "Garrafa térmica",
       foundLocation: "Cantina",
       storedAt: "Cantina",
       status: "available",
@@ -256,6 +265,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/guarda-chuva.webp",
       description: "Guarda-chuva preto automático com cabo curvo de madeira.",
       category: "Outros",
+      categoryOther: "Guarda-chuva",
       foundLocation: "Portaria",
       storedAt: "Portaria",
       status: "available",
@@ -266,6 +276,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/mochila.svg",
       description: "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.",
       category: "Outros",
+      categoryOther: "Mochila escolar",
       foundLocation: "Bloco A",
       storedAt: "Entregue ao dono",
       status: "returned",
@@ -276,6 +287,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/oculos.webp",
       description: "Óculos de grau com armação preta retangular, dentro de um estojo cinza.",
       category: "Outros",
+      categoryOther: "Óculos de grau",
       foundLocation: "Cantina",
       storedAt: "Portaria",
       status: "available",
@@ -286,6 +298,7 @@ export function buildSeed(now: Date): Db {
       photoDataUrl: "/seed/carregador.svg",
       description: "Carregador de parede branco com cabo USB-C de 1 metro enrolado.",
       category: "Eletrônicos",
+      categoryOther: null,
       foundLocation: "Biblioteca",
       storedAt: "Entregue ao dono",
       status: "returned",

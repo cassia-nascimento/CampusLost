@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -7,6 +8,12 @@ from ..models import ItemRow
 from .decision import ALLOW, Decision, deny
 from .item_status import is_item_locked
 from .permissions import email_not_verified, has_capability
+
+
+def fold_text(value: str) -> str:
+    """Minúsculas e sem acentos (NFKD), para busca por texto livre."""
+    decomposed = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).casefold()
 
 
 def is_visible_in_search(item: ItemRow) -> bool:
@@ -51,7 +58,7 @@ def filter_items(items: Iterable[ItemRow], filters: dict[str, Any]) -> list[Item
             continue
         if filters.get("category") and item.category != filters["category"]:
             continue
-        if filters.get("location") and item.found_location != filters["location"]:
+        if filters.get("location") and fold_text(filters["location"]) not in fold_text(item.found_location):
             continue
         if filters.get("from") and item.found_date < filters["from"]:
             continue

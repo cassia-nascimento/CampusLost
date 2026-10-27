@@ -53,11 +53,20 @@ export interface Mappers {
 }
 
 export function createMappers(baseUrl: string): Mappers {
-  /** Troca `photoUrl` por `photoDataUrl` (ausente quando não há foto). */
+  /**
+   * Troca `photoUrl` por `photoDataUrl` (ausente quando não há foto) e normaliza os campos opcionais:
+   * `categoryOther` ausente/inválido vira `null`; `storedAt` só é mantido se a API o enviou (texto ou `null`):
+   * chave ausente = quem vê não tem permissão (privado, só administração).
+   */
   function withPhoto<T extends Raw>(raw: unknown, what: string): T {
-    const { photoUrl, ...rest } = asRecord(raw, what);
+    const { photoUrl, categoryOther, storedAt, ...rest } = asRecord(raw, what);
     const photo = absolutePhotoUrl(baseUrl, photoUrl);
-    return (photo ? { ...rest, photoDataUrl: photo } : rest) as T;
+    return {
+      ...rest,
+      categoryOther: typeof categoryOther === "string" ? categoryOther : null,
+      ...(typeof storedAt === "string" || storedAt === null ? { storedAt } : {}),
+      ...(photo ? { photoDataUrl: photo } : {}),
+    } as unknown as T;
   }
 
   const item = (raw: unknown): Item => withPhoto<Raw>(raw, "item") as unknown as Item;

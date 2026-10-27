@@ -6,7 +6,7 @@
 
 ## 0. Rótulos usados neste documento
 
-O projeto **não define identidade visual** (nem o PDF do professor, nem o documento de decisões). Tudo o que segue é **[Premissa de design]**: proposta provisória, reversível, justificada por usabilidade. Nenhum valor é "decisão da equipe". Dados de exemplo (categorias, locais) são os demonstrativos da SPEC §3; títulos de itens e nomes nos wireframes são **apenas ilustrativos**.
+O projeto **não define identidade visual** (nem o PDF do professor, nem o documento de decisões). Tudo o que segue é **[Premissa de design]**: proposta provisória, reversível, justificada por usabilidade. Nenhum valor é "decisão da equipe". Dados de exemplo (categorias; locais de exemplo do seed) são os demonstrativos da SPEC §3; títulos de itens e nomes nos wireframes são **apenas ilustrativos**.
 
 ## 1. Uso real e princípios
 
@@ -323,7 +323,9 @@ Base comum: altura 48 px (`touch-target-lg`), `px-3.5`, `rounded-md`, fundo `sur
 - **Select:** `<select>` **nativo** (seletor de sistema no celular é mais rápido e acessível que menu customizado), `appearance: none` + `ChevronDown` 20 px à direita; opção vazia "Selecione…" só quando o campo é obrigatório e sem padrão.
 - **Textarea:** altura mínima 112 px (≈ 4 linhas), `resize-y`; contador "0/500" em `text-meta` `ink-subtle` aparece a partir de 80 % do limite.
 - **Data:** `<input type="date">` nativo; `max` = hoje no registro; formato exibido do SO (dd/mm/aaaa).
-- **FileInput (foto):** botão `secondary` "Adicionar foto" (`ImagePlus`) que aciona `<input type="file" accept="image/jpeg,image/png,image/webp">` (sem `capture`: o celular oferece câmera **ou** galeria). Selecionada: pré-visualização 4:3 (largura 100 %, máx. 20 rem), nome do arquivo e dois botões `ghost` "Trocar foto" / "Remover foto" (44 px). Erros de tipo/tamanho aparecem como erro de campo. **Limite adotado: 10 MB de entrada (JPG/PNG/WebP), reduzida automaticamente no cliente para ≤ 640 px** — [Premissa]; fotos de celular costumam passar de 2 MB; ver risco em §12 (R2). Foto é sempre opcional (SPEC P6).
+- **FileInput (foto):** com a prop opcional `capture`, duas ações `secondary` **lado a lado a partir de `sm` e empilhadas em largura total abaixo disso (360 px)**: "Enviar foto" (`ImagePlus`, `<input type="file" accept="image/jpeg,image/png,image/webp">`) e "Tirar foto" (`Camera`, segundo `<input type="file" accept="image/*" capture="environment">`, recurso nativo: sem `getUserMedia`, sem JS de câmera). Os dois alimentam o **mesmo** `onChange` e a mesma validação (`validatePhotoFile`: formato e tamanho; HEIC da câmera recebe a mensagem de formato). Sob os botões: nota de formato e a ajuda "Se a câmera não abrir neste aparelho, use Enviar foto." (ligada aos botões por `aria-describedby`; sem suporte a `capture`, o campo cai num seletor de arquivo). Sem a prop `capture`, vale só o botão "Adicionar foto" (o celular oferece câmera **ou** galeria). Selecionada: pré-visualização 4:3 (largura 100 %, máx. 20 rem), nome do arquivo e botões `ghost` "Trocar foto" / "Tirar outra foto" / "Remover foto" (44 px). Erros de tipo/tamanho aparecem como erro de campo. **Limite adotado: 10 MB de entrada (JPG/PNG/WebP), reduzida automaticamente no cliente para ≤ 640 px** — [Premissa]; fotos de celular costumam passar de 2 MB; ver risco em §12 (R2). Foto é sempre opcional (SPEC P6).
+
+**Campos condicionais (padrão).** Um campo que só faz sentido para uma escolha (ex.: "Especifique a categoria" quando a categoria é "Outros") aparece **logo abaixo** do controle que o aciona, é obrigatório só enquanto visível, tem rótulo, ajuda com exemplo e limite, e erro ligado por `aria-describedby`. Não rouba o foco (quem navega o `select` pelo teclado seria interrompido); o leitor de tela é avisado pela região `role="status"` do formulário ("Novo campo abaixo: …"). Ao esconder o campo, seu valor e erro são **limpos** para nunca enviar dado inconsistente. Informação restrita (ex.: "Onde está guardado agora?") traz na ajuda **quem a vê** ("Só a administração vê esta informação").
 
 ### 6.3 Field (rótulo + ajuda + erro)
 
@@ -388,7 +390,7 @@ Mesma geometria do EmptyState, mas ícone `TriangleAlert` em `danger-bg`/`danger
 
 **Tabs** (admin, mobile: alterna "Reivindicações pendentes" / "Itens em reivindicação"): `role="tablist"`; cada aba é botão ≥ 44 px, texto `text-body` 600, contagem em pílula `sunken`; selecionada = texto `ink` + barra inferior de 3 px `primary`; não selecionada = `ink-muted`; setas ← → movem entre abas, `Home`/`End`; painel `role="tabpanel"`. Trilho com borda inferior `line`. Rola horizontalmente só dentro do trilho, se necessário.
 
-**FilterBar** (busca `/itens`): campos Categoria (select), Local (select), **Encontrado de** e **até** (date; o rótulo diz "Encontrado" porque o filtro usa a data em que o item foi encontrado — SPEC P11). Duas apresentações do mesmo componente:
+**FilterBar** (busca `/itens`): campos Categoria (select), Local (**texto livre**, "contém", máx. 120, aplicado com a mesma espera das datas; chip "Local: …"), **Encontrado de** e **até** (date; o rótulo diz "Encontrado" porque o filtro usa a data em que o item foi encontrado — SPEC P11). Duas apresentações do mesmo componente:
 
 - **< 768 px:** linha fixa sob o header com botão `secondary` "Filtros" (`SlidersHorizontal`, contador `(2)` quando há filtros ativos) + contagem "12 itens" (`text-meta`, `aria-live="polite"`). Toca → `Dialog` variante `sheet` com os campos, [Aplicar] (primary) e [Limpar] (ghost). Filtros ativos viram **chips** removíveis abaixo da linha (altura 44 px, texto + `X`).
 - **≥ 768 px:** barra em linha acima da lista (grade de 4 campos + "Limpar filtros"), aplicação imediata ao mudar (sem botão Aplicar).
@@ -620,8 +622,11 @@ Desktop (≥ 1024): foto à esquerda (≈ 5/12), coluna de dados à direita; bot
 |      serão perguntados na reivindicação|
 |                                        |
 |  Foto (opcional)                       |
-|  [ 📷 Adicionar foto ]  JPG, PNG ou    |
-|                         WebP, até 10 MB |
+|  [ Enviar foto                       ] |   <- empilhados a 360 px
+|  [ Tirar foto                        ] |   <- lado a lado em sm+
+|  JPG, PNG ou WebP, até 10 MB           |
+|  Se a câmera não abrir neste aparelho, |
+|  use Enviar foto.                      |
 |                                        |
 |  O que foi encontrado?                 |
 |  ( Garrafa térmica*                  ) |
@@ -629,20 +634,25 @@ Desktop (≥ 1024): foto à esquerda (≈ 5/12), coluna de dados à direita; bot
 |  (                                   ) |
 |  (                                   ) |
 |  Categoria                             |
-|  ( Selecione…                      v ) |
+|  ( Outros                          v ) |
+|  Especifique a categoria  <- só Outros |
+|  ( Crachá de visitante*              ) |
 |  Onde foi encontrado?                  |
-|  ( Selecione…                      v ) |
+|  Bloco, andar, sala ou ponto de ref. 0/120|
+|  ( Ex.: Bloco C, segundo andar...    ) |
 |  Quando foi encontrado?                |
 |  ( 19/10/2026                        ) |   <- padrão = hoje, máx. = hoje
-|  Onde está guardado agora?             |
+|  Onde está guardado agora? (opcional)  |
+|  Opcional. Só a administração vê esta  |
+|  informação; ela não aparece para      |
+|  outras pessoas.                       |
 |  ( Portaria*                         ) |
-|  Para o dono saber onde retirar.       |
 +----------------------------------------+
 | [        Registrar item              ] |   <- ActionBar fixa
 +----------------------------------------+
 ```
 
-Ordem pensada para uso em pé: **foto primeiro** (o gesto mais natural com o objeto na mão), campos curtos, data já preenchida. Com foto: pré-visualização + [Trocar foto] [Remover foto]. Erros: foto inválida, data futura ("A data não pode ser no futuro."), campos vazios. Sucesso: volta para `/itens` com toast "Item registrado. Ele já aparece na busca." e o item no topo (AC02.3). Desktop: `max-w-form`, botões [Cancelar] [Registrar item] à direita.
+Ordem pensada para uso em pé: **foto primeiro** (o gesto mais natural com o objeto na mão), campos curtos, data já preenchida. Com foto: pré-visualização + [Trocar foto] [Tirar outra foto] [Remover foto]. Erros: foto inválida, data futura ("A data não pode ser no futuro."), campos vazios. Sucesso: volta para `/itens` com toast "Item registrado. Ele já aparece na busca." e o item no topo (AC02.3). Desktop: `max-w-form`, botões [Cancelar] [Registrar item] à direita.
 
 ### 9.6 `/itens/[id]/reivindicar` — Reivindicar item
 
@@ -995,9 +1005,9 @@ Mesmo conteúdo, filtros, ordem (mais recentes primeiro), skeleton e estados de 
 |  ...                                   |
 |                                        |
 |  (i) Para reivindicar este item,       |  <- Notice info
-|      entre na sua conta. O local onde  |
-|      ele está guardado aparece depois  |
-|      que você entra.                   |
+|      entre na sua conta. Só quem tem   |
+|      conta e e-mail confirmado pode   |
+|      reivindicar.                      |
 +----------------------------------------+
 | [ -> Entre para reivindicar ]          |  <- ActionBar fixa, primary lg
 +----------------------------------------+
@@ -1049,7 +1059,7 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Rodapé | CampusLost · Achados e perdidos do campus · Projeto acadêmico · UNDB |
 | Notice do visitante em `/itens` | Entre para reivindicar um item ou registrar o que você achou. [Entrar] [Criar conta] |
 | Detalhe — botão | Entre para reivindicar |
-| Detalhe — Notice | Para reivindicar este item, entre na sua conta. O local onde ele está guardado aparece depois que você entra. Ainda não tem conta? Criar conta |
+| Detalhe — Notice | Para reivindicar este item, entre na sua conta. Só quem tem conta e e-mail confirmado pode reivindicar. Ainda não tem conta? Criar conta |
 | Legenda de imagem do seed | Imagem ilustrativa |
 | Visitante: item devolvido ou inexistente | **Item não encontrado** — Este item não está mais disponível: ele pode ter sido excluído ou já devolvido. [Ver itens] |
 | Carregando detalhe | Carregando item… |
@@ -1095,7 +1105,7 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 | Rótulos | Categoria · Encontrado em · Data · Guardado em · Descrição |
 | Status do item | Disponível · Em reivindicação · Devolvido (+ frases de §3.4) |
 | Pendente (aviso) | Você já reivindicou este item. Acompanhe em Minhas reivindicações. |
-| Aceita (aviso) | Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em {local}. |
+| Aceita (aviso) | Sua reivindicação foi aceita. Procure a administração para retirar o item. (O local de guarda não é mostrado ao reivindicante: o responsável informa o procedimento e o local de retirada fora do sistema.) |
 | Recusada (aviso) | Sua reivindicação foi recusada e não é possível enviar outra para este item. Se acha que foi engano, procure a administração. |
 | Admin vê item | Administração gerencia itens, mas não reivindica. |
 | Devolvido (aviso) | Este item já foi devolvido em {data}. |
@@ -1114,10 +1124,10 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 |---|---|
 | Título | Registrar item · Editar item |
 | Aviso antifraude | Não escreva na descrição detalhes que só o dono saberia (número de série, conteúdo, marcas). Eles serão perguntados na reivindicação. |
-| Rótulos | Foto (opcional) · O que foi encontrado? · Descrição · Categoria · Onde foi encontrado? · Quando foi encontrado? · Onde está guardado agora? |
-| Ajudas | Ex.: Garrafa térmica, Chaveiro, Fone de ouvido · Cor, tamanho, estado. · Para o dono saber onde retirar. |
-| Foto | Adicionar foto · Trocar foto · Remover foto · JPG, PNG ou WebP, até 10 MB |
-| Erros | Informe o que foi encontrado. · Descreva o item. · Escolha uma categoria. · Escolha onde foi encontrado. · A data não pode ser no futuro. · Informe onde o item está guardado. · Formato não aceito. Use JPG, PNG ou WebP. · A foto passa de 10 MB. Escolha uma menor. |
+| Rótulos | Foto (opcional) · O que foi encontrado? · Descrição · Categoria · Especifique a categoria (só com Outros) · Onde foi encontrado? · Quando foi encontrado? · Onde está guardado agora? (opcional) |
+| Ajudas | Ex.: Garrafa térmica, Chaveiro, Fone de ouvido · Cor, tamanho, estado. · Bloco, andar, sala ou ponto de referência. n/120 · Ex.: Crachá de visitante. Até 40 caracteres. · Opcional. Só a administração vê esta informação; ela não aparece para outras pessoas. |
+| Foto | Enviar foto · Tirar foto · Trocar foto · Tirar outra foto · Remover foto · JPG, PNG ou WebP, até 10 MB · Se a câmera não abrir neste aparelho, use Enviar foto. |
+| Erros | Informe o que foi encontrado. · Descreva o item. · Escolha uma categoria. · Informe o local onde foi encontrado. · Especifique a categoria. · A data não pode ser no futuro. · Formato não aceito. Use JPG, PNG ou WebP. · A foto passa de 10 MB. Escolha uma menor. |
 | Botões | Registrar item · Salvar alterações · Cancelar · Excluir item |
 | Toasts | Item registrado. Ele já aparece na busca. · Alterações salvas. · Item excluído. |
 | Excluir (diálogo) | **Excluir este item?** "{título}" será removido da busca. Esta ação não pode ser desfeita. (+ "As {n} reivindicações ligadas a ele também serão removidas.") |
@@ -1128,7 +1138,7 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 |---|---|
 | Título / vazio | Minhas reivindicações / **Você ainda não reivindicou nenhum item** — Se algo seu foi encontrado, ele aparece em Itens. [Ver itens] |
 | Pendente | Aguardando análise da administração. |
-| Aceita | Aceita! Procure a administração para retirar o item. Guardado em: {local}. |
+| Aceita | Aceita! Procure a administração para retirar o item. |
 | Aceita + devolvido | Item devolvido em {data}. |
 | Recusada | A administração recusou esta reivindicação. Você não pode reenviar. Se acha que foi engano, procure a administração. |
 | Anúncio ao vivo (`sr-only`) | Status atualizado: {status}. |
@@ -1182,7 +1192,7 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 | R5 | O filtro de período do **usuário** usa a data em que o item foi *encontrado* (P11), mas a listagem de **devoluções** (admin) não tem data de achado óbvia. | Rótulo ambíguo ("período de quê?"). | Rótulos explícitos: "Encontrado de/até" na busca; "Devolvido de/até" em devoluções (data de `returnedAt`). **Confirmar com o orquestrador** — se preferirem filtrar devoluções pela data do achado, só muda o rótulo. |
 | R6 | Item **Devolvido** some da busca, mas continua acessível por link e em "Minhas reivindicações". | Usuário pode cair numa página sem ação e sem explicação. | Estado `neutral` read-only com a data da devolução (§9.4) e badge "Devolvido" nos cards de reivindicação. |
 | R7 | ~~Banner permanente de demonstração~~ | Removido em 20/10/2026 por decisão da usuária. | Sem banner nem rodapé de demonstração. |
-| R8 | Reivindicação aceita não informa **como retirar** (SPEC tem `storedAt`, mas não o exibe explicitamente no fluxo do usuário). | Usuário aceito não sabe o que fazer a seguir. | Mostrar "Guardado em: {local}" no card de "Minhas reivindicações" e no detalhe quando Aceita. |
+| R8 | Reivindicação aceita não informa **como retirar**. | Usuário aceito não sabe o que fazer a seguir. | **Revisto em 27/10/2026 (SPEC P43):** o local de guarda é privado da administração e não é mostrado ao reivindicante; o texto manda procurar a administração, e o responsável informa o procedimento e o local fora do sistema (sem mecanismo no protótipo). |
 | R9 | O vínculo institucional/externo vem só do domínio do e-mail e não é verificado (P40); se a administração o vir na análise, pode confiar demais. | Informação pode induzir confiança indevida. | Se exibido, rotular como "Vínculo pelo e-mail (não verificado)" em texto pequeno; nunca como "aluno" ou "professor". |
 | R10 | Sheet de filtros sem contagem ao vivo exigiria cálculo duplicado de resultados. | Complexidade sem ganho. | Botão "Aplicar" simples; contagem só depois de aplicar. |
 

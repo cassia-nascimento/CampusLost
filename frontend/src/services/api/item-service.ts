@@ -1,4 +1,5 @@
 import { validatePhotoFile } from "@/lib/validation/photo";
+import { OTHER_CATEGORY } from "@/types/catalog";
 import { ServiceError } from "@/types/domain";
 import type { ItemInput, ItemService } from "../contracts";
 import type { HttpClient } from "./http";
@@ -10,9 +11,13 @@ export function buildItemForm(input: ItemInput, mode: "create" | "update"): Form
   form.append("title", input.title);
   form.append("description", input.description);
   form.append("category", input.category);
-  form.append("foundLocation", input.foundLocation);
+  // Só vai quando preenchido: nunca "null"/"undefined" como texto.
+  const categoryOther = input.categoryOther?.trim();
+  if (input.category === OTHER_CATEGORY && categoryOther) form.append("categoryOther", categoryOther);
+  form.append("foundLocation", input.foundLocation.trim());
   form.append("foundDate", input.foundDate);
-  form.append("storedAt", input.storedAt);
+  const storedAt = input.storedAt?.trim();
+  if (storedAt) form.append("storedAt", storedAt);
   if (input.photo) {
     const problem = validatePhotoFile(input.photo);
     if (problem) throw new ServiceError("PHOTO_INVALID", problem);

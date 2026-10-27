@@ -120,6 +120,7 @@ ITEM_FORM = {
     "title": "Agenda vermelha",
     "description": "Agenda vermelha com elástico e capa dura.",
     "category": "Outros",
+    "categoryOther": "Agenda",
     "foundLocation": "Biblioteca",
     "foundDate": "2026-10-21",
     "storedAt": "Portaria",

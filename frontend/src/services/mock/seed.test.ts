@@ -47,11 +47,27 @@ describe("seed", () => {
     expect(shifted.items[0].foundDate).not.toBe(db.items[0].foundDate);
   });
 
-  it("categorias e locais pertencem às listas demonstrativas", () => {
+  it("categorias pertencem à lista demonstrativa; local é texto livre (3–120) e storedAt vem preenchido", () => {
     for (const item of db.items) {
       expect(DEMO_CATEGORIES).toContain(item.category);
-      expect(DEMO_LOCATIONS).toContain(item.foundLocation);
+      expect(item.foundLocation.length).toBeGreaterThanOrEqual(3);
+      expect(item.foundLocation.length).toBeLessThanOrEqual(120);
+      expect(item.storedAt).toBeTruthy();
     }
+  });
+
+  it("categoryOther: só os itens Outros trazem a especificação (3–40); os demais, null", () => {
+    const others = db.items.filter((i) => i.category === "Outros");
+    expect(others.length).toBeGreaterThan(0);
+    for (const item of db.items) {
+      if (item.category === "Outros") {
+        expect(item.categoryOther!.length).toBeGreaterThanOrEqual(3);
+        expect(item.categoryOther!.length).toBeLessThanOrEqual(40);
+      } else {
+        expect(item.categoryOther).toBeNull();
+      }
+    }
+    expect(db.items.find((i) => i.title === "Mochila preta")?.categoryOther).toBe("Mochila escolar");
   });
 
   it("textos usam só locais do catálogo demonstrativo e há aviso de dados fictícios (S6)", () => {

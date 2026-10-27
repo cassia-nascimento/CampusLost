@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ClaimStatus, ItemStatus } from "@/types/domain";
 import { getClaimMessages, returnedItemNotice, returnedItemText } from "./claim-messages";
 
-const STORED = "Portaria";
 const messages = (claimStatus: ClaimStatus, itemStatus: ItemStatus, returnedAt?: string | null) =>
-  getClaimMessages({ claimStatus, itemStatus, storedAt: STORED, returnedAt });
+  getClaimMessages({ claimStatus, itemStatus, returnedAt });
 
 // Meio-dia local: o dia não muda com o fuso do ambiente de teste.
 const RETURNED_AT = new Date(2026, 9, 5, 12, 0).toISOString();
@@ -24,18 +23,17 @@ describe("aceita", () => {
     const m = messages("accepted", "under_claim");
     expect(m.nextStep).toEqual({
       highlight: "Aceita!",
-      text: "Procure a administração para retirar o item. Guardado em: Portaria.",
+      text: "Procure a administração para retirar o item.",
     });
-    expect(m.notice).toBe(
-      "Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em Portaria.",
-    );
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
     expect(m.blocked).toMatch(/foi aceita/);
   });
 
-  it("sem o local de guarda (visão sem `storedAt`): o texto não o cita nem deixa 'undefined'", () => {
+  it("nunca cita local de guarda (privado) nem promete onde o item está", () => {
     const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim" });
     expect(m.nextStep.text).toBe("Procure a administração para retirar o item.");
     expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
+    expect(JSON.stringify(m)).not.toMatch(/guardado|Guardado|undefined/);
   });
 
   it("item devolvido: sem destaque nem instrução de retirar", () => {

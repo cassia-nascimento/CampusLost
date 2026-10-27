@@ -62,6 +62,7 @@ export const rawItem = {
   title: "Chaveiro com três chaves",
   description: "Chaveiro de borracha vermelho com três chaves.",
   category: "Chaves",
+  categoryOther: null,
   foundLocation: "Bloco A",
   foundDate: "2026-10-20",
   storedAt: "Portaria",

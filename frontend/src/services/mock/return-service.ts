@@ -1,4 +1,4 @@
-import type { ReturnRecord } from "@/types/domain";
+import type { ReturnRecord, User } from "@/types/domain";
 import { filterReturnsByPeriod, registerReturn, sortReturns } from "@/lib/rules";
 import { periodSchema } from "@/lib/validation";
 import type { ReturnService, ReturnView } from "../contracts";
@@ -11,11 +11,12 @@ import {
   type MockContext,
 } from "./context";
 import type { Db } from "./seed";
+import { toViewerItem } from "./viewer";
 
-function toView(db: Db, record: ReturnRecord): ReturnView {
+function toView(db: Db, record: ReturnRecord, viewer: User): ReturnView {
   return {
     ...record,
-    item: findItem(db, record.itemId),
+    item: toViewerItem(findItem(db, record.itemId), viewer),
     returnedTo: findUser(db, record.returnedToId),
     registeredBy: toPublicUser(findUser(db, record.registeredById)),
   };
@@ -44,16 +45,16 @@ export function createReturnService(ctx: MockContext): ReturnService {
             target: ["item", itemId],
             metadata: { returnId: record.id, claimId: record.claimId },
           });
-          return toView(db, record);
+          return toView(db, record, actor);
         }),
       ),
 
     list: (period) =>
       ctx.run("returns.list", (who) => {
         const db = store.read();
-        ctx.requireAdmin(db, who, "view_returns");
+        const admin = ctx.requireAdmin(db, who, "view_returns");
         const parsed = parseInput(periodSchema, period ?? {});
-        return sortReturns(filterReturnsByPeriod(db.returns, parsed)).map((r) => toView(db, r));
+        return sortReturns(filterReturnsByPeriod(db.returns, parsed)).map((r) => toView(db, r, admin));
       }),
   };
 }

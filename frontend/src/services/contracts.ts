@@ -42,7 +42,7 @@ import type {
 import type { Decision, ItemFilters, PeriodFilter } from "@/lib/rules";
 import type {
   ClaimFormValues,
-  ItemFormValues,
+  ItemFormInput,
   ResetPasswordValues,
   SignInValues,
   SignUpValues,
@@ -79,10 +79,11 @@ export interface ItemViewerPermissions {
 export type PublicItemView = Omit<Item, "storedAt" | "createdById">;
 
 /**
- * Item como a UI o recebe: `PublicItemView` mais `storedAt` e `createdById` OPCIONAIS. Visitantes
- * não os recebem; usuários logados sempre recebem ambos (um `Item` completo é um `ItemView` válido).
+ * Item como a UI o recebe: `PublicItemView` mais `storedAt` e `createdById` OPCIONAIS. Visitantes não recebem
+ * nenhum dos dois; usuários logados recebem `createdById`; `storedAt` (local de guarda) é PRIVADO e só a
+ * administração o recebe (a chave é ausente para os demais, mesmo criador/reivindicante). Um `Item` é um `ItemView` válido.
  */
-export type ItemView = PublicItemView & { storedAt?: string; createdById?: string };
+export type ItemView = PublicItemView & { storedAt?: string | null; createdById?: string };
 
 export interface ItemDetail {
   item: ItemView;
@@ -118,7 +119,7 @@ export interface DemoProfile {
 /* ---------- Entradas ---------- */
 
 /** `photo`: arquivo escolhido. Na edição, `undefined` mantém a foto atual e `null` remove. */
-export type ItemInput = ItemFormValues & { photo?: File | null };
+export type ItemInput = ItemFormInput & { photo?: File | null };
 export type ClaimInput = ClaimFormValues;
 
 /** Perfil devolvido pelo Google, JÁ verificado no servidor. */
@@ -296,11 +297,11 @@ export interface AuthService {
 export interface ItemService {
   /**
    * Busca (pública, P26: funciona sem login). Nunca devolve itens Devolvidos; mais recentes primeiro
-   * por padrão. Filtros combinam entre si (AC03.x). Para visitante, `storedAt` e `createdById` vêm ausentes.
+   * por padrão. Filtros combinam entre si (AC03.x). `storedAt` só vem para a administração; visitante também não recebe `createdById`.
    */
   list(filters?: ItemFilters): Promise<ItemView[]>;
   /**
-   * Detalhe (público, P26). Visitante: sem `storedAt`/`createdById`, `createdBy: null`, `myClaims`/`claims` vazios, sem devolução e
+   * Detalhe (público, P26). Sem `storedAt` (só a administração o recebe); visitante: sem `createdById`, `createdBy: null`, `myClaims`/`claims` vazios, sem devolução e
    * `viewer.*` negado com `UNAUTHENTICATED`; item Devolvido é `NOT_FOUND` para ele.
    */
   get(id: string): Promise<ItemDetail>;

@@ -13,6 +13,7 @@ export function makeItem(overrides: Partial<Item> = {}): Item {
     title: "Item de teste",
     description: "Descrição pública do item de teste.",
     category: "Outros",
+    categoryOther: "Item diverso",
     foundLocation: "Bloco A",
     foundDate: "2026-10-18",
     storedAt: "Portaria",

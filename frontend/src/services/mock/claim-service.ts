@@ -1,13 +1,14 @@
-import { ServiceError, type Claim } from "@/types/domain";
+import { ServiceError, type Claim, type User } from "@/types/domain";
 import { assertAllowed, canViewClaim, reviewClaim, submitClaim } from "@/lib/rules";
 import { claimSchema } from "@/lib/validation";
 import type { ClaimDecisionResult, ClaimService, ClaimView } from "../contracts";
 import { recordAudit } from "./audit";
 import { findItem, findUser, parseInput, requireSession, requireUser, type MockContext } from "./context";
 import type { Db } from "./seed";
+import { toViewerItem } from "./viewer";
 
-function toView(db: Db, claim: Claim): ClaimView {
-  return { ...claim, claimant: findUser(db, claim.claimantId), item: findItem(db, claim.itemId) };
+function toView(db: Db, claim: Claim, viewer: User): ClaimView {
+  return { ...claim, claimant: findUser(db, claim.claimantId), item: toViewerItem(findItem(db, claim.itemId), viewer) };
 }
 
 export function createClaimService(ctx: MockContext): ClaimService {
@@ -36,7 +37,7 @@ export function createClaimService(ctx: MockContext): ClaimService {
           target: ["claim", claimId],
           metadata: { itemId: item.id, autoRejected: result.autoRejectedIds.length },
         });
-        return { claim: result.claim, item: result.item, autoRejectedIds: result.autoRejectedIds };
+        return { claim: result.claim, item: toViewerItem(result.item, actor), autoRejectedIds: result.autoRejectedIds };
       }),
     );
 
@@ -68,28 +69,28 @@ export function createClaimService(ctx: MockContext): ClaimService {
         return db.claims
           .filter((c) => c.claimantId === user.id)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-          .map((c) => toView(db, c));
+          .map((c) => toView(db, c, user));
       }),
 
     listPending: () =>
       ctx.run("claims.listPending", (who) => {
         const db = store.read();
-        requireUser(db, who, "review_claims");
+        const user = requireUser(db, who, "review_claims");
         return db.claims
           .filter((c) => c.status === "pending")
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-          .map((c) => toView(db, c));
+          .map((c) => toView(db, c, user));
       }),
 
     listByItem: (itemId) =>
       ctx.run("claims.listByItem", (who) => {
         const db = store.read();
-        requireUser(db, who, "review_claims");
+        const user = requireUser(db, who, "review_claims");
         findItem(db, itemId);
         return db.claims
           .filter((c) => c.itemId === itemId)
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-          .map((c) => toView(db, c));
+          .map((c) => toView(db, c, user));
       }),
 
     get: (claimId) =>
@@ -99,7 +100,7 @@ export function createClaimService(ctx: MockContext): ClaimService {
         const claim = db.claims.find((c) => c.id === claimId);
         if (!claim) throw new ServiceError("NOT_FOUND", "Reivindicação não encontrada.");
         assertAllowed(canViewClaim(user, claim));
-        return toView(db, claim);
+        return toView(db, claim, user);
       }),
 
     accept: (claimId) => decide(claimId, "accept"),

@@ -103,11 +103,31 @@ describe("RF02 — registrar item", () => {
     const before = (await h.services.items.list()).length;
     const tomorrow = toLocalDateString(addDays(h.clock(), 1));
     const err = await expectCode(
-      h.services.items.create({ ...validItem, foundDate: tomorrow, title: "", storedAt: "", category: "Joias" as never }),
+      h.services.items.create({ ...validItem, foundDate: tomorrow, title: "", foundLocation: "  ", category: "Joias" as never }),
       "VALIDATION",
     );
-    expect(Object.keys(err.fieldErrors ?? {}).sort()).toEqual(["category", "foundDate", "storedAt", "title"]);
+    expect(Object.keys(err.fieldErrors ?? {}).sort()).toEqual(["category", "foundDate", "foundLocation", "title"]);
     expect((await h.services.items.list()).length).toBe(before);
+  });
+
+  it("AC02.1: local livre e storedAt opcional; Outros exige categoryOther; outra categoria o zera", async () => {
+    const h = createHarness();
+    await as(h, "student");
+    const place = "Bloco C, segundo andar, próximo ao laboratório 04";
+    const { storedAt: _s, ...noStored } = validItem;
+    void _s;
+    const created = await h.services.items.create({ ...noStored, foundLocation: ` ${place} ` });
+    expect(created.foundLocation).toBe(place);
+    expect(created.categoryOther).toBe("Garrafa térmica");
+    const err = await expectCode(h.services.items.create({ ...noStored, categoryOther: "" }), "VALIDATION");
+    expect(err.fieldErrors).toEqual({ categoryOther: "Especifique a categoria." });
+    const other = await h.services.items.create({ ...validItem, category: "Roupas" });
+    expect(other.categoryOther).toBeNull();
+    await h.services.auth.signOut();
+    await as(h, "admin");
+    // o item guardado fica completo: storedAt ausente = null; categoryOther descartado
+    expect((await h.services.items.get(created.id)).item.storedAt).toBeNull();
+    expect((await h.services.items.get(other.id)).item).toMatchObject({ storedAt: "Portaria", categoryOther: null });
   });
 
   it("AC02.2: foto opcional é processada e guardada; formato inválido é rejeitado", async () => {
@@ -145,6 +165,11 @@ describe("RF03 — busca", () => {
     expect(eletronicos.every((i) => i.category === "Eletrônicos")).toBe(true);
     const biblioteca = await h.services.items.list({ category: "Eletrônicos", location: "Biblioteca" });
     expect(biblioteca.every((i) => i.foundLocation === "Biblioteca")).toBe(true);
+    // texto livre: "contém", sem caixa e sem acentos
+    const parcial = await h.services.items.list({ category: "Eletrônicos", location: "  BIBLIOTÊ " });
+    expect(parcial.map((i) => i.id)).toEqual(biblioteca.map((i) => i.id));
+    expect((await h.services.items.list({ location: "lioteca" })).length).toBeGreaterThan(0);
+    await expectCode(h.services.items.list({ location: "x".repeat(121) }), "VALIDATION");
     expect(biblioteca.length).toBeLessThan(eletronicos.length);
     const today = toLocalDateString(h.clock());
     expect((await h.services.items.list({ from: today, to: today })).every((i) => i.foundDate === today)).toBe(true);
@@ -635,7 +660,11 @@ describe("P26 — visitante (sem sessão) vê lista e detalhe", () => {
     await as(h, "student");
     const member = await h.services.items.list(filters);
     expect(guestFiltered.map((i) => i.id)).toEqual(member.map((i) => i.id));
-    expect(member.every((i) => i.storedAt)).toBe(true);
+    // usuário comum também não recebe o local de guarda (privado: só administração)
+    expect(member.every((i) => !("storedAt" in i))).toBe(true);
+    await h.services.auth.signOut();
+    await as(h, "admin");
+    expect((await h.services.items.list(filters)).every((i) => i.storedAt)).toBe(true);
     await h.services.auth.signOut();
     await expectCode(h.services.items.list({ from: "2026-10-19", to: "2026-10-01" }), "VALIDATION");
   });
@@ -687,5 +716,77 @@ describe("P26 — visitante (sem sessão) vê lista e detalhe", () => {
     await expectCode(h.services.returns.list(), "UNAUTHENTICATED");
     // nada foi alterado
     expect((await h.services.items.list()).find((i) => i.id === "item-01")?.status).toBe("available");
+  });
+});
+
+describe("privacidade de storedAt imposta no serviço (só administração)", () => {
+  const hasStored = (item: object) => "storedAt" in item;
+
+  it("visitante e usuário comum não recebem storedAt em list/get; administração recebe", async () => {
+    const h = createHarness();
+    expect((await h.services.items.list()).some(hasStored)).toBe(false);
+    expect(hasStored((await h.services.items.get("item-03")).item)).toBe(false);
+    await as(h, "student");
+    expect((await h.services.items.list()).some(hasStored)).toBe(false);
+    expect(hasStored((await h.services.items.get("item-03")).item)).toBe(false);
+    await h.services.auth.signOut();
+    await as(h, "admin");
+    expect((await h.services.items.list()).every((i) => i.storedAt)).toBe(true);
+    expect((await h.services.items.get("item-03")).item.storedAt).toBe("Portaria");
+  });
+
+  it("criador (usuário comum): create devolve sem storedAt, get também, mas o store guarda", async () => {
+    const h = createHarness();
+    await as(h, "teacher");
+    const created = await h.services.items.create({ ...validItem, storedAt: "Armário do 2º andar" });
+    expect(hasStored(created)).toBe(false);
+    expect(hasStored((await h.services.items.get(created.id)).item)).toBe(false);
+    const mine = (await h.services.auth.exportMyData()).itemsRegistered;
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.some(hasStored)).toBe(false);
+    expect(JSON.stringify(await h.services.items.list())).not.toContain("Armário do 2º andar");
+    // o item guardado continua completo
+    expect(JSON.stringify(h.storage.getItem(DB_KEY))).toContain("Armário do 2º andar");
+    await h.services.auth.signOut();
+    await as(h, "admin");
+    expect((await h.services.items.get(created.id)).item.storedAt).toBe("Armário do 2º andar");
+  });
+
+  it("administração: create, update e exportMyData devolvem storedAt; update por admin não vaza para o criador", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    const created = await h.services.items.create({ ...validItem, storedAt: "Sala 12" });
+    expect(created.storedAt).toBe("Sala 12");
+    const updated = await h.services.items.update(created.id, { ...validItem, storedAt: "Sala 13" });
+    expect(updated.storedAt).toBe("Sala 13");
+    expect((await h.services.auth.exportMyData()).itemsRegistered.every((i) => i.storedAt)).toBe(true);
+    await h.services.auth.signOut();
+    await as(h, "student");
+    expect(hasStored((await h.services.items.get(created.id)).item)).toBe(false);
+  });
+
+  it("reivindicante com reivindicação ACEITA não vê storedAt (nem nas minhas reivindicações)", async () => {
+    const h = createHarness();
+    await as(h, "student"); // Marina: reivindicação aceita no item-05
+    const mine = await h.services.claims.listMine();
+    const accepted = mine.find((c) => c.itemId === "item-05" && c.status === "accepted");
+    expect(accepted).toBeDefined();
+    expect(mine.some((c) => hasStored(c.item))).toBe(false);
+    expect(hasStored((await h.services.claims.get(accepted!.id)).item)).toBe(false);
+    const detail = await h.services.items.get("item-05");
+    expect(detail.myClaims[0].status).toBe("accepted");
+    expect(hasStored(detail.item)).toBe(false);
+  });
+
+  it("administração vê storedAt nas reivindicações, decisões e devoluções", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    expect((await h.services.claims.listPending()).every((c) => c.item.storedAt)).toBe(true);
+    expect((await h.services.claims.listByItem("item-05")).every((c) => c.item.storedAt)).toBe(true);
+    const decision = await h.services.claims.accept("claim-06");
+    expect(decision.item.storedAt).toBe("Portaria");
+    const returned = await h.services.returns.register("item-05");
+    expect(returned.item.storedAt).toBe("Portaria");
+    expect((await h.services.returns.list()).every((r) => r.item.storedAt)).toBe(true);
   });
 });

@@ -57,7 +57,7 @@ def test_signup_verify_logout_reset_are_recorded(client, app, mailbox):
 
 def test_admin_decisions_are_recorded(client, app, admin, student):
     item = client.post("/items", data={
-        "title": "Agenda", "description": "Agenda vermelha com elástico e capa dura.", "category": "Outros",
+        "title": "Agenda", "description": "Agenda vermelha com elástico e capa dura.", "category": "Outros", "categoryOther": "Agenda",
         "foundLocation": "Biblioteca", "foundDate": "2026-10-21", "storedAt": "Portaria"}, headers=student).json()
     pending = client.get("/claims/pending", headers=admin).json()
     cid = pending[0]["id"]

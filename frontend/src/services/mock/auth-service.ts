@@ -24,6 +24,7 @@ import { decodeGoogleTicket, encodeGoogleTicket } from "./google";
 import { recordAudit, recordAuditSafely } from "./audit";
 import { createAcceptInvite } from "./admin-service";
 import { findUser, isActiveAccount, parseInput, requireSession, type MockContext } from "./context";
+import { toViewerItem } from "./viewer";
 import { completeLogin, createTwoFactorMethods } from "./two-factor";
 import { hashPassword, newSalt, newToken, PBKDF2_ITERATIONS, verifyAccountPassword } from "./password";
 import { DEMO_PROFILE_IDS, DEMO_PROFILE_LABELS, type Db, type TokenKind, type TokenRecord } from "./seed";
@@ -297,7 +298,7 @@ export function createAuthService(ctx: MockContext): AuthService {
             termsAcceptedAt: null,
             termsVersion: null,
           },
-          itemsRegistered: db.items.filter((i) => i.createdById === user.id),
+          itemsRegistered: db.items.filter((i) => i.createdById === user.id).map((i) => toViewerItem(i, user)),
           claims: db.claims
             .filter((c) => c.claimantId === user.id)
             .map((c) => ({ ...c, itemTitle: db.items.find((i) => i.id === c.itemId)?.title ?? null })),

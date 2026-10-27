@@ -19,7 +19,7 @@ const FAQ: readonly FaqEntry[] = [
   {
     question: "Quem pode registrar um item encontrado?",
     answer:
-      "Qualquer pessoa com conta. Você informa título, descrição, categoria, local, data e onde o item está guardado; a foto é opcional.",
+      "Qualquer pessoa com conta. Você informa título, descrição, categoria, local (texto livre), data e, se quiser, onde o item está guardado (só a administração vê); a foto é opcional.",
   },
   {
     question: "Posso entrar com a minha conta Google?",

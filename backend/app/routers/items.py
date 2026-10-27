@@ -27,7 +27,7 @@ from ..schemas import claim_json, claim_with_claimant_json, item_json, public_us
 
 router = APIRouter(prefix="/items", tags=["items"])
 
-ITEM_FIELDS = ("title", "description", "category", "foundLocation", "foundDate", "storedAt")
+ITEM_FIELDS = ("title", "description", "category", "categoryOther", "foundLocation", "foundDate", "storedAt")
 
 
 @dataclass
@@ -76,7 +76,7 @@ def list_items(request: Request, db: DbDep, actor: OptionalUser):
     assert_allowed(check_capability(actor, "search_items"))
     filters = validate_item_filters(dict(request.query_params))
     items = search_items(db.scalars(select(ItemRow)).all(), filters)
-    return [item_json(i, guest=actor is None) for i in items]
+    return [item_json(i, actor) for i in items]
 
 
 @router.get("/{item_id}")
@@ -98,7 +98,7 @@ def get_item(item_id: str, db: DbDep, actor: OptionalUser):
         if not is_visible_in_search(item):
             raise ServiceError("NOT_FOUND", "Item não encontrado.")
         return {
-            "item": item_json(item, guest=True),
+            "item": item_json(item, None),
             "createdBy": None,
             "myClaims": [],
             "claims": [],
@@ -116,7 +116,7 @@ def get_item(item_id: str, db: DbDep, actor: OptionalUser):
     if has_capability(actor, "view_returns"):
         record = db.scalar(select(ReturnRow).where(ReturnRow.item_id == item_id))
     return {
-        "item": item_json(item),
+        "item": item_json(item, actor),
         "createdBy": public_user_json(creator),
         "myClaims": [claim_json(c) for c in mine],
         "claims": all_claims,
@@ -135,7 +135,7 @@ def create_item(form: ItemFormDep, db: DbDep, actor: OptionalUser, settings: Set
         with lock:
             item = ItemRow(
                 id=random_id("item"), title=fields["title"], description=fields["description"],
-                category=fields["category"], found_location=fields["foundLocation"], found_date=fields["foundDate"],
+                category=fields["category"], category_detail=fields["categoryOther"], found_location=fields["foundLocation"], found_date=fields["foundDate"],
                 stored_at=fields["storedAt"], photo_url=photo_url, status="available",
                 created_by_id=user.id, created_at=instant,
             )
@@ -145,7 +145,7 @@ def create_item(form: ItemFormDep, db: DbDep, actor: OptionalUser, settings: Set
         db.rollback()
         delete_photo_file(settings, photo_url)
         raise
-    return item_json(item)
+    return item_json(item, user)
 
 
 @router.put("/{item_id}")
@@ -160,7 +160,8 @@ def update_item(item_id: str, form: ItemFormDep, db: DbDep, actor: OptionalUser,
         old_url = item.photo_url
         try:
             item.title, item.description = fields["title"], fields["description"]
-            item.category, item.found_location = fields["category"], fields["foundLocation"]
+            item.category, item.category_detail = fields["category"], fields["categoryOther"]
+            item.found_location = fields["foundLocation"]
             item.found_date, item.stored_at = fields["foundDate"], fields["storedAt"]
             if new_url:  # arquivo novo vence `removePhoto` (como no mock)
                 item.photo_url = new_url
@@ -173,7 +174,7 @@ def update_item(item_id: str, form: ItemFormDep, db: DbDep, actor: OptionalUser,
             raise
         if item.photo_url != old_url:
             delete_photo_file(settings, old_url)
-    return item_json(item)
+    return item_json(item, user)
 
 
 @router.delete("/{item_id}", status_code=204)

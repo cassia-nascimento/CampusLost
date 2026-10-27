@@ -47,7 +47,7 @@ def export_my_data(response: Response, user: CurrentUser, db: DbDep, settings: S
             "createdAt": _iso(user.created_at), "emailVerifiedAt": _iso(user.email_verified_at),
             "termsAcceptedAt": _iso(user.terms_accepted_at), "termsVersion": user.terms_version,
         },
-        "itemsRegistered": [item_json(i) for i in items],
+        "itemsRegistered": [item_json(i, user) for i in items],
         "claims": [{**claim_json(c), "itemTitle": titles.get(c.item_id)} for c in claims],
         "returns": [
             {**return_json(r), "role": "returnedTo" if r.returned_to_id == user.id else "registeredBy"} for r in returns

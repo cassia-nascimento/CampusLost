@@ -1,11 +1,13 @@
 /**
- * Visitante recebe o item sem `storedAt` nem `createdById` (P26); a administração sempre recebe ambos. As regras
- * de `lib/rules` trabalham com o `Item` completo, então as telas da administração convertem a visão aqui. Os
- * valores vazios só satisfazem o tipo: não acontecem com sessão de administração.
+ * Visitante e usuário comum recebem o item sem `storedAt` (privado) e visitante também sem `createdById` (P26); a
+ * administração recebe ambos. As regras de `lib/rules` trabalham com o `Item`, então as telas da administração
+ * convertem a visão aqui. `storedAt` NÃO é convertido (ausente continua ausente e `null` continua `null`, nunca
+ * vira texto); só `createdById` ganha um valor vazio para satisfazer o tipo, o que não acontece com sessão de
+ * administração.
  */
 import type { ItemView } from "@/services";
 import type { Item } from "@/types/domain";
 
 export function toStoredItem(item: ItemView): Item {
-  return { ...item, storedAt: item.storedAt ?? "", createdById: item.createdById ?? "" };
+  return { ...item, createdById: item.createdById ?? "" };
 }

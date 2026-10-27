@@ -19,7 +19,6 @@ function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) 
   const message = getClaimMessages({
     claimStatus: claim.status,
     itemStatus: item.status,
-    storedAt: item.storedAt,
     returnedAt: returnRecord?.returnedAt,
   });
   return (
@@ -54,7 +53,7 @@ function VisitorNotice({ itemId }: { itemId: string }) {
         </p>
       }
     >
-      Para reivindicar este item, entre na sua conta. O local onde ele está guardado aparece depois que você entra.
+      Para reivindicar este item, entre na sua conta. Só quem tem conta e e-mail confirmado pode reivindicar.
     </Notice>
   );
 }

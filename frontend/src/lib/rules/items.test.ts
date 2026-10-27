@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canDeleteItem, canEditItem, canRegisterItem, filterItems, searchItems, sortItems } from "./items";
+import { canDeleteItem, canEditItem, canRegisterItem, filterItems, isOtherCategory, matchesLocation, normalizeSearchText, searchItems, sortItems } from "./items";
 import { admin, externalUser, makeItem, student, teacher, unverified } from "./test-fixtures";
 
 describe("canRegisterItem: external e e-mail verificado", () => {
@@ -59,6 +59,22 @@ describe("filtros e ordenação da busca (AC03.x)", () => {
     expect(ids(filterItems(items, { category: "Chaves", location: "Biblioteca", from: "2026-10-13" }))).toEqual([]);
   });
 
+  it("local é texto livre: contém, sem caixa e sem acentos (aplicado em foundLocation)", () => {
+    const places = [
+      makeItem({ id: "a", foundLocation: "Biblioteca Central" }),
+      makeItem({ id: "b", foundLocation: "Bloco C, segundo andar, próximo ao laboratório 04" }),
+      makeItem({ id: "c", foundLocation: "CANTINA" }),
+    ];
+    expect(ids(filterItems(places, { location: "bibliot" }))).toEqual(["a"]);
+    expect(ids(filterItems(places, { location: "LABORATORIO" }))).toEqual(["b"]);
+    expect(ids(filterItems(places, { location: "proximo ao" }))).toEqual(["b"]);
+    expect(ids(filterItems(places, { location: "  cantína " }))).toEqual(["c"]);
+    expect(ids(filterItems(places, { location: "bloco" }))).toEqual(["b"]);
+    expect(ids(filterItems(places, { location: "lua" }))).toEqual([]);
+    expect(ids(filterItems(places, { location: "   " }))).toEqual(["a", "b", "c"]);
+    expect(ids(filterItems(places, { location: "" }))).toEqual(["a", "b", "c"]);
+  });
+
   it("período é inclusivo nas duas pontas e usa a data em que foi encontrado (P11)", () => {
     expect(ids(filterItems(items, { from: "2026-10-12", to: "2026-10-15" }))).toEqual(["2", "3"]);
   });
@@ -81,5 +97,26 @@ describe("filtros e ordenação da busca (AC03.x)", () => {
     const copy = [...items];
     sortItems(items);
     expect(items).toEqual(copy);
+  });
+});
+
+describe("normalizeSearchText / matchesLocation / isOtherCategory", () => {
+  it("normaliza caixa, acentos (inclusive ç/ã) e espaços nas pontas", () => {
+    expect(normalizeSearchText("  Coração Ávido  ")).toBe("coracao avido");
+    expect(normalizeSearchText("ÀÉÎÕÜ")).toBe("aeiou");
+    expect(normalizeSearchText("")).toBe("");
+  });
+
+  it("matchesLocation: contém; filtro vazio casa tudo", () => {
+    expect(matchesLocation("Praça de Alimentação", "alimentacao")).toBe(true);
+    expect(matchesLocation("Praça de Alimentação", "praca de")).toBe(true);
+    expect(matchesLocation("Praça de Alimentação", "xyz")).toBe(false);
+    expect(matchesLocation("Qualquer", "  ")).toBe(true);
+  });
+
+  it("isOtherCategory é verdadeiro só para Outros", () => {
+    expect(isOtherCategory("Outros")).toBe(true);
+    expect(isOtherCategory("outros")).toBe(false);
+    expect(isOtherCategory("Chaves")).toBe(false);
   });
 });

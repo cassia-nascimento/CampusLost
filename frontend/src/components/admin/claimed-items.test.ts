@@ -11,6 +11,7 @@ function makeItem(id: string): Item {
     title: id,
     description: "Descrição de teste",
     category: "Outros",
+    categoryOther: "Item diverso",
     foundLocation: "Portaria",
     foundDate: "2026-10-10",
     storedAt: "Portaria",

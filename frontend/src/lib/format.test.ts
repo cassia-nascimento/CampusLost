@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCategory,
   formatCount,
   formatDate,
   formatDateTime,
@@ -69,5 +70,15 @@ describe("formatCount e getInitial", () => {
   it("inicial em maiúscula", () => {
     expect(getInitial("  maria Exemplo")).toBe("M");
     expect(getInitial("")).toBe("?");
+  });
+});
+
+describe("formatCategory", () => {
+  it("Outros com especificação vira 'Outros: …'; as demais ficam como estão", () => {
+    expect(formatCategory("Outros", "Crachá de visitante")).toBe("Outros: Crachá de visitante");
+    expect(formatCategory("Outros", "  Crachá  ")).toBe("Outros: Crachá");
+    expect(formatCategory("Outros", null)).toBe("Outros");
+    expect(formatCategory("Outros", "   ")).toBe("Outros");
+    expect(formatCategory("Roupas", "sobrou")).toBe("Roupas");
   });
 });

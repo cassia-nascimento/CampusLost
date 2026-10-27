@@ -21,7 +21,7 @@ import { ClaimStatusBadge, ItemStatusBadge } from "@/components/ui/StatusBadge";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
+import { formatCategory, formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import { canReviewClaim, reviewClaim } from "@/lib/rules";
 import { itemPhotoAlt } from "@/lib/utils";
 import { services, type ClaimDecisionResult, type ClaimView, type ItemDetail } from "@/services";
@@ -223,10 +223,10 @@ function ReviewContent({
           )}
           <DefinitionList
             items={[
-              { label: "Categoria", value: item.category, icon: Tag },
+              { label: "Categoria", value: formatCategory(item.category, item.categoryOther), icon: Tag },
               { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
               { label: "Data", value: formatDate(item.foundDate), icon: Calendar },
-              { label: "Guardado em", value: item.storedAt, icon: Warehouse },
+              { label: "Guardado em", value: item.storedAt ?? "Ainda não informado", icon: Warehouse },
             ]}
           />
           <div>

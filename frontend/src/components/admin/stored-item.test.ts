@@ -13,10 +13,13 @@ describe("toStoredItem", () => {
     expect(toStoredItem(item).createdById).toBe("user-9");
   });
 
-  it("completa os campos ausentes (visão de visitante) sem alterar o resto", () => {
+  it("não inventa o local de guarda: ausente continua ausente e null continua null", () => {
     const { storedAt: _storedAt, createdById: _createdById, ...view } = makeItem();
     void _storedAt;
     void _createdById;
-    expect(toStoredItem(view)).toEqual({ ...view, storedAt: "", createdById: "" });
+    const withoutPermission = toStoredItem(view);
+    expect("storedAt" in withoutPermission).toBe(false);
+    expect(withoutPermission.createdById).toBe("");
+    expect(toStoredItem(makeItem({ storedAt: null })).storedAt).toBeNull();
   });
 });

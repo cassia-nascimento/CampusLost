@@ -16,10 +16,10 @@ from ..schemas import return_view_json
 router = APIRouter(tags=["returns"])
 
 
-def _view(db, r: ReturnRow):
+def _view(db, r: ReturnRow, viewer: UserRow):
     from ..models import ItemRow
 
-    return return_view_json(r, db.get(ItemRow, r.item_id), db.get(UserRow, r.returned_to_id), db.get(UserRow, r.registered_by_id))
+    return return_view_json(r, db.get(ItemRow, r.item_id), db.get(UserRow, r.returned_to_id), db.get(UserRow, r.registered_by_id), viewer)
 
 
 @router.post("/items/{item_id}/return", status_code=201)
@@ -37,13 +37,13 @@ def register_item_return(
             ip=client_ip(request), metadata={"returnId": record.id, "claimId": record.claim_id}, commit=False,
         )
         db.commit()
-    return _view(db, record)
+    return _view(db, record, user)
 
 
 @router.get("/returns")
 def list_returns(request: Request, db: DbDep, actor: OptionalUser, settings: SettingsDep):
-    ensure_admin_2fa(settings, require_user(actor, "view_returns"))
+    user = ensure_admin_2fa(settings, require_user(actor, "view_returns"))
     period = validate_period(dict(request.query_params))
     rows = db.scalars(select(ReturnRow)).all()
     filtered = filter_returns_by_period(rows, settings.tz, period.get("from"), period.get("to"))
-    return [_view(db, r) for r in sort_returns(filtered)]
+    return [_view(db, r, user) for r in sort_returns(filtered)]

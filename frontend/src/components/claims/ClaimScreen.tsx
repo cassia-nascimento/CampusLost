@@ -83,7 +83,7 @@ function ClaimContent({
     const mine = decision.code === "DUPLICATE_CLAIM" ? myClaims[0] : undefined;
     const blockedText =
       (mine
-        ? getClaimMessages({ claimStatus: mine.status, itemStatus: item.status, storedAt: item.storedAt }).blocked
+        ? getClaimMessages({ claimStatus: mine.status, itemStatus: item.status }).blocked
         : null) ?? decision.message;
     return (
       <>

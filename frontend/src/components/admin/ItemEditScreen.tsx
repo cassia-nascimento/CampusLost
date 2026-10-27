@@ -129,11 +129,13 @@ function EditContent({
         initialValues={{
           title: item.title,
           description: item.description,
-          // O serviço valida categoria e local; aqui só preenchemos o que já está salvo.
+          // O serviço valida categoria; aqui só preenchemos o que já está salvo.
           category: item.category as ItemFormValues["category"],
-          foundLocation: item.foundLocation as ItemFormValues["foundLocation"],
+          categoryOther: item.categoryOther ?? "",
+          foundLocation: item.foundLocation,
           foundDate: item.foundDate,
-          storedAt: item.storedAt,
+          // Administração: o valor atual; `null`/ausente = ainda não informado (campo vazio).
+          storedAt: item.storedAt ?? "",
         }}
         existingPhotoUrl={item.photoDataUrl ?? null}
         onSubmit={onSave}

@@ -14,7 +14,6 @@ function NextStep({ claim }: { claim: ClaimView }) {
   const { nextStep } = getClaimMessages({
     claimStatus: claim.status,
     itemStatus: item.status,
-    storedAt: item.storedAt,
   });
 
   if (nextStep.highlight) {

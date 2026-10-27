@@ -23,21 +23,25 @@ def public_user_json(u: UserRow) -> dict[str, Any]:
     return {"id": u.id, "name": u.name, "role": u.role}
 
 
-def item_json(i: ItemRow, *, guest: bool = False) -> dict[str, Any]:
-    """Item completo. `guest=True` (visitante, P26): sem `storedAt` e sem `createdById`."""
+def item_json(i: ItemRow, viewer: UserRow | None) -> dict[str, Any]:
+    """Item completo para `viewer` (o ator da requisição, ou `None` = visitante).
+
+    `storedAt` (local de guarda) só aparece para ADMIN (nem o autor nem quem reivindicou o recebem; a chave é omitida).
+    `createdById` só aparece quando há sessão (P26). `categoryOther` é público (string ou null)."""
     out: dict[str, Any] = {
         "id": i.id,
         "title": i.title,
         "description": i.description,
         "category": i.category,
+        "categoryOther": i.category_detail,
         "foundLocation": i.found_location,
         "foundDate": i.found_date,
     }
-    if not guest:
+    if viewer is not None and viewer.role == "admin":
         out["storedAt"] = i.stored_at
     out["photoUrl"] = i.photo_url
     out["status"] = i.status
-    if not guest:
+    if viewer is not None:
         out["createdById"] = i.created_by_id
     out["createdAt"] = to_iso(i.created_at)
     return out
@@ -62,8 +66,8 @@ def claim_with_claimant_json(c: ClaimRow, claimant: UserRow) -> dict[str, Any]:
     return {**claim_json(c), "claimant": user_json(claimant)}
 
 
-def claim_view_json(c: ClaimRow, claimant: UserRow, item: ItemRow) -> dict[str, Any]:
-    return {**claim_json(c), "claimant": user_json(claimant), "item": item_json(item)}
+def claim_view_json(c: ClaimRow, claimant: UserRow, item: ItemRow, viewer: UserRow | None) -> dict[str, Any]:
+    return {**claim_json(c), "claimant": user_json(claimant), "item": item_json(item, viewer)}
 
 
 def return_json(r: ReturnRow) -> dict[str, Any]:
@@ -77,10 +81,10 @@ def return_json(r: ReturnRow) -> dict[str, Any]:
     }
 
 
-def return_view_json(r: ReturnRow, item: ItemRow, returned_to: UserRow, registered_by: UserRow) -> dict[str, Any]:
+def return_view_json(r: ReturnRow, item: ItemRow, returned_to: UserRow, registered_by: UserRow, viewer: UserRow | None) -> dict[str, Any]:
     return {
         **return_json(r),
-        "item": item_json(item),
+        "item": item_json(item, viewer),
         "returnedTo": user_json(returned_to),
         "registeredBy": public_user_json(registered_by),
     }

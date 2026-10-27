@@ -52,13 +52,13 @@ Capacidades **exclusivas da administração** acrescentadas ao RF01: gerir usuá
 Identificadores em inglês no código; rótulos em português na interface.
 
 - **User**: `id`, `name`, `email`, `role: "user" | "admin"` (papel de acesso) e `affiliation: "institutional" | "external"` (vínculo derivado do domínio do e-mail, não verificado; P40). Campos de conta acrescentados no backend: e-mail confirmado (sim/não), aceite de termos (versão e data), 2FA ativo (sim/não). **[Premissa]**: nomes exatos de campo ficam no contrato `docs/api/API.md`.
-- **Item**: `id`, `title`, `description` (pública), `category`, `foundLocation`, `foundDate` (ISO), `storedAt` (onde está guardado agora; **não é exposto a visitantes**, P26), `photoDataUrl?` (data URL de foto enviada **ou** caminho `/seed/*.svg|webp` das imagens demonstrativas do seed, P27), `status: "available" | "under_claim" | "returned"`, `createdById`, `createdAt`.
+- **Item**: `id`, `title`, `description` (pública), `category`, `categoryOther` (especificação da categoria; só com `category = "Outros"`, senão `null`; P41), `foundLocation` (texto livre, 3 a 120 caracteres; P42), `foundDate` (ISO), `storedAt` (onde está guardado agora; **opcional e privado: só a administração o recebe**, nem visitante, nem usuário comum, nem quem registrou o item, nem quem reivindicou; P43), `photoDataUrl?` (data URL de foto enviada **ou** caminho `/seed/*.svg|webp` das imagens demonstrativas do seed, P27), `status: "available" | "under_claim" | "returned"`, `createdById`, `createdAt`.
 - **Claim**: `id`, `itemId`, `claimantId`, `proofDetails`, `lostWhereWhen`, `status: "pending" | "accepted" | "rejected"`, `createdAt`, `reviewedAt?`.
 - **ReturnRecord**: `id`, `itemId`, `claimId`, `returnedToId`, `registeredById`, `returnedAt`.
 
 Rótulos de status na UI: Disponível · Em reivindicação · Devolvido. Reivindicação: Pendente · Aceita · Recusada.
 
-Categorias e locais: **listas fixas** carregadas por seed, sem tela de edição. **[Premissa do protótipo]** valores demonstrativos tirados dos exemplos do próprio documento — categorias: Eletrônicos, Documentos, Roupas, Chaves, Outros; locais: Bloco A, Biblioteca, Cantina, Portaria. Devem vir de um único módulo, marcado como *dados demonstrativos*, e a interface de demonstração deve deixar claro que os valores finais virão da equipe.
+Categorias e locais: **listas fixas** carregadas por seed, sem tela de edição. **[Premissa do protótipo]** valores demonstrativos tirados dos exemplos do próprio documento — categorias: Eletrônicos, Documentos, Roupas, Chaves, Outros. O **local onde foi encontrado não é lista**: é texto livre (P42); "Bloco A", "Biblioteca", "Cantina" e "Portaria" existem só como exemplos do seed. Devem vir de um único módulo, marcado como *dados demonstrativos*, e a interface de demonstração deve deixar claro que os valores finais virão da equipe.
 
 ## 4. Máquina de estados do item (respeitar rigorosamente)
 
@@ -83,9 +83,9 @@ Regras associadas:
 | `/entrar` | Login (e-mail e senha, ou Google) + atalhos de demonstração (Usuário, Administração) | RF01 | público | Entrada; atalhos de demo evitam digitar credenciais. Inclui o caminho de "Esqueci a senha" e, para administração, o segundo fator (TOTP). |
 | `/cadastro` | Cadastro (nome, e-mail, senha, aceite dos termos; sem escolha de papel) | RF01 | público | Autocadastro. |
 | `/` | Landing page: o que é o CampusLost, como funciona (4 passos), itens recentes e chamadas para entrar/cadastrar | RF03 | público (P26) | Porta de entrada. Quem já tem sessão vai para a página inicial do seu papel. |
-| `/itens` | Busca/listagem + filtros (categoria, local, período) | RF03 | **público (P26)** | Visitante vê e filtra; tela inicial após login. Oculta devolvidos; mais recentes primeiro. |
-| `/itens/[id]` | Detalhe do item | RF03/04 | **público (P26)** | Mostra status. Visitante vê "Entre para reivindicar" no lugar de "É meu" e não vê "onde está guardado". Usuário comum vê "É meu"; administração vê as ações administrativas. |
-| `/itens/novo` | Registrar item encontrado | RF02 | logado | Foto, descrição, categoria, local, data, onde está guardado. |
+| `/itens` | Busca/listagem + filtros (categoria, local por texto, período) | RF03 | **público (P26)** | Visitante vê e filtra; tela inicial após login. Oculta devolvidos; mais recentes primeiro. |
+| `/itens/[id]` | Detalhe do item | RF03/04 | **público (P26)** | Mostra status. Visitante vê "Entre para reivindicar" no lugar de "É meu" e não vê "onde está guardado" (nenhum perfil além da administração vê; P43). Usuário comum vê "É meu"; administração vê as ações administrativas. |
+| `/itens/novo` | Registrar item encontrado | RF02 | logado | Foto (arquivo ou câmera), descrição, categoria (com especificação em "Outros"), local (texto livre), data e, opcionalmente, onde está guardado. |
 | `/itens/[id]/reivindicar` | Formulário de reivindicação | RF04 | usuário | Validação por perguntas (sem chat). |
 | `/minhas-reivindicacoes` | Acompanhamento de status | RF04 | usuário | Substitui notificações (decisão: acompanhar na interface). |
 | `/admin` | Painel (reivindicações pendentes, itens em reivindicação) | RF04/05 | admin | Ponto de partida da administração. |
@@ -144,14 +144,17 @@ Requisitos (sem renumerar RF01):
 - AC01.22 **Sessão.** Dado que entrei (backend), quando uso o sistema, então a sessão é mantida por cookie `HttpOnly` acessado pelo frontend via proxy do mesmo domínio e renovada por refresh rotativo; quando saio, então a sessão é invalidada no servidor; um refresh já usado é recusado (P34).
 
 **RF02**
-- AC02.1 Qualquer usuário logado (comum ou administração) registra item com título, descrição, categoria, local, data (não futura) e "onde está guardado agora".
-- AC02.2 Foto opcional, com limite de tamanho/formato e pré-visualização.
+- AC02.1 Qualquer usuário logado (comum ou administração) registra item com título, descrição, categoria, local onde foi encontrado, data (não futura) e, opcionalmente, "onde está guardado agora".
+- AC02.2 Foto opcional, com limite de tamanho/formato e pré-visualização. Duas ações lado a lado (empilhadas a 360 px): **Enviar foto** (escolher arquivo) e **Tirar foto** (câmera nativa do navegador via `<input capture>`, sem biblioteca nem acesso próprio à câmera). As duas passam pela mesma validação de formato e tamanho; se a câmera devolver formato não aceito (ex.: HEIC), aparece a mensagem de formato. Sem câmera disponível (ex.: desktop), "Tirar foto" abre o seletor de arquivo e o texto de ajuda manda usar "Enviar foto". Há "Trocar foto" e "Remover foto".
 - AC02.3 Item novo nasce Disponível e aparece no topo da busca.
+- AC02.4 **Local onde foi encontrado** é texto livre, obrigatório, de 3 a 120 caracteres (com espaços aparados), com contador e exemplo; não há lista de locais (P42).
+- AC02.5 **Categoria "Outros"**: só quando escolhida aparece o campo "Especifique a categoria" (obrigatório, 3 a 40 caracteres, ex.: "Crachá de visitante"). Ao trocar para outra categoria o campo some e seu valor e erro são descartados, e nunca se envia especificação com categoria predefinida. A especificação aparece junto da categoria como "Outros: {texto}" (P41).
+- AC02.6 **"Onde está guardado agora?" é opcional** (vazio ou 3 a 120 caracteres) e **só a administração o vê**: detalhe do item, análise de reivindicação e edição administrativa. Para a administração, item sem o campo mostra "Ainda não informado". Nenhuma outra tela ou mensagem (inclusive a de reivindicação aceita) o cita (P43).
 
 **RF03**
 - AC03.1 Visitante (sem login) vê a lista e o detalhe dos itens, mas sem "onde está guardado", sem dados de reivindicação e sem quem registrou (P26); itens Devolvidos aparecem como "não encontrado".
 - AC03.2 Itens Devolvidos não aparecem; Em reivindicação aparecem identificados.
-- AC03.3 Filtros de categoria, local e período combinam entre si; "Limpar filtros".
+- AC03.3 Filtros de categoria, local e período combinam entre si; "Limpar filtros". O filtro de **local é texto livre** ("contém", sem diferenciar maiúsculas nem acentos, até 120 caracteres) e aparece como chip "Local: …"; a categoria "Outros" filtra todos os itens "Outros", qualquer que seja a especificação.
 - AC03.4 Ordenação: mais recentes primeiro.
 - AC03.5 Sem resultado → estado vazio com ação de limpar filtros.
 
@@ -197,8 +200,8 @@ Requisitos (sem renumerar RF01):
 | P1 | Proposta diz "sistema de mensagens **ou** fluxo de validação" (RF04) | Fluxo de validação, sem chat | [Recomendação] |
 | P2 | Proposta chama RF05 de "Relatório"; decisões falam em listagem simples | Listagem com filtro por período, sem exportar | [Recomendação] |
 | P3 | Proposta cita "equipe de segurança/administração" | Um papel "Administração" (`admin`), criado por seed, por convite ou por promoção feita por outra administração (revisado em 27/10/2026; antes: só por seed) | [Recomendação] |
-| P4 | Campo "onde está guardado agora" é hipótese a confirmar | Incluído como obrigatório no RF02 | [Recomendação] |
-| P5 | Listas de categorias/locais ainda sem valores reais | Valores demonstrativos dos exemplos do documento | [Premissa] |
+| P4 | Campo "onde está guardado agora" é hipótese a confirmar | Incluído no RF02; **opcional e privado à administração desde 27/10/2026 (P43)** | [Recomendação] |
+| P5 | Lista de categorias ainda sem valores reais | Valores demonstrativos dos exemplos do documento (o local é texto livre, P42) | [Premissa] |
 | P6 | Foto é citada no RF02 mas sem regra de obrigatoriedade | Opcional, com limites e placeholder | [Premissa] |
 | P7 | Campos exatos do formulário de reivindicação não definidos ("uma ou duas perguntas") | Duas perguntas obrigatórias: detalhes que só o dono saberia; onde e quando perdeu | [Premissa] |
 | P8 | Administração pode reivindicar? Dono do registro pode reivindicar o próprio item? | Admin não reivindica; quem registrou pode (sem regra extra) | [Premissa] — **pendente de confirmação** |
@@ -237,6 +240,9 @@ Requisitos (sem renumerar RF01):
 
 Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves de storage, opções de teste) ficam documentados no código de `frontend/src/services/` e `frontend/src/lib/rules/`.
 | P40 | O cadastro pedia que a pessoa se declarasse aluno, professor ou externa, o que não é verificável (não há integração com a UNDB nem matrícula) e induzia confiança indevida | **Vínculo = domínio do e-mail; autodeclaração removida; não verificado.** `affiliation` = `institutional` se o domínio do e-mail for um dos configurados (`GOOGLE_ALLOWED_DOMAINS` / `NEXT_PUBLIC_GOOGLE_ALLOWED_DOMAINS`, padrão `undb.edu.br` = **hipótese**) ou subdomínio dele (`evilundb.edu.br` e `undb.edu.br.evil.com` não contam); caso contrário, `external`. Calculado só pelo texto do e-mail, no cadastro por senha e no Google. Não concede permissão; serve para exibição e filtro da administração. Verificar de fato o vínculo exigiria integração com a UNDB (ver backlog, seção 10). Contas anteriores: migração Alembic 0003 converte `student`/`teacher`/`external` em `user` com vínculo `institutional`/`external`; no mock, `DB_VERSION` 6 descarta os dados antigos do `localStorage` | [Premissa] (27/10/2026), a validar pela equipe e pelo professor |
+| P41 | O pedido era uma categoria "Outro" com especificação; a lista já tem "Outros" | **Reaproveitar "Outros"** como a opção "Outro", em vez de criar uma categoria nova. Com "Outros", "Especifique a categoria" é obrigatório (3 a 40 caracteres); exibição "Outros: {texto}"; o filtro continua por "Outros" | [Premissa] (27/10/2026) |
+| P42 | Lista fixa de locais não representa o campus real e a equipe não definiu a lista | **Local onde foi encontrado = texto livre** (3 a 120 caracteres). Filtro de local por texto "contém" (sem caixa nem acentos, até 120). Locais do seed são só exemplos; nenhum local real do campus foi inventado | [Premissa] (27/10/2026) |
+| P43 | "Onde está guardado" revelava o local do item a quem não deveria e era obrigatório sem decisão da equipe | **Opcional e privado: só a administração o vê**, incluindo quem registrou o item e quem reivindicou (mesmo com reivindicação aceita). O serviço omite o campo para os demais (a UI não decide). **Devolução/retirada:** depois de aceita a reivindicação, o responsável informa o procedimento e o local de retirada **fora do sistema**; o protótipo não tem mecanismo para isso, **não** integra com a instituição e **não** verifica identidade | [Premissa] (27/10/2026), a validar pela equipe e pelo professor |
 
 ## 10. Backlog de evolução (não implementado)
 

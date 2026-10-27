@@ -74,3 +74,12 @@ def test_producao_sem_migracao_recusa_subir(tmp_path):
     settings = make_settings(tmp_path, env="production", demo_mode=False, seed_on_startup=False)
     with pytest.raises(SchemaOutdatedError, match="alembic upgrade head"):
         create_app(settings)
+
+
+def test_banco_sem_category_detail_e_acusado(tmp_path):
+    engine = _engine(tmp_path)
+    with engine.begin() as c:
+        c.execute(text("ALTER TABLE items DROP COLUMN category_detail"))
+    with pytest.raises(SchemaOutdatedError) as exc:
+        ensure_schema_current(engine)
+    assert "items.category_detail" in str(exc.value)

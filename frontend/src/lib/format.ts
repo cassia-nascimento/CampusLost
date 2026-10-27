@@ -78,3 +78,9 @@ export function getInitial(name: string): string {
   const letter = name.trim().charAt(0);
   return letter ? letter.toLocaleUpperCase("pt-BR") : "?";
 }
+
+/** Categoria para exibição: "Outros: {especificação}" quando há `categoryOther`; senão a própria categoria. */
+export function formatCategory(category: string, categoryOther?: string | null): string {
+  const other = categoryOther?.trim();
+  return category === "Outros" && other ? `${category}: ${other}` : category;
+}

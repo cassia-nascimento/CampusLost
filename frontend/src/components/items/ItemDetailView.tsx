@@ -17,7 +17,7 @@ import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useSession } from "@/hooks/use-session";
-import { formatDate, formatRelativeDate } from "@/lib/format";
+import { formatCategory, formatDate, formatRelativeDate } from "@/lib/format";
 import { hasCapability } from "@/lib/rules";
 import { isSeedImage, itemPhotoAlt } from "@/lib/utils";
 import { services, type ItemDetail } from "@/services";
@@ -117,10 +117,13 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
 
           <DefinitionList
             items={[
-              { label: "Categoria", value: item.category, icon: Tag },
+              { label: "Categoria", value: formatCategory(item.category, item.categoryOther), icon: Tag },
               { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
               { label: "Data", value: <FoundDate date={item.foundDate} />, icon: Calendar },
-              ...(item.storedAt !== undefined ? [{ label: "Guardado em", value: item.storedAt, icon: Archive }] : []),
+              // Local de guarda: só a administração o recebe (`undefined` = sem permissão); `null` = ainda não informado.
+              ...(item.storedAt !== undefined
+                ? [{ label: "Guardado em", value: item.storedAt ?? "Ainda não informado", icon: Archive }]
+                : []),
               ...(createdBy ? [{ label: "Registrado por", value: createdBy.name, icon: UserRound }] : []),
             ]}
           />

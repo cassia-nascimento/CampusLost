@@ -8,7 +8,8 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
-import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
+import { ITEM_LOCATION_MAX } from "@/lib/validation";
+import { DEMO_CATEGORIES } from "@/types/catalog";
 import { CatalogNote } from "./CatalogNote";
 import {
   DATE_FILTER_DEBOUNCE_MS,
@@ -30,7 +31,7 @@ export interface FilterBarProps {
 
 interface FieldsProps {
   values: FilterValues;
-  /** `debounce`: o campo é uma data (aplicação adiada no desktop). */
+  /** `debounce`: o campo é uma data ou o texto do local (aplicação adiada no desktop, enquanto a pessoa digita). */
   onPatch: (patch: Partial<FilterValues>, options?: { debounce?: boolean }) => void;
   periodMessage: string | null;
   /** Selects ocupam a linha toda (folha de filtros no celular). */
@@ -39,7 +40,7 @@ interface FieldsProps {
   autoFocusFirst?: boolean;
 }
 
-/** Os quatro campos, iguais no painel do desktop e na folha do celular. */
+/** Os quatro campos (a categoria é lista; o local, texto livre), iguais no painel do desktop e na folha do celular. */
 function FilterFields({ values, onPatch, periodMessage, wideSelects, autoFocusFirst }: FieldsProps) {
   return (
     <>
@@ -58,14 +59,14 @@ function FilterFields({ values, onPatch, periodMessage, wideSelects, autoFocusFi
         </Select>
       </Field>
       <Field label="Local" className={cn(wideSelects && "col-span-2")}>
-        <Select value={values.location} onChange={(event) => onPatch({ location: event.target.value })}>
-          <option value="">Todos</option>
-          {DEMO_LOCATIONS.map((location) => (
-            <option key={location} value={location}>
-              {location}
-            </option>
-          ))}
-        </Select>
+        <Input
+          type="text"
+          value={values.location}
+          maxLength={ITEM_LOCATION_MAX}
+          autoComplete="off"
+          placeholder="Parte do nome do local"
+          onChange={(event) => onPatch({ location: event.target.value }, { debounce: true })}
+        />
       </Field>
       <Field label="Encontrado de">
         <Input
@@ -86,7 +87,7 @@ function FilterFields({ values, onPatch, periodMessage, wideSelects, autoFocusFi
 }
 
 /**
- * Filtros da busca (DESIGN §6.11): categoria, local e período (data em que foi encontrado), combináveis.
+ * Filtros da busca (DESIGN §6.11): categoria, local (texto livre, "contém") e período (data em que foi encontrado), combináveis.
  *
  * - `md` e acima: campos em linha, aplicados ao mudar (sem botão), com "Limpar filtros".
  * - Abaixo de `md`: botão "Filtros (n)" que abre a folha (`Dialog variant="sheet"`) com [Aplicar] e
@@ -103,9 +104,10 @@ export function FilterBar({ value, onChange, resultLabel }: FilterBarProps) {
   const [draft, setDraft] = useState(value);
   const [syncedKey, setSyncedKey] = useState(valueKey);
   if (valueKey !== syncedKey) {
-    // A URL mudou (chip removido, limpar, voltar do navegador): o rascunho acompanha.
+    // A URL mudou (chip removido, limpar, voltar do navegador): o rascunho acompanha. Se o rascunho já
+    // equivale à URL (ex.: espaço no fim do texto do local, que a URL aparou), é mantido como está.
     setSyncedKey(valueKey);
-    setDraft(value);
+    if (filtersToSearch(draft) !== valueKey) setDraft(value);
   }
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);

@@ -10,8 +10,6 @@ import type { ClaimStatus, ItemStatus } from "@/types/domain";
 export interface ClaimMessageInput {
   claimStatus: ClaimStatus;
   itemStatus: ItemStatus;
-  /** Onde o item está guardado ("Guardado em: …" na reivindicação aceita). Ausente para visitante (P26). */
-  storedAt?: string;
   /** Instante da devolução, quando a tela o conhece (hoje só a administração recebe o registro). */
   returnedAt?: string | null;
 }
@@ -39,7 +37,7 @@ export function returnedItemNotice(returnedAt?: string | null): string {
   return returnedAt ? `Este item já foi devolvido em ${formatInstantDate(returnedAt)}.` : "Este item já foi devolvido.";
 }
 
-export function getClaimMessages({ claimStatus, itemStatus, storedAt, returnedAt }: ClaimMessageInput): ClaimMessages {
+export function getClaimMessages({ claimStatus, itemStatus, returnedAt }: ClaimMessageInput): ClaimMessages {
   const returned = itemStatus === "returned";
 
   switch (claimStatus) {
@@ -63,13 +61,13 @@ export function getClaimMessages({ claimStatus, itemStatus, storedAt, returnedAt
           blocked: null,
         };
       }
-      // Quem tem reivindicação está logado e recebe o local; sem ele (visão de visitante) o texto não o cita.
+      // O local de guarda é privado (só administração): o texto manda procurar a administração.
       return {
         noticeTitle: "Reivindicação aceita",
-        notice: `Sua reivindicação foi aceita. Procure a administração para retirar o item.${storedAt ? ` Ele está guardado em ${storedAt}.` : ""}`,
+        notice: "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
         nextStep: {
           highlight: "Aceita!",
-          text: `Procure a administração para retirar o item.${storedAt ? ` Guardado em: ${storedAt}.` : ""}`,
+          text: "Procure a administração para retirar o item.",
         },
         blocked: "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
       };

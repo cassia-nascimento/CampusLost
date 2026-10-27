@@ -26,7 +26,7 @@ def test_guest_list_has_no_private_fields(client):
     assert len(items) == 9  # 11 do seed menos 2 devolvidos
     assert not (keys_deep(items) & FORBIDDEN_KEYS)
     for item in items:
-        assert set(item) == {"id", "title", "description", "category", "foundLocation", "foundDate", "photoUrl", "status", "createdAt"}
+        assert set(item) == {"id", "title", "description", "category", "categoryOther", "foundLocation", "foundDate", "photoUrl", "status", "createdAt"}
     # valores sensíveis do seed não aparecem em lugar nenhum do texto
     for secret in ("user-lucas", "user-beatriz", "user-admin", "user-rafael", "Entregue ao dono", "fita branca"):
         assert secret not in r.text, secret
@@ -72,9 +72,9 @@ def test_returned_items_never_listed(client, student, admin):
         assert "item-10" not in ids and "item-11" not in ids
 
 
-def test_logged_user_sees_stored_at_and_creator_but_no_foreign_claims(client, student):
+def test_logged_user_sees_creator_but_not_stored_at_nor_foreign_claims(client, student):
     body = client.get("/items/item-03", headers=student).json()
-    assert body["item"]["storedAt"] == "Portaria" and body["item"]["createdById"] == "user-lucas"
+    assert "storedAt" not in body["item"] and body["item"]["createdById"] == "user-lucas"
     assert body["createdBy"] == {"id": "user-lucas", "name": "Lucas Prado", "role": "user"}  # sem e-mail
     assert body["claims"] == [] and body["returnRecord"] is None
     assert body["myClaims"] == []  # claim-01/02 são de Beatriz e Rafael

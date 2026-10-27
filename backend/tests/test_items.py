@@ -60,7 +60,7 @@ def test_returned_never_appears_even_when_filtered(client):
     "params, errors",
     [
         ({"category": "Inexistente"}, {"category": "Categoria inválida."}),
-        ({"location": "Marte"}, {"location": "Local inválido."}),
+        ({"location": "x" * 121}, {"location": "Use no máximo 120 caracteres."}),
         ({"status": "returned"}, {"status": "Situação inválida."}),
         ({"sort": "alfabetica"}, {"sort": "Ordenação inválida."}),
         ({"from": "ontem"}, {"from": "Informe uma data válida."}),
@@ -100,7 +100,8 @@ def test_create_item_as_logged_user(client, student, clock):
     assert item["status"] == "available" and item["createdById"] == "user-marina"
     assert item["photoUrl"] is None
     assert item["createdAt"] == "2026-10-22T15:00:00.000Z"
-    assert {k: item[k] for k in ITEM_FORM} == ITEM_FORM
+    assert {k: item[k] for k in ITEM_FORM if k != "storedAt"} == {k: v for k, v in ITEM_FORM.items() if k != "storedAt"}
+    assert "storedAt" not in item  # o autor comum não recebe o local de guarda de volta
     again = client.get(f"/items/{item['id']}", headers=student).json()
     assert again["item"] == item and again["createdBy"]["name"] == "Marina Alves"
 
@@ -136,7 +137,14 @@ def test_today_follows_local_calendar_not_utc(client, student, clock):
         ("description", "x" * 501, "Use no máximo 500 caracteres."),
         ("category", "Nada", "Escolha uma categoria."),
         ("category", "", "Escolha uma categoria."),
-        ("foundLocation", "Lua", "Escolha o local onde foi encontrado."),
+        ("foundLocation", "", "Informe o local onde foi encontrado."),
+        ("foundLocation", "   ", "Informe o local onde foi encontrado."),
+        ("foundLocation", "ab", "Use pelo menos 3 caracteres."),
+        ("foundLocation", "x" * 121, "Use no máximo 120 caracteres."),
+        ("categoryOther", "", "Especifique a categoria."),
+        ("categoryOther", "   ", "Especifique a categoria."),
+        ("categoryOther", "ab", "Use pelo menos 3 caracteres."),
+        ("categoryOther", "x" * 41, "Use no máximo 40 caracteres."),
         ("foundDate", "", "Informe uma data válida."),
         ("foundDate", "2026-02-30", "Informe uma data válida."),
         ("foundDate", "22/10/2026", "Informe uma data válida."),
@@ -157,9 +165,8 @@ def test_create_item_missing_fields(client, student):
         "title": "Informe um título.",
         "description": "Informe uma descrição.",
         "category": "Escolha uma categoria.",
-        "foundLocation": "Escolha o local onde foi encontrado.",
+        "foundLocation": "Informe o local onde foi encontrado.",
         "foundDate": "Informe a data.",
-        "storedAt": "Informe onde o item está guardado.",
     }
 
 
@@ -176,7 +183,7 @@ def test_admin_updates_item(client, admin):
     r = client.put("/items/item-01", data=form, headers=admin)
     assert r.status_code == 200
     item = r.json()
-    assert item["id"] == "item-01" and item["title"] == "Fones azuis" and item["storedAt"] == "Secretaria"
+    assert item["id"] == "item-01" and item["title"] == "Fones azuis" and item["storedAt"] == "Secretaria"  # admin recebe
     assert item["status"] == "available"
     assert item["createdById"] == "user-rafael" and item["createdAt"].startswith("2026-10-22T12:00")
     assert item["photoUrl"] == "/uploads/seed/fones-de-ouvido.webp"  # sem foto no envio: mantém

@@ -25,6 +25,46 @@ describe("mapeamento (API.md §3)", () => {
     expect(withPhoto).toMatchObject({ id: "item-03", storedAt: "Portaria", createdById: "user-lucas" });
   });
 
+  it("categoryOther: mapeado; ausente ou inválido vira null", async () => {
+    const { api, services } = createHarness();
+    api.reply({ json: [{ ...rawItem, category: "Outros", categoryOther: "Mochila escolar" }, rawItem, { ...rawItem, categoryOther: 7 }] });
+    const [other, absent, invalid] = await services.items.list();
+    expect(other.categoryOther).toBe("Mochila escolar");
+    expect(absent.categoryOther).toBeNull();
+    expect(invalid.categoryOther).toBeNull();
+  });
+
+  it("storedAt: texto e null são mantidos; ausente continua ausente (sem permissão); tipo estranho é descartado", async () => {
+    const { api, services } = createHarness();
+    const { storedAt: _s, ...noStored } = rawItem;
+    void _s;
+    api.reply({ json: [{ ...rawItem, storedAt: "Cofre" }, { ...rawItem, storedAt: null }, noStored, { ...rawItem, storedAt: 5 }] });
+    const [text, nul, absent, weird] = await services.items.list();
+    expect(text.storedAt).toBe("Cofre");
+    expect("storedAt" in nul && nul.storedAt === null).toBe(true);
+    expect("storedAt" in absent).toBe(false);
+    expect("storedAt" in weird).toBe(false);
+  });
+
+  it("detalhe, reivindicação e devolução também mapeiam categoryOther e não inventam storedAt", async () => {
+    const { api, services } = createHarness();
+    const { storedAt: _s, ...noStored } = rawItem;
+    void _s;
+    api.reply({
+      json: {
+        item: noStored,
+        createdBy: null,
+        myClaims: [],
+        claims: [],
+        returnRecord: null,
+        viewer: { claim: { allowed: true }, edit: denied, delete: denied, registerReturn: denied },
+      },
+    });
+    const detail = await services.items.get("item-03");
+    expect(detail.item.categoryOther).toBeNull();
+    expect("storedAt" in detail.item).toBe(false);
+  });
+
   it("visitante: item sem storedAt/createdById continua sem essas chaves", async () => {
     const { api, services } = createHarness();
     const { storedAt: _s, createdById: _c, ...guest } = rawItem;
@@ -176,6 +216,7 @@ describe("foto em multipart", () => {
     title: "Agenda vermelha",
     description: "Agenda vermelha com elástico e capa dura.",
     category: "Outros",
+    categoryOther: "Agenda",
     foundLocation: "Biblioteca",
     foundDate: "2026-10-21",
     storedAt: "Portaria",
@@ -196,6 +237,34 @@ describe("foto em multipart", () => {
     expect((form.get("photo") as File).name).toBe("agenda.png");
     expect(form.has("removePhoto")).toBe(false);
     expect(item.photoDataUrl).toBe(`${BASE}/uploads/${"ab".repeat(16)}.png`);
+  });
+
+  it("create: envia categoryOther (só com Outros), foundLocation aparado e storedAt preenchido", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: rawItem });
+    await services.items.create({ ...fields, categoryOther: " Agenda ", foundLocation: "  Bloco C, 2º andar  " });
+    const form = api.calls[0].body as FormData;
+    expect(form.get("categoryOther")).toBe("Agenda");
+    expect(form.get("foundLocation")).toBe("Bloco C, 2º andar");
+    expect(form.get("storedAt")).toBe("Portaria");
+  });
+
+  it("create: categoria predefinida não envia categoryOther; storedAt vazio/null/ausente não vai (nunca como \"null\")", async () => {
+    const { api, services } = createHarness();
+    api.reply({ status: 201, json: rawItem }, { status: 201, json: rawItem }, { status: 201, json: rawItem }, { status: 201, json: rawItem });
+    await services.items.create({ ...fields, category: "Roupas", categoryOther: "sobrou", storedAt: "" });
+    await services.items.create({ ...fields, category: "Roupas", storedAt: null });
+    await services.items.create({ ...fields, category: "Roupas", storedAt: "   " });
+    const { storedAt: _s, ...noStored } = fields;
+    void _s;
+    await services.items.create({ ...noStored });
+    for (const call of api.calls) {
+      const form = call.body as FormData;
+      expect(form.has("storedAt")).toBe(false);
+      expect(JSON.stringify([...form.entries()])).not.toMatch(/"null"|"undefined"/);
+    }
+    expect((api.calls[0].body as FormData).has("categoryOther")).toBe(false);
+    expect((api.calls[3].body as FormData).get("categoryOther")).toBe("Agenda"); // Outros mantém
   });
 
   it("create sem foto não envia a parte photo", async () => {

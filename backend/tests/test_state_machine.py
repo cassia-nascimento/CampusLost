@@ -105,7 +105,7 @@ def test_ac04_4_pending_list_oldest_first_with_views(client, admin):
     assert ids == ["claim-06", "claim-01", "claim-07", "claim-02"]
     first = r.json()[0]
     assert first["claimant"] == {"id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user"}
-    assert first["item"]["id"] == "item-07" and first["item"]["storedAt"] == "Portaria"
+    assert first["item"]["id"] == "item-07" and first["item"]["storedAt"] == "Portaria"  # admin vê o local de guarda
     by_item = client.get("/items/item-03/claims", headers=admin).json()
     assert [c["id"] for c in by_item] == ["claim-01", "claim-02"]
 

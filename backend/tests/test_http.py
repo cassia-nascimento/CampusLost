@@ -62,7 +62,7 @@ def test_sql_injection_strings_are_just_data(client, student, admin):
     assert r.status_code == 422
     r = client.post("/auth/login", json={"email": "a@b.co' OR 1=1 --", "password": "x"})
     assert r.status_code == 422
-    item = client.post("/items", data={"title": "Robert'); DROP TABLE items;--", "description": "descrição com aspas ' e \" ok", "category": "Outros", "foundLocation": "Cantina", "foundDate": "2026-10-20", "storedAt": "Portaria"}, headers=student)
+    item = client.post("/items", data={"title": "Robert'); DROP TABLE items;--", "description": "descrição com aspas ' e \" ok", "category": "Outros", "categoryOther": "Agenda", "foundLocation": "Cantina", "foundDate": "2026-10-20", "storedAt": "Portaria"}, headers=student)
     assert item.status_code == 201
     assert len(client.get("/items").json()) == 10
 

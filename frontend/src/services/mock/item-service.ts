@@ -12,7 +12,7 @@ import {
   toLocalDateString,
 } from "@/lib/rules";
 import { createItemSchema, itemFiltersSchema } from "@/lib/validation";
-import type { ItemDetail, ItemInput, ItemService, ItemView, PublicItemView } from "../contracts";
+import type { ItemDetail, ItemInput, ItemService, ItemView } from "../contracts";
 import { recordAudit } from "./audit";
 import {
   findItem,
@@ -23,14 +23,7 @@ import {
   toPublicUser,
   type MockContext,
 } from "./context";
-
-/** Visitante não vê "onde está guardado" nem quem registrou o item (P26). */
-function toGuestItem(item: Item): PublicItemView {
-  const { storedAt: _storedAt, createdById: _createdById, ...rest } = item;
-  void _storedAt;
-  void _createdById;
-  return rest;
-}
+import { toViewerItem } from "./viewer";
 
 export function createItemService(ctx: MockContext): ItemService {
   const { store } = ctx;
@@ -52,7 +45,7 @@ export function createItemService(ctx: MockContext): ItemService {
         assertAllowed(checkCapability(user, "search_items"));
         const parsed = parseInput(itemFiltersSchema, filters ?? {});
         const found = searchItems(db.items, parsed);
-        return user ? found : found.map(toGuestItem);
+        return found.map((i) => toViewerItem(i, user));
       }),
 
     get: (id) =>
@@ -67,7 +60,7 @@ export function createItemService(ctx: MockContext): ItemService {
           // Visitante: devolvido é invisível (mesmo erro de item inexistente) e nada de terceiros.
           if (!isVisibleInSearch(item)) throw new ServiceError("NOT_FOUND", "Item não encontrado.");
           return {
-            item: toGuestItem(item),
+            item: toViewerItem(item, null),
             createdBy: null,
             myClaims: [],
             claims: [],
@@ -83,7 +76,7 @@ export function createItemService(ctx: MockContext): ItemService {
         const canReview = hasCapability(user, "review_claims");
         const canSeeReturns = hasCapability(user, "view_returns");
         return {
-          item,
+          item: toViewerItem(item, user),
           createdBy,
           myClaims: itemClaims
             .filter((c) => c.claimantId === user.id)
@@ -121,7 +114,7 @@ export function createItemService(ctx: MockContext): ItemService {
             createdAt: ctx.now().toISOString(),
           };
           db.items.push(item);
-          return item;
+          return toViewerItem(item, user);
         });
       }),
 
@@ -144,7 +137,7 @@ export function createItemService(ctx: MockContext): ItemService {
             ...(nextPhoto ? { photoDataUrl: nextPhoto } : {}),
           };
           db.items[db.items.findIndex((i) => i.id === id)] = updated;
-          return updated;
+          return toViewerItem(updated, user);
         });
       }),
 

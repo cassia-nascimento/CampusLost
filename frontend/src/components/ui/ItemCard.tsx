@@ -47,9 +47,9 @@ export function ItemCard({ item, myClaimStatus, className }: ItemCardProps) {
           <ItemStatusBadge status={item.status} />
         </div>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-subtle">
-          <span className="user-text inline-flex items-center gap-1">
+          <span className="user-text inline-flex min-w-0 max-w-full items-center gap-1">
             <MapPin aria-hidden="true" className="size-4 shrink-0" />
-            {item.foundLocation}
+            <span className="truncate">{item.foundLocation}</span>
           </span>
           <span className="inline-flex items-center gap-1">
             <Calendar aria-hidden="true" className="size-4 shrink-0" />

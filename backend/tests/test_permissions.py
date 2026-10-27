@@ -74,6 +74,7 @@ def test_error_json_shape(client, student):
     assert r.json() == {"code": "FORBIDDEN", "message": "Somente a administração pode editar itens."}
 
 
-def test_admin_item_lists_include_private_fields_for_everyone_logged(client, student):
+def test_logged_item_lists_include_creator_but_only_admin_gets_stored_at(client, student, admin):
     item = client.get("/items", headers=student).json()[0]
-    assert "storedAt" in item and "createdById" in item
+    assert "storedAt" not in item and "createdById" in item
+    assert "storedAt" in client.get("/items", headers=admin).json()[0]

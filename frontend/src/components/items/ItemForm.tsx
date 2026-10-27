@@ -15,23 +15,39 @@ import { useToast } from "@/hooks/use-toast";
 import { toLocalDateString } from "@/lib/rules";
 import {
   createItemSchema,
+  ITEM_CATEGORY_OTHER_MAX,
   ITEM_DESCRIPTION_MAX,
+  ITEM_LOCATION_MAX,
   ITEM_STORED_AT_MAX,
   ITEM_TITLE_MAX,
   PHOTO_ACCEPT_ATTR,
   PHOTO_MAX_BYTES,
   validatePhotoFile,
+  type ItemFormInput,
   type ItemFormValues,
 } from "@/lib/validation";
 import type { ItemInput } from "@/services";
-import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
+import { DEMO_CATEGORIES, isOtherCategory } from "@/types/catalog";
 import { isServiceError } from "@/types/domain";
 import { CatalogNote } from "./CatalogNote";
 
-const FIELD_NAMES = ["title", "description", "category", "foundLocation", "foundDate", "storedAt"] as const;
+const FIELD_NAMES = [
+  "title",
+  "description",
+  "category",
+  "categoryOther",
+  "foundLocation",
+  "foundDate",
+  "storedAt",
+] as const;
 type FieldName = (typeof FIELD_NAMES)[number];
 
 const PHOTO_NOTE = `JPG, PNG ou WebP, até ${PHOTO_MAX_BYTES / (1024 * 1024)} MB`;
+const PHOTO_CAPTURE = {
+  label: "Tirar foto",
+  changeLabel: "Tirar outra foto",
+  help: "Se a câmera não abrir neste aparelho, use Enviar foto.",
+};
 
 function isFieldName(key: string): key is FieldName {
   return (FIELD_NAMES as readonly string[]).includes(key);
@@ -44,10 +60,11 @@ export interface ItemFormProps {
    */
   mode: "create" | "edit";
   /**
-   * Valores iniciais dos campos (edição). Datas em `YYYY-MM-DD`. No modo `create`, `foundDate` começa em
-   * hoje. Lido só na montagem: para trocar os valores, remonte o formulário com `key`.
+   * Valores iniciais dos campos (edição). Datas em `YYYY-MM-DD`; `categoryOther` e `storedAt` aceitam `""`/`null`.
+   * No modo `create`, `foundDate` começa em hoje. Lido só na montagem: para trocar os valores, remonte o
+   * formulário com `key`.
    */
-  initialValues?: Partial<ItemFormValues>;
+  initialValues?: Partial<ItemFormInput>;
   /** Foto já salva (edição): aparece até ser trocada ou removida. */
   existingPhotoUrl?: string | null;
   /**
@@ -81,8 +98,9 @@ export interface ItemFormProps {
 }
 
 /**
- * Formulário de item (RF02/AC02.1–02.2): foto opcional com pré-visualização, título, descrição, categoria,
- * local, data (não futura) e onde está guardado. Reutilizado na edição administrativa.
+ * Formulário de item (RF02/AC02.1–02.2): foto opcional (arquivo ou câmera) com pré-visualização, título,
+ * descrição, categoria (com "Especifique a categoria" só em "Outros"), local (texto livre), data (não futura) e
+ * onde está guardado (opcional, visível só à administração). Reutilizado na edição administrativa.
  *
  * react-hook-form + `createItemSchema` (mesmas regras do serviço). Erros por campo ligados por
  * `aria-describedby`, foco no primeiro campo inválido e anúncio "Corrija N campos para continuar".
@@ -109,14 +127,26 @@ export function ItemForm({
     handleSubmit,
     setError,
     setFocus,
+    setValue,
+    clearErrors,
     control,
     formState: { errors },
-  } = useForm<ItemFormValues>({
+  } = useForm<ItemFormInput, unknown, ItemFormValues>({
     resolver: zodResolver(schema),
     mode: "onTouched",
-    defaultValues: { title: "", description: "", storedAt: "", foundDate: today, ...initialValues },
+    defaultValues: {
+      title: "",
+      description: "",
+      categoryOther: "",
+      foundLocation: "",
+      storedAt: "",
+      foundDate: today,
+      ...initialValues,
+    },
   });
   const description = useWatch({ control, name: "description" }) ?? "";
+  const foundLocation = useWatch({ control, name: "foundLocation" }) ?? "";
+  const showCategoryOther = isOtherCategory(useWatch({ control, name: "category" }));
 
   const [status, setStatus] = useState<"idle" | "saving" | "done">("idle");
   const [photo, setPhoto] = useState<File | null | undefined>(undefined);
@@ -155,6 +185,16 @@ export function ItemForm({
     }
     setPhoto(file);
     setPhotoError(undefined);
+  }
+
+  /** Trocar a categoria: fora de "Outros", a especificação some e é limpa (nunca se envia dado inconsistente). */
+  function handleCategoryChange(value: string) {
+    if (isOtherCategory(value)) {
+      setAnnouncement("Novo campo abaixo: Especifique a categoria.");
+      return;
+    }
+    setValue("categoryOther", "");
+    clearErrors("categoryOther");
   }
 
   function handleInvalid(invalid: Record<string, unknown>) {
@@ -244,6 +284,8 @@ export function ItemForm({
             accept={PHOTO_ACCEPT_ATTR}
             existingUrl={existingPhotoUrl}
             note={PHOTO_NOTE}
+            addLabel="Enviar foto"
+            capture={PHOTO_CAPTURE}
             onChange={handlePhotoChange}
           />
         </Field>
@@ -261,30 +303,41 @@ export function ItemForm({
         <Textarea {...register("description")} maxLength={ITEM_DESCRIPTION_MAX} currentLength={description.length} />
       </Field>
 
-      <Field label="Categoria" error={errors.category?.message}>
-        <Select {...register("category")}>
-          <option value="">Selecione…</option>
-          {DEMO_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
       <div className="flex flex-col gap-2">
-        <Field label="Onde foi encontrado?" error={errors.foundLocation?.message}>
-          <Select {...register("foundLocation")}>
+        <Field label="Categoria" error={errors.category?.message}>
+          <Select {...register("category", { onChange: (event) => handleCategoryChange(event.target.value) })}>
             <option value="">Selecione…</option>
-            {DEMO_LOCATIONS.map((location) => (
-              <option key={location} value={location}>
-                {location}
+            {DEMO_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {category}
               </option>
             ))}
           </Select>
         </Field>
+        {showCategoryOther ? (
+          <Field
+            label="Especifique a categoria"
+            hint={`Ex.: Crachá de visitante. Até ${ITEM_CATEGORY_OTHER_MAX} caracteres.`}
+            error={errors.categoryOther?.message}
+          >
+            <Input {...register("categoryOther")} maxLength={ITEM_CATEGORY_OTHER_MAX} autoComplete="off" />
+          </Field>
+        ) : null}
         <CatalogNote />
       </div>
+
+      <Field
+        label="Onde foi encontrado?"
+        hint={`Bloco, andar, sala ou ponto de referência. ${foundLocation.length}/${ITEM_LOCATION_MAX}`}
+        error={errors.foundLocation?.message}
+      >
+        <Input
+          {...register("foundLocation")}
+          maxLength={ITEM_LOCATION_MAX}
+          autoComplete="off"
+          placeholder="Ex.: Bloco C, 2º andar, lab. 04"
+        />
+      </Field>
 
       <Field label="Quando foi encontrado?" error={errors.foundDate?.message}>
         <Input type="date" max={today} {...register("foundDate")} />
@@ -292,7 +345,8 @@ export function ItemForm({
 
       <Field
         label="Onde está guardado agora?"
-        hint="Para o dono saber onde retirar."
+        optional
+        hint="Opcional. Só a administração vê esta informação; ela não aparece para outras pessoas."
         error={errors.storedAt?.message}
       >
         <Input {...register("storedAt")} maxLength={ITEM_STORED_AT_MAX} placeholder="Ex.: Portaria" autoComplete="off" />

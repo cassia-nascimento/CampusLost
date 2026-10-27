@@ -5,13 +5,13 @@
  * mesma busca depois de abrir um item. Funções puras (testadas em `search-params.test.ts`).
  *
  * Parâmetros: `categoria`, `local`, `de` e `ate` (datas `YYYY-MM-DD`, sobre a data em que o item
- * foi encontrado — SPEC P11). Valores inválidos ou desconhecidos na URL são ignorados em vez de
+ * foi encontrado — SPEC P11). `local` é texto livre (trim, máx. 120; "contém", sem caixa nem acentos). Valores inválidos ou desconhecidos na URL são ignorados em vez de
  * quebrar a tela (a URL pode ter sido digitada ou vir de uma lista de categorias antiga).
  */
 import { formatDate } from "@/lib/format";
 import { isValidIsoDate, type ItemFilters } from "@/lib/rules";
-import { periodSchema } from "@/lib/validation";
-import { DEMO_CATEGORIES, DEMO_LOCATIONS } from "@/types/catalog";
+import { ITEM_LOCATION_MAX, periodSchema } from "@/lib/validation";
+import { DEMO_CATEGORIES } from "@/types/catalog";
 
 /** Valores dos campos de filtro; `""` = sem filtro (é o que `<select>` e `<input>` entregam). */
 export interface FilterValues {
@@ -39,6 +39,11 @@ function pickOf(options: readonly string[], value: string | null): string {
   return value !== null && options.includes(value) ? value : "";
 }
 
+/** Texto livre (local): aparado e limitado a `ITEM_LOCATION_MAX`; vazio = sem filtro. */
+function pickText(value: string | null): string {
+  return (value ?? "").trim().slice(0, ITEM_LOCATION_MAX);
+}
+
 function pickDate(value: string | null): string {
   return value !== null && isValidIsoDate(value) ? value : "";
 }
@@ -56,7 +61,7 @@ export function periodError(values: Pick<FilterValues, "from" | "to">): string |
 export function parseFilterParams(params: ParamReader): FilterValues {
   const values: FilterValues = {
     category: pickOf(DEMO_CATEGORIES, params.get(PARAM_NAMES.category)),
-    location: pickOf(DEMO_LOCATIONS, params.get(PARAM_NAMES.location)),
+    location: pickText(params.get(PARAM_NAMES.location)),
     from: pickDate(params.get(PARAM_NAMES.from)),
     to: pickDate(params.get(PARAM_NAMES.to)),
   };
@@ -67,7 +72,8 @@ export function parseFilterParams(params: ParamReader): FilterValues {
 export function filtersToSearch(values: FilterValues): string {
   const params = new URLSearchParams();
   for (const key of Object.keys(PARAM_NAMES) as (keyof FilterValues)[]) {
-    if (values[key]) params.set(PARAM_NAMES[key], values[key]);
+    const text = key === "location" ? values[key].trim() : values[key];
+    if (text) params.set(PARAM_NAMES[key], text);
   }
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -77,7 +83,7 @@ export function filtersToSearch(values: FilterValues): string {
 export function toItemFilters(values: FilterValues): ItemFilters {
   const filters: ItemFilters = {};
   if (values.category) filters.category = values.category;
-  if (values.location) filters.location = values.location;
+  if (values.location.trim()) filters.location = values.location.trim();
   if (values.from) filters.from = values.from;
   if (values.to) filters.to = values.to;
   return filters;
@@ -92,7 +98,7 @@ export interface FilterChip {
 export function getActiveChips(values: FilterValues): FilterChip[] {
   const chips: FilterChip[] = [];
   if (values.category) chips.push({ key: "category", label: values.category });
-  if (values.location) chips.push({ key: "location", label: values.location });
+  if (values.location.trim()) chips.push({ key: "location", label: `Local: ${values.location.trim()}` });
   if (values.from) chips.push({ key: "from", label: `A partir de ${formatDate(values.from)}` });
   if (values.to) chips.push({ key: "to", label: `Até ${formatDate(values.to)}` });
   return chips;
