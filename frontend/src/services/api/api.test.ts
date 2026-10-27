@@ -659,8 +659,8 @@ describe("erros", () => {
 describe("demonstração", () => {
   it("listDemoProfiles devolve perfis; 404/403 (demo desligado) devolvem lista vazia sem erro", async () => {
     const { api, services } = createHarness();
-    api.reply({ json: [{ key: "institutional", label: "Usuário (e-mail institucional)", user: rawUser }] });
-    expect(await services.auth.listDemoProfiles()).toEqual([{ key: "institutional", label: "Usuário (e-mail institucional)", user: rawUser }]);
+    api.reply({ json: [{ key: "user", label: "Usuário", user: rawUser }] });
+    expect(await services.auth.listDemoProfiles()).toEqual([{ key: "user", label: "Usuário", user: rawUser }]);
     api.reply({ status: 404, json: { code: "NOT_FOUND", message: "Não encontrado." } });
     expect(await services.auth.listDemoProfiles()).toEqual([]);
     api.reply({ status: 403, json: { code: "FORBIDDEN", message: "Não permitido." } });

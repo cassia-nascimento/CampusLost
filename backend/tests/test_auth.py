@@ -78,7 +78,7 @@ def test_signup_ignores_role_and_cannot_create_admin(client):
         ({"password": ""}, "password", "Crie uma senha."),
         ({"password": "x" * 73}, "password", "Use no máximo 72 caracteres."),
         # 40 caracteres, mas 80 bytes: o bcrypt truncaria em silêncio; recusamos com mensagem clara
-        ({"password": "é" * 40}, "password", "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."),
+        ({"password": "é" * 40}, "password", "A senha é longa demais. Use uma senha mais curta."),
     ],
 )
 def test_signup_validation_messages(client, payload, field, message):
@@ -204,6 +204,6 @@ def test_token_for_deleted_user_rejected(client, app):
 def test_token_expiry_is_configurable(tmp_path):
     s = make_settings(tmp_path, access_token_expire_minutes=1)
     with __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(s, clock=Clock(FIXED_NOW))) as c:
-        body = c.post("/demo/login/institutional").json()
+        body = c.post("/demo/login/user").json()
         exp = datetime.fromisoformat(body["expiresAt"].replace("Z", "+00:00"))
         assert 0 < (exp - datetime.now(UTC)).total_seconds() <= 61

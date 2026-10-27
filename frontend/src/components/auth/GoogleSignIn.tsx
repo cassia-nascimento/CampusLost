@@ -67,10 +67,6 @@ export function GoogleSignIn({
         </Notice>
       ) : null}
       <GoogleSignInButton clientId={CLIENT_ID} onCredential={(c) => void handleCredential(c)} mode={mode} />
-      <p className="text-center text-meta text-ink-muted">
-        No primeiro acesso, você só precisa aceitar os termos. O vínculo (e-mail institucional ou externo) é
-        definido pelo domínio do e-mail, sem verificação.
-      </p>
       <p role="status" className="flex items-center justify-center gap-2 text-meta text-ink-muted empty:hidden">
         {sending ? (
           <>

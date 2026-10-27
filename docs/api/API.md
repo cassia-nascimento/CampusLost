@@ -330,7 +330,7 @@ Persistido na tabela `login_attempts` (chave: e-mail normalizado + IP; sobrevive
 
 #### 4.2.6 Política de senha (senhas **novas**: signup e reset)
 
-Mínimo **10 caracteres**; no máximo **72 bytes em UTF-8** (limite do bcrypt: recusa em vez de truncar; "é" vale 2 bytes, emoji 4); não pode estar na lista de senhas comuns (~300 entradas em `backend/app/rules/common_passwords.txt`, também com sufixo/prefixo numérico ou simbólico: `Password1234`), nem ser composta de 1–2 caracteres repetidos ou sequência óbvia, nem igual ao e-mail, à parte local do e-mail ou ao nome. Mensagens (`fieldErrors.password`): "Crie uma senha." · "Use pelo menos 10 caracteres." · "Use no máximo 72 caracteres." · "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta." · "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar." · "A senha não pode ser igual ao seu e-mail ou ao seu nome." · "Evite repetições e sequências óbvias (como aaaaaaaaaa ou 1234567890)."
+Mínimo **10 caracteres**; no máximo **72 bytes em UTF-8** (limite técnico: a interface **não fala em bytes**, mostra "Use pelo menos 10 caracteres. Evite senhas comuns." e, para senha longa, "A senha é longa demais. Use uma senha mais curta.") (limite do bcrypt: recusa em vez de truncar; "é" vale 2 bytes, emoji 4); não pode estar na lista de senhas comuns (~300 entradas em `backend/app/rules/common_passwords.txt`, também com sufixo/prefixo numérico ou simbólico: `Password1234`), nem ser composta de 1–2 caracteres repetidos ou sequência óbvia, nem igual ao e-mail, à parte local do e-mail ou ao nome. Mensagens (`fieldErrors.password`): "Crie uma senha." · "Use pelo menos 10 caracteres." · "Use no máximo 72 caracteres." · "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta." · "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar." · "A senha não pode ser igual ao seu e-mail ou ao seu nome." · "Evite repetições e sequências óbvias (como aaaaaaaaaa ou 1234567890)."
 
 #### 4.2.7 Verificação em duas etapas (TOTP, RFC 6238)
 
@@ -456,13 +456,12 @@ Exclui (**anonimiza**) a conta. Corpo de confirmação: conta com senha ⇒ `{ "
 
 #### `GET /demo/profiles` — público
 ```json
-[ { "key": "institutional", "label": "Usuário (e-mail institucional)", "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" } },
-  { "key": "external", "label": "Usuário (externo)", "user": { "id": "user-externo", "name": "Visitante Externo", "email": "externo@demo.test", "role": "user" } },
+[ { "key": "user", "label": "Usuário", "user": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" } },
   { "key": "admin", "label": "Administração", "user": { "id": "user-admin", "...": "..." } } ]
 ```
 
 #### `POST /demo/login/{key}` — público
-`key`: `institutional` (Marina, `user` + `institutional`) | `external` (`externo@demo.test`, `user` + `external`) | `admin`. **200** `Session` (+ cookies). 404 para qualquer outra chave (inclusive `user`, `student`, `teacher`). As chaves são atalhos, não papéis. Rafael e os demais entram por `POST /auth/login`.
+`key`: `user` (Marina, `user` + `institutional`) | `admin`. **200** `Session` (+ cookies). 404 para qualquer outra chave (inclusive `institutional`, `external`, `student`, `teacher`). As chaves são atalhos de demonstração, não papéis nem vínculos. `externo@demo.test` (`user` + `external`, "Visitante Externo" na API e "Camila Torres" no mock), Rafael e os demais **não têm atalho**: entram por `POST /auth/login` com a senha de demonstração.
 
 #### `POST /demo/reset` — público
 Restaura o seed (datas relativas a hoje) e apaga as fotos enviadas. **204**. Tokens (e sessões) dos usuários do seed continuam válidos; os de usuários criados depois passam a dar 401.

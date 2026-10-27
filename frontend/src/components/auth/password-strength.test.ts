@@ -18,8 +18,8 @@ describe("medidor de força da senha", () => {
     expect(strengthView(4)).toEqual({ filled: 4, tone: "success" });
   });
 
-  it("a dica cita a política nova (10 caracteres, 72 bytes)", () => {
+  it("a dica é simples: mínimo de 10 caracteres, sem falar em bytes", () => {
     expect(PASSWORD_HINT).toContain("10 caracteres");
-    expect(PASSWORD_HINT).toContain("72 bytes");
+    expect(PASSWORD_HINT.toLowerCase()).not.toContain("byte");
   });
 });

@@ -31,7 +31,7 @@ async function enable2fa(h: Harness) {
 describe("2FA: configurar, ligar e desligar", () => {
   it("setup devolve segredo base32 e URI otpauth; nada muda até enable", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("institutional");
+    await h.services.auth.signInAsDemo("user");
     const setup = await h.services.auth.setupTwoFactor();
     expect(setup.secret).toMatch(/^[A-Z2-7]{32}$/);
     expect(setup.otpauthUri).toBe(
@@ -45,7 +45,7 @@ describe("2FA: configurar, ligar e desligar", () => {
 
   it("enable: código errado é VALIDATION em fieldErrors.code; certo devolve 8 códigos de recuperação", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("institutional");
+    await h.services.auth.signInAsDemo("user");
     await expectCode(h.services.auth.enableTwoFactor("123456"), "CONFLICT"); // sem setup
     const { secret } = await h.services.auth.setupTwoFactor();
     const wrong = await expectCode(h.services.auth.enableTwoFactor("000000"), "VALIDATION");
@@ -195,7 +195,7 @@ describe("login com 2FA", () => {
 
   it("signInAsDemo não passa pelo 2FA (atalho só do protótipo)", async () => {
     const { h } = await accountWith2fa();
-    expect((await h.services.auth.signInAsDemo("institutional")).id).toBe("user-marina");
+    expect((await h.services.auth.signInAsDemo("user")).id).toBe("user-marina");
   });
 });
 
@@ -215,7 +215,7 @@ describe("contas desativadas", () => {
 
   it("desativar derruba a sessão que a pessoa já tinha (próxima chamada = sem sessão)", async () => {
     const h = createHarness();
-    const marina = await h.services.auth.signInAsDemo("institutional"); // aba da Marina
+    const marina = await h.services.auth.signInAsDemo("user"); // aba da Marina
     const adminTab = createHarness({ storage: h.storage });
     await adminTab.services.auth.signInAsDemo("admin");
     await adminTab.services.admin.updateUser(marina.id, { active: false });

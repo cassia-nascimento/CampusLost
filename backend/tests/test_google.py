@@ -221,7 +221,7 @@ def test_complete_requires_valid_profile_token(client, fake_google, settings):
     expired = jwt.encode({"typ": "google_profile", "email": "ana@undb.edu.br", "name": "Ana", "iat": datetime.now(UTC) - timedelta(hours=1), "exp": datetime.now(UTC) - timedelta(minutes=1)}, settings.secret_key, algorithm="HS256")
     assert client.post("/auth/google/complete", json={**payload, "ticket": expired}).status_code == 401
     # token de sessão não vale como profileToken
-    session = client.post("/demo/login/institutional").json()["token"]
+    session = client.post("/demo/login/user").json()["token"]
     assert client.post("/auth/google/complete", json={**payload, "ticket": session}).status_code == 401
     # e nada foi criado
     assert client.post("/auth/google/complete", json={**payload, "ticket": good}).status_code == 201

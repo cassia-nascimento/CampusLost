@@ -71,7 +71,7 @@ export function passwordIssue(
 
 export const PASSWORD_ISSUE_MESSAGE: Readonly<Record<PasswordIssue, string>> = {
   too_short: `Use pelo menos ${PASSWORD_MIN_LENGTH} caracteres.`,
-  too_long: `A senha é longa demais (máximo de ${PASSWORD_MAX_BYTES} bytes; acentos e símbolos contam mais de um).`,
+  too_long: "A senha é longa demais. Use uma senha mais curta.",
   common: "Essa senha é muito comum. Escolha outra.",
   same_as_email: "A senha não pode ser igual ao seu e-mail.",
   same_as_name: "A senha não pode ser igual ao seu nome.",

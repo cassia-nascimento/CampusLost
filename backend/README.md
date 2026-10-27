@@ -34,7 +34,7 @@ python -m app.seed             # APAGA os dados e recria o seed
 python -m app.seed --if-empty  # só se não houver usuários
 ```
 
-Contas de demonstração (senha **`demonstracao123`**): `marina@demo.test`, `rafael@demo.test`, `lucas@demo.test`, `beatriz@demo.test` (papel `user`, vínculo `institutional`), `externo@demo.test` (`user`, vínculo `external`), `admin@demo.test` (`admin`, `institutional`); todas com e-mail verificado. Atalhos de demonstração (`GET /demo/profiles`, `POST /demo/login/{key}`): `institutional` (Marina), `external` (`externo@demo.test`) e `admin`. O seed copia as ilustrações para `uploads/seed/`.
+Contas de demonstração (senha **`demonstracao123`**): `marina@demo.test`, `rafael@demo.test`, `lucas@demo.test`, `beatriz@demo.test` (papel `user`, vínculo `institutional`), `externo@demo.test` (`user`, vínculo `external`), `admin@demo.test` (`admin`, `institutional`); todas com e-mail verificado. Atalhos de demonstração (`GET /demo/profiles`, `POST /demo/login/{key}`): só `user` (Marina) e `admin`; `externo@demo.test` e as demais contas entram por e-mail e senha (`/demo/login/institutional|external|student|teacher` dão 404). O seed copia as ilustrações para `uploads/seed/`.
 
 Com `ENV=production` o seed se recusa a rodar (cria contas de senha pública). Para criar uma administração real:
 

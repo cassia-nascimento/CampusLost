@@ -20,7 +20,7 @@ MSG_REQUIRED = "Crie uma senha."
 MSG_MIN = f"Use pelo menos {PASSWORD_MIN} caracteres."
 MSG_MAX_CHARS = f"Use no máximo {PASSWORD_MAX_BYTES} caracteres."
 MSG_MAX_BYTES = (
-    f"A senha passa de {PASSWORD_MAX_BYTES} bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."
+    "A senha é longa demais. Use uma senha mais curta."
 )
 MSG_COMMON = "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar."
 MSG_PERSONAL = "A senha não pode ser igual ao seu e-mail ou ao seu nome."

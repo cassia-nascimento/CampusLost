@@ -183,7 +183,7 @@ describe("exportMyData / deleteMyAccount", () => {
   it("exporta só os dados do usuário atual; exige sessão", async () => {
     const h = createHarness();
     await expectCode(h.services.auth.exportMyData(), "UNAUTHENTICATED");
-    await h.services.auth.signInAsDemo("institutional");
+    await h.services.auth.signInAsDemo("user");
     const data = await h.services.auth.exportMyData();
     expect(data.format).toBe("campuslost-export-v1");
     expect(data.account).toMatchObject({ id: "user-marina", provider: "password", role: "user", affiliation: "institutional" });
@@ -255,7 +255,7 @@ describe("exportMyData / deleteMyAccount", () => {
 
   it("excluir a conta de quem reivindicou devolve o item a Disponível se não restar reivindicação ativa", async () => {
     const h = createHarness();
-    await h.services.auth.signInAsDemo("institutional"); // Marina: item-05 aceita; item-06/07 pendentes
+    await h.services.auth.signInAsDemo("user"); // Marina: item-05 aceita; item-06/07 pendentes
     const mine = await h.services.claims.listMine();
     const pendingOnly = mine.find((c) => c.status === "pending" && c.item.status === "under_claim");
     expect(pendingOnly).toBeDefined();
@@ -278,6 +278,6 @@ describe("papel external (seed)", () => {
     expect(claim.claimantId).toBe(user.id);
     expect((await h.services.claims.listMine()).map((c) => c.id)).toContain(claim.id);
     await expectCode(h.services.claims.listPending(), "FORBIDDEN");
-    expect((await h.services.auth.signInAsDemo("external")).id).toBe(user.id);
+    expect(userOf(await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD })).id).toBe(user.id);
   });
 });

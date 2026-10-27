@@ -105,7 +105,7 @@ export interface ReturnView extends ReturnRecord {
 }
 
 /** Perfis de entrada rápida: usuário com e-mail institucional, usuário externo e administração. */
-export const DEMO_PROFILE_KEYS = ["institutional", "external", "admin"] as const;
+export const DEMO_PROFILE_KEYS = ["user", "admin"] as const;
 export type DemoProfileKey = (typeof DEMO_PROFILE_KEYS)[number];
 
 export interface DemoProfile {

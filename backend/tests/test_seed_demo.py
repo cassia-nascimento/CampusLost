@@ -90,17 +90,16 @@ def test_demo_profiles_and_login(client):
     r = client.get("/demo/profiles")
     assert r.status_code == 200
     assert r.json() == [
-        {"key": "institutional", "label": "Usuário (e-mail institucional)", "user": {"id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user"}},
-        {"key": "external", "label": "Usuário (externo)", "user": {"id": "user-externo", "name": "Visitante Externo", "email": "externo@demo.test", "role": "user"}},
+        {"key": "user", "label": "Usuário", "user": {"id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user"}},
         {"key": "admin", "label": "Administração", "user": {"id": "user-admin", "name": "Administração Demo", "email": "admin@demo.test", "role": "admin"}},
     ]
-    for key, uid, aff in (("institutional", "user-marina", "institutional"), ("external", "user-externo", "external"), ("admin", "user-admin", "institutional")):
+    for key, uid, aff in (("user", "user-marina", "institutional"), ("admin", "user-admin", "institutional")):
         body = client.post(f"/demo/login/{key}").json()
         assert body["user"]["id"] == uid and body["user"]["affiliation"] == aff
         me = client.get("/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
         assert me.json()["id"] == uid
     assert client.post("/demo/login/root").status_code == 404
-    for old in ("student", "teacher", "user"):
+    for old in ("student", "teacher", "institutional", "external"):
         assert client.post(f"/demo/login/{old}").status_code == 404
 
 
@@ -134,7 +133,7 @@ def test_seed_not_applied_when_db_has_data_or_startup_seed_off(tmp_path):
     s = make_settings(tmp_path, seed_on_startup=False)
     with TestClient(create_app(s, clock=Clock(FIXED_NOW))) as c:
         assert c.get("/items").json() == []
-        assert c.post("/demo/login/institutional").status_code == 404  # sem usuários
+        assert c.post("/demo/login/user").status_code == 404  # sem usuários
 
 
 # ---------- produção ----------

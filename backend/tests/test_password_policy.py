@@ -22,8 +22,8 @@ def test_common_password_list_has_about_two_hundred_or_more_entries():
         ("", "Crie uma senha."),
         ("Zq7!mK2#x", "Use pelo menos 10 caracteres."),  # 9
         ("x" * 73, "Use no máximo 72 caracteres."),
-        ("é" * 37, "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."),  # 74 bytes
-        ("😀" * 19, "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."),  # 76 bytes
+        ("é" * 37, "A senha é longa demais. Use uma senha mais curta."),  # 74 bytes
+        ("😀" * 19, "A senha é longa demais. Use uma senha mais curta."),  # 76 bytes
         ("1234567890", "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar."),
         ("Password1234", "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar."),  # variação trivial
         ("QWERTYUIOP", "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar."),
@@ -57,7 +57,7 @@ def test_password_cannot_equal_email_local_part_or_name():
 @pytest.mark.parametrize("password, field_message", [
     ("Password1234", "Essa senha é muito comum. Escolha outra, mais difícil de adivinhar."),
     ("joana.exemplo", "A senha não pode ser igual ao seu e-mail ou ao seu nome."),
-    ("é" * 37, "A senha passa de 72 bytes (acentos e emojis ocupam mais de 1 byte). Use uma senha mais curta."),
+    ("é" * 37, "A senha é longa demais. Use uma senha mais curta."),
 ])
 def test_signup_applies_the_policy(client, password, field_message):
     r = client.post("/auth/signup", json=signup_payload("joana.exemplo@mail.test", password=password, name="Joana"))

@@ -11,7 +11,7 @@ import { services } from "@/services";
 import type { DemoProfileKey } from "@/services";
 import { isServiceError } from "@/types/domain";
 
-/** Entrada com um toque pelos três perfis de demonstração (AC01.3). */
+/** Entrada com um toque pelos dois perfis de demonstração: usuário e administração (AC01.3). */
 export function DemoProfiles() {
   const { signInAsDemo } = useSession();
   const toast = useToast();
@@ -34,17 +34,12 @@ export function DemoProfiles() {
 
   return (
     <section aria-labelledby="demo-profiles-title">
-      <h2 id="demo-profiles-title" className="text-meta font-semibold text-ink-muted font-sans tracking-normal">
-        Ou entre com um perfil de demonstração
+      <h2 id="demo-profiles-title" className="sr-only">
+        Perfis de demonstração
       </h2>
-      <p className="mt-1 text-meta text-ink-muted">
-        As contas <span className="font-semibold">@demo.test</span> usam a senha{" "}
-        <code className="rounded-sm bg-sunken px-1 font-semibold text-ink">demonstracao123</code>.
-      </p>
 
       {profiles.status === "loading" ? (
         <LoadingRegion label="Carregando perfis de demonstração…" className="mt-3 flex flex-col gap-3">
-          <Skeleton className="h-16 w-full rounded-md" />
           <Skeleton className="h-16 w-full rounded-md" />
           <Skeleton className="h-16 w-full rounded-md" />
         </LoadingRegion>

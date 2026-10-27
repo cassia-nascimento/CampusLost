@@ -141,14 +141,12 @@ export function demoSalt(userId: string): string {
 
 /** Perfis de entrada rápida (AC01.3). Os demais usuários do seed existem, mas não são atalhos. */
 export const DEMO_PROFILE_IDS: Readonly<Record<DemoProfileKey, string>> = {
-  institutional: "user-marina",
-  external: "user-externo",
+  user: "user-marina",
   admin: "user-admin",
 };
 
 export const DEMO_PROFILE_LABELS: Readonly<Record<DemoProfileKey, string>> = {
-  institutional: "Usuário (e-mail institucional)",
-  external: "Usuário (externo)",
+  user: "Usuário",
   admin: "Administração",
 };
 

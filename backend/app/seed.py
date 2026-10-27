@@ -28,12 +28,11 @@ log = logging.getLogger("campuslost.seed")
 DEMO_PASSWORD = "demonstracao123"  # NÃO é segredo: senha pública das contas @demo.test
 DEMO_DATA_NOTICE = "Dados fictícios de demonstração (pessoas, itens e locais); não representam o campus real."
 
-# Atalhos de demonstração (chave -> usuário do seed). As chaves NÃO são papéis: `institutional` e `external` são
-# usuários `user` com vínculos diferentes; `admin` é a administração.
-DEMO_PROFILE_IDS = {"institutional": "user-marina", "external": "user-externo", "admin": "user-admin"}
+# Atalhos de demonstração (chave -> usuário do seed): um usuário comum e a administração. Os demais usuários do
+# seed (inclusive o externo) existem, mas não são atalhos.
+DEMO_PROFILE_IDS = {"user": "user-marina", "admin": "user-admin"}
 DEMO_PROFILE_LABELS = {
-    "institutional": "Usuário (e-mail institucional)",
-    "external": "Usuário (externo)",
+    "user": "Usuário",
     "admin": "Administração",
 }
 

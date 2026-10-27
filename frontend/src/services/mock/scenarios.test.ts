@@ -12,21 +12,21 @@ import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harnes
 /** `student` = usuário institucional demo (Marina); `teacher` = Rafael (usuário institucional de apoio); `admin`. */
 async function as(h: Harness, who: "student" | "teacher" | "admin") {
   if (who === "teacher") return signInAsRafael(h.services);
-  return h.services.auth.signInAsDemo(who === "student" ? "institutional" : "admin");
+  return h.services.auth.signInAsDemo(who === "student" ? "user" : "admin");
 }
 
 describe("RF01 — autenticação simulada", () => {
   it("AC01.3: perfis de demonstração entram com um toque", async () => {
     const h = createHarness();
     const profiles = await h.services.auth.listDemoProfiles();
-    expect(profiles.map((p) => p.key)).toEqual(["institutional", "external", "admin"]);
-    expect(profiles.map((p) => p.label)).toEqual(["Usuário (e-mail institucional)", "Usuário (externo)", "Administração"]);
+    expect(profiles.map((p) => p.key)).toEqual(["user", "admin"]);
+    expect(profiles.map((p) => p.label)).toEqual(["Usuário", "Administração"]);
     expect(profiles.every((p) => p.user.email.endsWith("@demo.test"))).toBe(true);
     for (const p of profiles) {
       const user = await h.services.auth.signInAsDemo(p.key);
       expect(user.id).toBe(p.user.id);
       expect(user.role).toBe(p.key === "admin" ? "admin" : "user");
-      expect(user.affiliation).toBe(p.key === "external" ? "external" : "institutional");
+      expect(user.affiliation).toBe("institutional");
       expect((await h.services.auth.getCurrentUser())?.id).toBe(user.id);
     }
   });

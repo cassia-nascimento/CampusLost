@@ -501,10 +501,8 @@ Legenda: `[ Botão ]` botão · `( campo )` campo · `{ Badge }` status (ícone 
 |  ( nome@exemplo.com                  ) |
 |  [          Entrar                   ] |   <- primary lg
 |                                        |
-|  ── Ou entre com um perfil de demo ──  |
-|  [ Usuário (e-mail institucional) ->]  |   <- secondary, 1 toque
-|  [ Usuário (externo)           ->  ]   |
-|  [ Administração demo          ->  ]   |
+|  [ Usuário                     ->  ]   |   <- secondary, 1 toque, sem título
+|  [ Administração               ->  ]   |      de bloco (27/10/2026)
 |                                        |
 |  Não tem conta? Criar conta            |
 +----------------------------------------+
@@ -1066,8 +1064,10 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 | Título `/entrar` | Achou ou perdeu algo no campus? |
 | Apoio | Entre para ver e registrar itens. |
 | Campo | E-mail · placeholder nome@exemplo.com |
-| Botões | Entrar · Criar conta · Usuário (e-mail institucional) · Usuário (externo) · Administração |
-| Atalho (rótulo do bloco) | Ou entre com um perfil de demonstração |
+| Botões | Entrar · Criar conta · Usuário · Administração (atalhos de demonstração) |
+| Atalho (rótulo do bloco) | **Removido** em 27/10/2026: os dois botões ficam sem título visível. Também não há texto sobre a senha de demonstração nem parágrafo sob o botão do Google (a explicação do vínculo fica nos Termos, no FAQ e em `/conta`) |
+| Dica de senha | Use pelo menos 10 caracteres. Evite senhas comuns. |
+| Senha longa demais | A senha é longa demais. Use uma senha mais curta. *(a interface não fala em bytes; o limite de 72 bytes é técnico, SPEC P33)* |
 | E-mail vazio / inválido | Informe seu e-mail. / Esse e-mail não parece válido. Use o formato nome@exemplo.com. |
 | E-mail não cadastrado (AC01.2) | Não encontramos esse e-mail. Confira a digitação ou crie uma conta. |
 | E-mail já usado (AC01.1) | Esse e-mail já tem cadastro. Entre com ele. |

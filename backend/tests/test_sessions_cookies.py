@@ -192,14 +192,14 @@ def test_logout_only_ends_the_current_session(client):
 
 
 def test_demo_login_session_is_revocable_too(client):
-    token = client.post("/demo/login/institutional").json()["token"]
+    token = client.post("/demo/login/user").json()["token"]
     assert client.post("/auth/logout", headers=bearer(token)).status_code == 204
     assert client.get("/auth/me", headers=bearer(token)).status_code == 401
 
 
 def test_session_revocation_is_per_session_not_per_user(client, app):
-    first = client.post("/demo/login/institutional").json()["token"]
-    second = client.post("/demo/login/institutional").json()["token"]
+    first = client.post("/demo/login/user").json()["token"]
+    second = client.post("/demo/login/user").json()["token"]
     assert first != second
     client.cookies.clear()  # sem cookies: o logout só encerra a sessão do Bearer enviado
     client.post("/auth/logout", headers=bearer(first))
