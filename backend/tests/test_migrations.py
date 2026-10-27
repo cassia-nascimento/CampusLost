@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
@@ -58,7 +59,8 @@ def test_migrated_database_works_with_the_app(tmp_path):
 def test_production_does_not_create_tables_automatically(tmp_path):
     url = f"sqlite:///{tmp_path / 'prod.db'}"
     settings = make_settings(tmp_path, env="production", demo_mode=False, seed_on_startup=False, database_url=url)
-    create_app(settings, clock=Clock(FIXED_NOW))
+    with pytest.raises(RuntimeError, match="alembic upgrade head"):  # checagem de esquema recusa banco sem migração
+        create_app(settings, clock=Clock(FIXED_NOW))
     engine = create_engine(url)
     assert inspect(engine).get_table_names() == []  # o esquema vem só do `alembic upgrade head`
     engine.dispose()

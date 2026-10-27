@@ -22,6 +22,7 @@ from .models import Base
 from .mailer import Mailer, make_mailer
 from .routers import admin, auth, catalog, claims, demo, items, me, returns, twofa
 from .security import RateLimiter
+from .schema_check import ensure_schema_current
 from .seed import is_empty, seed_database
 
 log = logging.getLogger("campuslost")
@@ -124,6 +125,7 @@ def create_app(
     if not settings.is_production:
         # Dev/testes: cria as tabelas na hora. Em produção o esquema vem só do Alembic (`alembic upgrade head`).
         Base.metadata.create_all(engine)
+    ensure_schema_current(engine)  # banco antigo (colunas/tabelas faltando): falha na subida, com instruções; não altera nada
     session_factory = make_session_factory(engine)
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
 
