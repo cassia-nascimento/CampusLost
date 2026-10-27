@@ -49,7 +49,8 @@ const nextConfig: NextConfig = {
    */
   async rewrites() {
     if (!process.env.NEXT_PUBLIC_API_URL) return [];
-    const target = (process.env.API_INTERNAL_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+    // `||`, não `??`: `API_INTERNAL_URL=` vazio no .env também deve cair no padrão.
+    const target = (process.env.API_INTERNAL_URL || "http://localhost:8000").replace(/\/+$/, "");
     return [{ source: "/backend/:path*", destination: `${target}/:path*` }];
   },
   turbopack: {
