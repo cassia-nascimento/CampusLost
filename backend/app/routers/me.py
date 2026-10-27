@@ -9,10 +9,11 @@ from sqlalchemy import delete, func, or_, select
 
 from .. import audit, login_throttle
 from ..clock import to_iso
-from ..deps import ClockDep, CurrentUser, DbDep, LockDep, SettingsDep, client_ip
+from ..deps import ClockDep, accepted_claims_of, CurrentUser, DbDep, LockDep, SettingsDep, client_ip
 from ..errors import ServiceError
 from ..google_auth import verify_google_credential
 from ..models import ClaimRow, EmailTokenRow, ItemRow, ReturnRow, SessionRow, UserRow
+from ..rules.items import can_view_stored_at
 from ..schemas import claim_json, item_json, return_json
 from ..security import verify_password
 from ..session_service import clear_auth_cookies
@@ -36,6 +37,7 @@ def export_my_data(response: Response, user: CurrentUser, db: DbDep, settings: S
         select(ReturnRow).where(or_(ReturnRow.returned_to_id == user.id, ReturnRow.registered_by_id == user.id))
     ).all()
     sessions = db.scalars(select(SessionRow).where(SessionRow.user_id == user.id).order_by(SessionRow.created_at)).all()
+    mine = accepted_claims_of(db, user)  # ser autor do item não libera `storedAt`
     titles = {i.id: i.title for i in (db.get(ItemRow, c.item_id) for c in claims) if i}
     response.headers["Content-Disposition"] = 'attachment; filename="campuslost-meus-dados.json"'
     response.headers["Cache-Control"] = "no-store"
@@ -47,7 +49,7 @@ def export_my_data(response: Response, user: CurrentUser, db: DbDep, settings: S
             "createdAt": _iso(user.created_at), "emailVerifiedAt": _iso(user.email_verified_at),
             "termsAcceptedAt": _iso(user.terms_accepted_at), "termsVersion": user.terms_version,
         },
-        "itemsRegistered": [item_json(i, user) for i in items],
+        "itemsRegistered": [item_json(i, user, can_view_stored_at(user, i, mine)) for i in items],
         "claims": [{**claim_json(c), "itemTitle": titles.get(c.item_id)} for c in claims],
         "returns": [
             {**return_json(r), "role": "returnedTo" if r.returned_to_id == user.id else "registeredBy"} for r in returns

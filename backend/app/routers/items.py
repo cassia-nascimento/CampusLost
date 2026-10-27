@@ -13,13 +13,13 @@ from starlette.datastructures import UploadFile
 from .. import audit
 from ..clock import local_today
 from ..config import random_id
-from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_session, require_user
+from ..deps import ClockDep, accepted_claims_of, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_session, require_user
 from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow, ReturnRow, UserRow
 from ..photos import delete_photo_file, save_photo
 from ..rules.claims import can_claim
 from ..rules.decision import assert_allowed
-from ..rules.items import can_delete_item, can_edit_item, is_visible_in_search, search_items
+from ..rules.items import can_delete_item, can_edit_item, can_view_stored_at, is_visible_in_search, search_items
 from ..rules.permissions import check_capability, has_capability
 from ..rules.returns import can_register_return
 from ..rules.validation import PHOTO_MAX_BYTES, validate_item, validate_item_filters, validate_photo_bytes
@@ -76,7 +76,8 @@ def list_items(request: Request, db: DbDep, actor: OptionalUser):
     assert_allowed(check_capability(actor, "search_items"))
     filters = validate_item_filters(dict(request.query_params))
     items = search_items(db.scalars(select(ItemRow)).all(), filters)
-    return [item_json(i, actor) for i in items]
+    mine = accepted_claims_of(db, actor)  # uma consulta para a lista inteira
+    return [item_json(i, actor, can_view_stored_at(actor, i, mine)) for i in items]
 
 
 @router.get("/{item_id}")
@@ -98,7 +99,7 @@ def get_item(item_id: str, db: DbDep, actor: OptionalUser):
         if not is_visible_in_search(item):
             raise ServiceError("NOT_FOUND", "Item não encontrado.")
         return {
-            "item": item_json(item, None),
+            "item": item_json(item, None, False),
             "createdBy": None,
             "myClaims": [],
             "claims": [],
@@ -116,7 +117,7 @@ def get_item(item_id: str, db: DbDep, actor: OptionalUser):
     if has_capability(actor, "view_returns"):
         record = db.scalar(select(ReturnRow).where(ReturnRow.item_id == item_id))
     return {
-        "item": item_json(item, actor),
+        "item": item_json(item, actor, can_view_stored_at(actor, item, claims)),
         "createdBy": public_user_json(creator),
         "myClaims": [claim_json(c) for c in mine],
         "claims": all_claims,
@@ -145,7 +146,7 @@ def create_item(form: ItemFormDep, db: DbDep, actor: OptionalUser, settings: Set
         db.rollback()
         delete_photo_file(settings, photo_url)
         raise
-    return item_json(item, user)
+    return item_json(item, user, can_view_stored_at(user, item, []))  # recém-criado/editado: só admin
 
 
 @router.put("/{item_id}")
@@ -174,7 +175,7 @@ def update_item(item_id: str, form: ItemFormDep, db: DbDep, actor: OptionalUser,
             raise
         if item.photo_url != old_url:
             delete_photo_file(settings, old_url)
-    return item_json(item, user)
+    return item_json(item, user, can_view_stored_at(user, item, []))  # recém-criado/editado: só admin
 
 
 @router.delete("/{item_id}", status_code=204)

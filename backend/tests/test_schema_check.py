@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.pool import StaticPool
 
 from app.main import create_app
@@ -83,3 +83,8 @@ def test_banco_sem_category_detail_e_acusado(tmp_path):
     with pytest.raises(SchemaOutdatedError) as exc:
         ensure_schema_current(engine)
     assert "items.category_detail" in str(exc.value)
+
+
+def test_stored_at_e_obrigatorio_no_esquema(tmp_path):
+    cols = {c["name"]: c["nullable"] for c in inspect(_engine(tmp_path)).get_columns("items")}
+    assert cols["stored_at"] is False and cols["category_detail"] is True

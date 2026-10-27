@@ -11,6 +11,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.exc import IntegrityError
 
 from app.main import create_app
 from app.models import Base
@@ -134,7 +135,7 @@ def test_0003_converts_roles_and_derives_affiliation(tmp_path, monkeypatch):
     engine.dispose()
 
 
-def test_0004_preserves_existing_items_and_relaxes_columns(tmp_path):
+def test_0004_preserves_existing_items_and_keeps_stored_at_required(tmp_path):
     from sqlalchemy import text
 
     url = f"sqlite:///{tmp_path / 'items.db'}"
@@ -156,16 +157,23 @@ def test_0004_preserves_existing_items_and_relaxes_columns(tmp_path):
         diff = compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True}), Base.metadata)
     assert tuple(row) == ("i1", "Chaveiro", "Chaveiro com três chaves.", "Chaves", "Biblioteca", "2026-10-20", "Portaria", "/uploads/a.jpg", "available", "u1", "2026-10-21 10:00:00", None)
     assert diff == []
-    with engine.begin() as conn:  # agora aceitam texto livre longo e local de guarda vazio
-        conn.execute(text(
-            "INSERT INTO items (id, title, description, category, category_detail, found_location, found_date, stored_at, status, created_by_id, created_at) "
-            "VALUES ('i2', 'Mochila', 'Mochila preta grande.', 'Outros', 'Mochila escolar', :loc, '2026-10-20', NULL, 'available', 'u1', '2026-10-21 11:00:00')"
-        ), {"loc": "Bloco C, segundo andar, próximo ao laboratório 04"})
+    stored = {c["name"]: c["nullable"] for c in inspect(engine).get_columns("items")}["stored_at"]
+    assert stored is False  # o local de guarda continua obrigatório (NOT NULL)
+    insert_i2 = (
+        "INSERT INTO items (id, title, description, category, category_detail, found_location, found_date, stored_at, status, created_by_id, created_at) "
+        "VALUES ('i2', 'Mochila', 'Mochila preta grande.', 'Outros', 'Mochila escolar', :loc, '2026-10-20', :stored, 'available', 'u1', '2026-10-21 11:00:00')"
+    )
+    loc = "Bloco C, segundo andar, próximo ao laboratório 04"
+    with pytest.raises(IntegrityError):  # NULL em stored_at é recusado pelo banco
+        with engine.begin() as conn:
+            conn.execute(text(insert_i2), {"loc": loc, "stored": None})
+    with engine.begin() as conn:  # aceita local de encontro longo (120)
+        conn.execute(text(insert_i2), {"loc": loc, "stored": "Secretaria"})
     command.downgrade(cfg, "0003")
     with engine.connect() as conn:
         back = {r[0]: (r[1], r[2]) for r in conn.execute(text("SELECT id, found_location, stored_at FROM items"))}
         cols = {c["name"] for c in inspect(engine).get_columns("items")}
     assert back["i1"] == ("Biblioteca", "Portaria")
-    assert back["i2"] == ("Bloco C, segundo andar, próximo ao laboratório 04"[:40], "Não informado")
+    assert back["i2"] == (loc[:40], "Secretaria")
     assert "category_detail" not in cols
     engine.dispose()

@@ -34,14 +34,14 @@ describe("mapeamento (API.md §3)", () => {
     expect(invalid.categoryOther).toBeNull();
   });
 
-  it("storedAt: texto e null são mantidos; ausente continua ausente (sem permissão); tipo estranho é descartado", async () => {
+  it("storedAt: texto é mantido; ausente continua ausente (sem permissão); null e tipo estranho são descartados", async () => {
     const { api, services } = createHarness();
     const { storedAt: _s, ...noStored } = rawItem;
     void _s;
     api.reply({ json: [{ ...rawItem, storedAt: "Cofre" }, { ...rawItem, storedAt: null }, noStored, { ...rawItem, storedAt: 5 }] });
     const [text, nul, absent, weird] = await services.items.list();
     expect(text.storedAt).toBe("Cofre");
-    expect("storedAt" in nul && nul.storedAt === null).toBe(true);
+    expect("storedAt" in nul).toBe(false);
     expect("storedAt" in absent).toBe(false);
     expect("storedAt" in weird).toBe(false);
   });
@@ -249,22 +249,19 @@ describe("foto em multipart", () => {
     expect(form.get("storedAt")).toBe("Portaria");
   });
 
-  it("create: categoria predefinida não envia categoryOther; storedAt vazio/null/ausente não vai (nunca como \"null\")", async () => {
+  it("create: categoria predefinida não envia categoryOther; storedAt é sempre enviado, aparado (nunca \"null\")", async () => {
     const { api, services } = createHarness();
-    api.reply({ status: 201, json: rawItem }, { status: 201, json: rawItem }, { status: 201, json: rawItem }, { status: 201, json: rawItem });
-    await services.items.create({ ...fields, category: "Roupas", categoryOther: "sobrou", storedAt: "" });
-    await services.items.create({ ...fields, category: "Roupas", storedAt: null });
-    await services.items.create({ ...fields, category: "Roupas", storedAt: "   " });
-    const { storedAt: _s, ...noStored } = fields;
-    void _s;
-    await services.items.create({ ...noStored });
+    api.reply({ status: 201, json: rawItem }, { status: 201, json: rawItem });
+    await services.items.create({ ...fields, category: "Roupas", categoryOther: "sobrou", storedAt: " Armário 2 " });
+    await services.items.create({ ...fields });
     for (const call of api.calls) {
       const form = call.body as FormData;
-      expect(form.has("storedAt")).toBe(false);
+      expect(form.has("storedAt")).toBe(true);
       expect(JSON.stringify([...form.entries()])).not.toMatch(/"null"|"undefined"/);
     }
+    expect((api.calls[0].body as FormData).get("storedAt")).toBe("Armário 2");
     expect((api.calls[0].body as FormData).has("categoryOther")).toBe(false);
-    expect((api.calls[3].body as FormData).get("categoryOther")).toBe("Agenda"); // Outros mantém
+    expect((api.calls[1].body as FormData).get("categoryOther")).toBe("Agenda"); // Outros mantém
   });
 
   it("create sem foto não envia a parte photo", async () => {

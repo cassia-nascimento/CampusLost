@@ -226,7 +226,7 @@ function ReviewContent({
               { label: "Categoria", value: formatCategory(item.category, item.categoryOther), icon: Tag },
               { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
               { label: "Data", value: formatDate(item.foundDate), icon: Calendar },
-              { label: "Guardado em", value: item.storedAt ?? "Ainda não informado", icon: Warehouse },
+              { label: "Guardado em", value: item.storedAt ?? "—", icon: Warehouse },
             ]}
           />
           <div>

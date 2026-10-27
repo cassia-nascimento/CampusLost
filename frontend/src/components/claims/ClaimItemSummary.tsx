@@ -1,4 +1,4 @@
-import { Calendar, MapPin } from "lucide-react";
+import { Archive, Calendar, MapPin } from "lucide-react";
 import { Photo } from "@/components/ui/Photo";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ItemStatusBadge } from "@/components/ui/StatusBadge";
@@ -7,12 +7,12 @@ import type { Item } from "@/types/domain";
 
 /**
  * Resumo do item na tela de reivindicação (DESIGN §9.6): foto, título, status e onde/quando foi encontrado.
- * Não é clicável: quem quer ver o item inteiro volta pelo botão de voltar. Mostra só dados públicos.
+ * Não é clicável: quem quer ver o item inteiro volta pelo botão de voltar. Mostra dados públicos e, só para quem tem reivindicação aceita, o local de guarda.
  */
 export function ClaimItemSummary({
   item,
 }: {
-  item: Pick<Item, "title" | "status" | "photoDataUrl" | "foundLocation" | "foundDate">;
+  item: Pick<Item, "title" | "status" | "photoDataUrl" | "foundLocation" | "foundDate" | "storedAt">;
 }) {
   return (
     <div className="flex gap-3 rounded-lg bg-surface p-3 shadow-card">
@@ -34,6 +34,12 @@ export function ClaimItemSummary({
             </time>
           </span>
         </p>
+        {item.storedAt ? (
+          <p className="user-text flex min-w-0 items-center gap-1 text-meta text-ink-subtle">
+            <Archive aria-hidden="true" className="size-4 shrink-0" />
+            <span className="min-w-0">Guardado em {item.storedAt}</span>
+          </p>
+        ) : null}
       </div>
     </div>
   );

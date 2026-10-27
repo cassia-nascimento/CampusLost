@@ -585,7 +585,7 @@ Desktop: PageHeader com `h1` + contagem; FilterBar em linha (Categoria · Local 
 |  Categoria     Eletrônicos             |
 |  Encontrado em Bloco A                 |
 |  Data          14/10/2026              |
-|  Guardado em   Portaria                |
+|  Guardado em   Portaria                |   <- só administração e dono com reivindicação aceita
 |                                        |
 |  Descrição                             |
 |  Fone com fio, cor preta, sem estojo.  |
@@ -600,7 +600,7 @@ Desktop: PageHeader com `h1` + contagem; FilterBar em linha (Categoria · Local 
 |---|---|
 | Usuário, item Disponível ou Em reivindicação, sem reivindicação sua | `[ É meu ]` primary lg (AC04.1) |
 | Usuário com reivindicação **Pendente** | Notice info: "Você já reivindicou este item. Acompanhe em Minhas reivindicações." + `[ Ver minha reivindicação ]` |
-| Usuário com reivindicação **Aceita** | Notice success: "Sua reivindicação foi aceita. Procure a administração para retirar o item em *Guardado em*." |
+| Usuário com reivindicação **Aceita** | Notice success: "Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em {local}." (a linha "Guardado em" também aparece nos dados do item; depois da devolução some) |
 | Usuário com reivindicação **Recusada** | Notice danger: "Sua reivindicação foi recusada. Não é possível enviar outra para este item. Se acha que foi engano, procure a administração." (AC04.7) |
 | **Administração**, item não devolvido | Linha: `[ Editar ]` secondary · `[ Excluir ]` danger-quiet; seção **"Reivindicações deste item (n)"** com ClaimCards `[ Analisar ]`; se houver reivindicação **Aceita**: `[ Registrar devolução ]` primary no topo da seção (AC05.1) |
 | Item **Devolvido** (acesso por link) | Notice neutral: "Este item já foi devolvido em 12/10/2026." Sem ações; admin sem Editar/Excluir (AC06.1) |
@@ -642,10 +642,12 @@ Desktop (≥ 1024): foto à esquerda (≈ 5/12), coluna de dados à direita; bot
 |  ( Ex.: Bloco C, segundo andar...    ) |
 |  Quando foi encontrado?                |
 |  ( 19/10/2026                        ) |   <- padrão = hoje, máx. = hoje
-|  Onde está guardado agora? (opcional)  |
-|  Opcional. Só a administração vê esta  |
-|  informação; ela não aparece para      |
-|  outras pessoas.                       |
+|  Onde está guardado agora?             |
+|  Informe onde o objeto está guardado.  |
+|  Essa informação é privada e só poderá |
+|  ser acessada pela administração e pelo|
+|  proprietário após a confirmação da    |
+|  posse.                                |
 |  ( Portaria*                         ) |
 +----------------------------------------+
 | [        Registrar item              ] |   <- ActionBar fixa
@@ -1015,7 +1017,7 @@ Mesmo conteúdo, filtros, ordem (mais recentes primeiro), skeleton e estados de 
 
 - **Quando o header é o de drill-down:** igual a §6.12 (voltar `ChevronLeft` + título da página). A rota é pública, então o voltar leva à última busca ou, se a pessoa veio de link externo, a `/itens`.
 - **Ação:** botão `primary` lg "Entre para reivindicar" (ícone `LogIn`) que leva a `/entrar?next=/itens/{id}`; depois do login o app retorna ao detalhe, onde já aparece "É meu". Link secundário de texto no Notice: "Ainda não tem conta? Criar conta" → `/cadastro?next=/itens/{id}`. **Validação de `next` (regra própria, P28; não reutiliza a lista de `?de=`):** só vale `/itens/<id>` com `id` em `[A-Za-z0-9_-]{1,64}`, sem query, sem fragmento e sem subcaminho; `/itens`, `/itens/novo` e qualquer outro valor são descartados e a pessoa vai para a página inicial do perfil.
-- **O que o visitante NÃO vê:** "Guardado em" (linha inteira ausente, não "oculta com ***"); botões Editar/Excluir/É meu; seção de reivindicações. **Motivo explicado em texto** no Notice (princípio 5), em vez de simplesmente omitir.
+- **O que o visitante NÃO vê (nem o usuário comum sem reivindicação aceita):** "Guardado em" (linha inteira ausente, não "oculta com ***"); botões Editar/Excluir/É meu; seção de reivindicações. **Motivo explicado em texto** no Notice (princípio 5), em vez de simplesmente omitir.
 - **Sem "Registrado por":** o detalhe do visitante não mostra quem registrou o item (nem nome nem papel). Não há linha, rótulo vazio ou "***": a informação simplesmente não existe nesta variante.
 - **Item Devolvido ou inexistente:** para o visitante os dois casos mostram o **mesmo** estado "Item não encontrado" (EmptyState `restricted`, ícone `FileText`): "Este item não está mais disponível: ele pode ter sido excluído ou já devolvido." + botão "Ver itens" (`/itens`). Motivo: um texto único não deixa o visitante distinguir "devolvido" de "nunca existiu" (evita enumerar ids e expor o histórico de devoluções). Não existe Notice "Item devolvido" para visitante e não há wireframe dele. Logado continua com §9.4 (Notice "devolvido em {data}").
 - **Item Em reivindicação:** mesmo botão "Entre para reivindicar" (a regra de §9.4 permite reivindicar enquanto há outras pendentes).
@@ -1124,7 +1126,7 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 |---|---|
 | Título | Registrar item · Editar item |
 | Aviso antifraude | Não escreva na descrição detalhes que só o dono saberia (número de série, conteúdo, marcas). Eles serão perguntados na reivindicação. |
-| Rótulos | Foto (opcional) · O que foi encontrado? · Descrição · Categoria · Especifique a categoria (só com Outros) · Onde foi encontrado? · Quando foi encontrado? · Onde está guardado agora? (opcional) |
+| Rótulos | Foto (opcional) · O que foi encontrado? · Descrição · Categoria · Especifique a categoria (só com Outros) · Onde foi encontrado? · Quando foi encontrado? · Onde está guardado agora? (obrigatório; texto auxiliar: "Informe onde o objeto está guardado. Essa informação é privada e só poderá ser acessada pela administração e pelo proprietário após a confirmação da posse.") |
 | Ajudas | Ex.: Garrafa térmica, Chaveiro, Fone de ouvido · Cor, tamanho, estado. · Bloco, andar, sala ou ponto de referência. n/120 · Ex.: Crachá de visitante. Até 40 caracteres. · Opcional. Só a administração vê esta informação; ela não aparece para outras pessoas. |
 | Foto | Enviar foto · Tirar foto · Trocar foto · Tirar outra foto · Remover foto · JPG, PNG ou WebP, até 10 MB · Se a câmera não abrir neste aparelho, use Enviar foto. |
 | Erros | Informe o que foi encontrado. · Descreva o item. · Escolha uma categoria. · Informe o local onde foi encontrado. · Especifique a categoria. · A data não pode ser no futuro. · Formato não aceito. Use JPG, PNG ou WebP. · A foto passa de 10 MB. Escolha uma menor. |
@@ -1192,7 +1194,7 @@ Nenhum altera a SPEC sozinho; ficam para o orquestrador decidir/registrar em `SP
 | R5 | O filtro de período do **usuário** usa a data em que o item foi *encontrado* (P11), mas a listagem de **devoluções** (admin) não tem data de achado óbvia. | Rótulo ambíguo ("período de quê?"). | Rótulos explícitos: "Encontrado de/até" na busca; "Devolvido de/até" em devoluções (data de `returnedAt`). **Confirmar com o orquestrador** — se preferirem filtrar devoluções pela data do achado, só muda o rótulo. |
 | R6 | Item **Devolvido** some da busca, mas continua acessível por link e em "Minhas reivindicações". | Usuário pode cair numa página sem ação e sem explicação. | Estado `neutral` read-only com a data da devolução (§9.4) e badge "Devolvido" nos cards de reivindicação. |
 | R7 | ~~Banner permanente de demonstração~~ | Removido em 20/10/2026 por decisão da usuária. | Sem banner nem rodapé de demonstração. |
-| R8 | Reivindicação aceita não informa **como retirar**. | Usuário aceito não sabe o que fazer a seguir. | **Revisto em 27/10/2026 (SPEC P43):** o local de guarda é privado da administração e não é mostrado ao reivindicante; o texto manda procurar a administração, e o responsável informa o procedimento e o local fora do sistema (sem mecanismo no protótipo). |
+| R8 | Reivindicação aceita não informa **como retirar**. | Usuário aceito não sabe o que fazer a seguir. | **Revisto em 27/10/2026 (SPEC P43):** o local de guarda é obrigatório e privado; é mostrado ao reivindicante **somente com reivindicação aceita** e item aguardando devolução ("Ele está guardado em {local}"); pendente, recusada e devolvida nunca o citam. Sem estados novos nem verificação de identidade além da análise da administração. |
 | R9 | O vínculo institucional/externo vem só do domínio do e-mail e não é verificado (P40); se a administração o vir na análise, pode confiar demais. | Informação pode induzir confiança indevida. | Se exibido, rotular como "Vínculo pelo e-mail (não verificado)" em texto pequeno; nunca como "aluno" ou "professor". |
 | R10 | Sheet de filtros sem contagem ao vivo exigiria cálculo duplicado de resultados. | Complexidade sem ganho. | Botão "Aplicar" simples; contagem só depois de aplicar. |
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canDeleteItem, canEditItem, canRegisterItem, filterItems, isOtherCategory, matchesLocation, normalizeSearchText, searchItems, sortItems } from "./items";
-import { admin, externalUser, makeItem, student, teacher, unverified } from "./test-fixtures";
+import { canDeleteItem, canEditItem, canRegisterItem, canViewStoredAt, filterItems, isOtherCategory, matchesLocation, normalizeSearchText, searchItems, sortItems } from "./items";
+import { admin, externalUser, makeClaim, makeItem, otherStudent, student, teacher, unverified } from "./test-fixtures";
 
 describe("canRegisterItem: external e e-mail verificado", () => {
   it("externo verificado registra; não verificado não; visitante não", () => {
@@ -118,5 +118,48 @@ describe("normalizeSearchText / matchesLocation / isOtherCategory", () => {
     expect(isOtherCategory("Outros")).toBe(true);
     expect(isOtherCategory("outros")).toBe(false);
     expect(isOtherCategory("Chaves")).toBe(false);
+  });
+});
+
+describe("canViewStoredAt (local de guarda privado)", () => {
+  const underClaim = makeItem({ status: "under_claim", createdById: teacher.id });
+  const accepted = makeClaim({ itemId: underClaim.id, claimantId: student.id, status: "accepted" });
+
+  it("administração vê sempre (inclusive devolvido)", () => {
+    expect(canViewStoredAt(admin, underClaim, [])).toBe(true);
+    expect(canViewStoredAt(admin, makeItem({ status: "returned" }), [])).toBe(true);
+    expect(canViewStoredAt(admin, makeItem({ status: "available" }), [])).toBe(true);
+  });
+
+  it("reivindicante com reivindicação aceita neste item aguardando devolução vê", () => {
+    expect(canViewStoredAt(student, underClaim, [accepted])).toBe(true);
+  });
+
+  it("reivindicante pendente ou rejeitado não vê", () => {
+    expect(canViewStoredAt(student, underClaim, [{ ...accepted, status: "pending" }])).toBe(false);
+    expect(canViewStoredAt(student, underClaim, [{ ...accepted, status: "rejected" }])).toBe(false);
+  });
+
+  it("aceito em OUTRO item não vê", () => {
+    expect(canViewStoredAt(student, underClaim, [{ ...accepted, itemId: "outro-item" }])).toBe(false);
+  });
+
+  it("reivindicação aceita de outra pessoa não dá acesso a terceiros", () => {
+    expect(canViewStoredAt(otherStudent, underClaim, [accepted])).toBe(false);
+  });
+
+  it("criador (sem reivindicação aceita) e visitante não veem", () => {
+    expect(canViewStoredAt(teacher, underClaim, [accepted])).toBe(false);
+    expect(canViewStoredAt(null, underClaim, [accepted])).toBe(false);
+    expect(canViewStoredAt(undefined, underClaim, [accepted])).toBe(false);
+  });
+
+  it("criador que também tem reivindicação aceita vê", () => {
+    expect(canViewStoredAt(teacher, underClaim, [{ ...accepted, claimantId: teacher.id }])).toBe(true);
+  });
+
+  it("item devolvido oculta até do reivindicante aceito; disponível também", () => {
+    expect(canViewStoredAt(student, { ...underClaim, status: "returned" }, [accepted])).toBe(false);
+    expect(canViewStoredAt(student, { ...underClaim, status: "available" }, [accepted])).toBe(false);
   });
 });

@@ -29,11 +29,23 @@ describe("aceita", () => {
     expect(m.blocked).toMatch(/foi aceita/);
   });
 
-  it("nunca cita local de guarda (privado) nem promete onde o item está", () => {
+  it("sem storedAt (sem permissão): só manda procurar a administração, sem citar local", () => {
     const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim" });
     expect(m.nextStep.text).toBe("Procure a administração para retirar o item.");
     expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item.");
     expect(JSON.stringify(m)).not.toMatch(/guardado|Guardado|undefined/);
+  });
+
+  it("com storedAt: cita onde o item está guardado", () => {
+    const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "under_claim", storedAt: "Portaria" });
+    expect(m.notice).toBe("Sua reivindicação foi aceita. Procure a administração para retirar o item. Ele está guardado em Portaria.");
+    expect(m.nextStep.text).toBe("Procure a administração para retirar o item. Ele está guardado em Portaria.");
+    expect(m.blocked).toBe(m.notice);
+  });
+
+  it("item devolvido: não cita local mesmo que storedAt venha", () => {
+    const m = getClaimMessages({ claimStatus: "accepted", itemStatus: "returned", storedAt: "Portaria" });
+    expect(JSON.stringify(m)).not.toMatch(/guardado|Portaria/);
   });
 
   it("item devolvido: sem destaque nem instrução de retirar", () => {
@@ -49,6 +61,18 @@ describe("aceita", () => {
     const m = messages("accepted", "returned", RETURNED_AT);
     expect(m.nextStep.text).toBe("Item devolvido em 05/10/2026.");
     expect(m.notice).toBe("Sua reivindicação foi aceita e o item foi devolvido em 05/10/2026.");
+  });
+});
+
+describe("pendente e recusada nunca citam o local de guarda", () => {
+  it.each<[ClaimStatus, ItemStatus]>([
+    ["pending", "under_claim"],
+    ["rejected", "available"],
+    ["rejected", "under_claim"],
+    ["rejected", "returned"],
+  ])("%s / %s", (claimStatus, itemStatus) => {
+    const m = getClaimMessages({ claimStatus, itemStatus, storedAt: "Portaria" });
+    expect(JSON.stringify(m)).not.toMatch(/guardado|Guardado|Portaria/);
   });
 });
 

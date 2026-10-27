@@ -110,23 +110,23 @@ describe("RF02 — registrar item", () => {
     expect((await h.services.items.list()).length).toBe(before);
   });
 
-  it("AC02.1: local livre e storedAt opcional; Outros exige categoryOther; outra categoria o zera", async () => {
+  it("AC02.1: local livre; storedAt obrigatório; Outros exige categoryOther; outra categoria o zera", async () => {
     const h = createHarness();
     await as(h, "student");
     const place = "Bloco C, segundo andar, próximo ao laboratório 04";
-    const { storedAt: _s, ...noStored } = validItem;
-    void _s;
-    const created = await h.services.items.create({ ...noStored, foundLocation: ` ${place} ` });
+    const created = await h.services.items.create({ ...validItem, foundLocation: ` ${place} ` });
     expect(created.foundLocation).toBe(place);
     expect(created.categoryOther).toBe("Garrafa térmica");
-    const err = await expectCode(h.services.items.create({ ...noStored, categoryOther: "" }), "VALIDATION");
+    const err = await expectCode(h.services.items.create({ ...validItem, categoryOther: "" }), "VALIDATION");
     expect(err.fieldErrors).toEqual({ categoryOther: "Especifique a categoria." });
+    const noStored = await expectCode(h.services.items.create({ ...validItem, storedAt: "   " }), "VALIDATION");
+    expect(noStored.fieldErrors).toEqual({ storedAt: "Informe onde o item está guardado." });
     const other = await h.services.items.create({ ...validItem, category: "Roupas" });
     expect(other.categoryOther).toBeNull();
     await h.services.auth.signOut();
     await as(h, "admin");
-    // o item guardado fica completo: storedAt ausente = null; categoryOther descartado
-    expect((await h.services.items.get(created.id)).item.storedAt).toBeNull();
+    // o item guardado fica completo; categoryOther descartado
+    expect((await h.services.items.get(created.id)).item.storedAt).toBe("Portaria");
     expect((await h.services.items.get(other.id)).item).toMatchObject({ storedAt: "Portaria", categoryOther: null });
   });
 
@@ -660,8 +660,8 @@ describe("P26 — visitante (sem sessão) vê lista e detalhe", () => {
     await as(h, "student");
     const member = await h.services.items.list(filters);
     expect(guestFiltered.map((i) => i.id)).toEqual(member.map((i) => i.id));
-    // usuário comum também não recebe o local de guarda (privado: só administração)
-    expect(member.every((i) => !("storedAt" in i))).toBe(true);
+    // usuário comum também não recebe o local de guarda (privado), salvo no item com reivindicação aceita (item-05)
+    expect(member.filter((i) => "storedAt" in i).every((i) => i.id === "item-05")).toBe(true);
     await h.services.auth.signOut();
     await as(h, "admin");
     expect((await h.services.items.list(filters)).every((i) => i.storedAt)).toBe(true);
@@ -719,15 +719,15 @@ describe("P26 — visitante (sem sessão) vê lista e detalhe", () => {
   });
 });
 
-describe("privacidade de storedAt imposta no serviço (só administração)", () => {
+describe("privacidade de storedAt imposta no serviço (administração e reivindicante aceito)", () => {
   const hasStored = (item: object) => "storedAt" in item;
 
-  it("visitante e usuário comum não recebem storedAt em list/get; administração recebe", async () => {
+  it("visitante e usuário comum não recebem storedAt em list/get (exceto o item com reivindicação aceita); administração recebe", async () => {
     const h = createHarness();
     expect((await h.services.items.list()).some(hasStored)).toBe(false);
     expect(hasStored((await h.services.items.get("item-03")).item)).toBe(false);
     await as(h, "student");
-    expect((await h.services.items.list()).some(hasStored)).toBe(false);
+    expect((await h.services.items.list()).filter(hasStored).map((i) => i.id)).toEqual(["item-05"]);
     expect(hasStored((await h.services.items.get("item-03")).item)).toBe(false);
     await h.services.auth.signOut();
     await as(h, "admin");
@@ -765,17 +765,111 @@ describe("privacidade de storedAt imposta no serviço (só administração)", ()
     expect(hasStored((await h.services.items.get(created.id)).item)).toBe(false);
   });
 
-  it("reivindicante com reivindicação ACEITA não vê storedAt (nem nas minhas reivindicações)", async () => {
+  it("reivindicante com reivindicação ACEITA (item aguardando devolução) vê storedAt só nesse item", async () => {
     const h = createHarness();
-    await as(h, "student"); // Marina: reivindicação aceita no item-05
+    await as(h, "student"); // Marina: aceita no item-05 (under_claim), pendente no item-07, recusada no item-04
     const mine = await h.services.claims.listMine();
     const accepted = mine.find((c) => c.itemId === "item-05" && c.status === "accepted");
-    expect(accepted).toBeDefined();
-    expect(mine.some((c) => hasStored(c.item))).toBe(false);
-    expect(hasStored((await h.services.claims.get(accepted!.id)).item)).toBe(false);
+    expect(accepted?.item.storedAt).toBe("Portaria");
+    expect(mine.filter((c) => c.id !== accepted!.id).some((c) => hasStored(c.item))).toBe(false);
+    expect((await h.services.claims.get(accepted!.id)).item.storedAt).toBe("Portaria");
     const detail = await h.services.items.get("item-05");
     expect(detail.myClaims[0].status).toBe("accepted");
-    expect(hasStored(detail.item)).toBe(false);
+    expect(detail.item.storedAt).toBe("Portaria");
+    expect(hasStored((await h.services.items.get("item-07")).item)).toBe(false); // pendente
+    expect(hasStored((await h.services.items.get("item-04")).item)).toBe(false); // recusada
+    expect(hasStored((await h.services.items.get("item-03")).item)).toBe(false); // aceito de OUTRO item
+  });
+
+  const LOCAL = "Armário secreto do 3º andar";
+
+  it("ponta a ponta: A registra, B reivindica (não vê), admin aceita (B vê), devolução (B não vê); terceiro e criador nunca; admin sempre", async () => {
+    const h = createHarness();
+    await as(h, "teacher"); // A = Rafael registra
+    const created = await h.services.items.create({ ...validItem, storedAt: LOCAL });
+    const itemId = created.id;
+    const sees = async (id = itemId) => (await h.services.items.get(id)).item.storedAt === LOCAL;
+    const inList = async () => (await h.services.items.list()).find((i) => i.id === itemId)?.storedAt === LOCAL;
+    expect(await sees()).toBe(false);
+    await h.services.auth.signOut();
+
+    await as(h, "student"); // B = Marina reivindica
+    const claim = await h.services.claims.create(itemId, validClaim);
+    expect(await sees()).toBe(false);
+    expect(await inList()).toBe(false);
+    expect(hasStored((await h.services.claims.listMine()).find((c) => c.id === claim.id)!.item)).toBe(false);
+    await h.services.auth.signOut();
+
+    await as(h, "admin");
+    expect(await sees()).toBe(true);
+    await h.services.claims.accept(claim.id);
+    await h.services.auth.signOut();
+
+    await as(h, "student"); // B passa a ver
+    expect(await sees()).toBe(true);
+    expect(await inList()).toBe(true);
+    expect((await h.services.claims.listMine()).find((c) => c.id === claim.id)!.item.storedAt).toBe(LOCAL);
+    expect((await h.services.claims.get(claim.id)).item.storedAt).toBe(LOCAL);
+    await h.services.auth.signOut();
+
+    await as(h, "teacher"); // criador continua sem ver
+    expect(await sees()).toBe(false);
+    expect(await inList()).toBe(false);
+    await h.services.auth.signOut();
+
+    const third = await h.services.auth.signUp({ name: "Terceira Pessoa", email: "terceira@demo.test", password: "senha-segura-1", acceptedTerms: true });
+    expect(third.role).toBe("user"); // terceiro usuário nunca vê
+    expect(await sees()).toBe(false);
+    expect(await inList()).toBe(false);
+    await h.services.auth.signOut();
+
+    await as(h, "admin");
+    await h.services.returns.register(itemId);
+    expect(await sees()).toBe(true); // admin sempre vê
+    await h.services.auth.signOut();
+
+    await as(h, "student"); // devolvido: B deixa de ver
+    expect(await sees()).toBe(false);
+    expect(hasStored((await h.services.claims.listMine()).find((c) => c.id === claim.id)!.item)).toBe(false);
+  });
+
+  it("reivindicação recusada: o reivindicante não vê (nem antes nem depois)", async () => {
+    const h = createHarness();
+    await as(h, "teacher");
+    const created = await h.services.items.create({ ...validItem, storedAt: LOCAL });
+    await h.services.auth.signOut();
+    await as(h, "student");
+    const claim = await h.services.claims.create(created.id, validClaim);
+    await h.services.auth.signOut();
+    await as(h, "admin");
+    await h.services.claims.reject(claim.id);
+    await h.services.auth.signOut();
+    await as(h, "student");
+    expect(hasStored((await h.services.items.get(created.id)).item)).toBe(false);
+    expect(hasStored((await h.services.claims.listMine()).find((c) => c.id === claim.id)!.item)).toBe(false);
+  });
+
+  it("nenhuma saída serializada para quem não está autorizado contém o local de guarda", async () => {
+    const h = createHarness();
+    await as(h, "teacher");
+    const created = await h.services.items.create({ ...validItem, storedAt: LOCAL });
+    await h.services.auth.signOut();
+    await as(h, "student");
+    const claim = await h.services.claims.create(created.id, validClaim); // pendente
+    const outputs = JSON.stringify([
+      await h.services.items.list(),
+      await h.services.items.get(created.id),
+      await h.services.claims.listMine(),
+      await h.services.claims.get(claim.id),
+      await h.services.auth.exportMyData(),
+    ]);
+    expect(outputs).not.toContain(LOCAL);
+    await h.services.auth.signOut();
+    // criador e visitante
+    expect(JSON.stringify(await h.services.items.list())).not.toContain(LOCAL);
+    expect(JSON.stringify(await h.services.items.get(created.id))).not.toContain(LOCAL);
+    await as(h, "teacher");
+    expect(JSON.stringify([await h.services.items.list(), await h.services.items.get(created.id), await h.services.auth.exportMyData()])).not.toContain(LOCAL);
   });
 
   it("administração vê storedAt nas reivindicações, decisões e devoluções", async () => {

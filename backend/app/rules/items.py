@@ -4,7 +4,7 @@ import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from ..models import ItemRow
+from ..models import ClaimRow, ItemRow
 from .decision import ALLOW, Decision, deny
 from .item_status import is_item_locked
 from .permissions import email_not_verified, has_capability
@@ -19,6 +19,22 @@ def fold_text(value: str) -> str:
 def is_visible_in_search(item: ItemRow) -> bool:
     """Devolvidos somem da busca (AC03.2)."""
     return item.status != "returned"
+
+
+def can_view_stored_at(viewer: Any, item: ItemRow, viewer_claims: Iterable[ClaimRow]) -> bool:
+    """Regra única de privacidade do local de guarda (`storedAt`). Só decide com dados do banco.
+
+    Libera para: (a) administração; (b) usuário com reivindicação ACEITA neste item enquanto ele está
+    `under_claim` (aguardando devolução). Nunca para visitante, criador (por ser criador), reivindicação
+    pendente/recusada, reivindicação aceita de outro item, nem depois de `returned`.
+    `viewer_claims`: reivindicações do próprio visualizador (ou do item; as de terceiros são ignoradas)."""
+    if viewer is None:
+        return False
+    if viewer.role == "admin":
+        return True
+    if item.status != "under_claim":
+        return False
+    return any(c.item_id == item.id and c.claimant_id == viewer.id and c.status == "accepted" for c in viewer_claims)
 
 
 def can_register_item(actor: Any) -> Decision:

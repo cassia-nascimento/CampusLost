@@ -19,6 +19,7 @@ function MyClaimNotice({ claim, detail }: { claim: Claim; detail: ItemDetail }) 
   const message = getClaimMessages({
     claimStatus: claim.status,
     itemStatus: item.status,
+    storedAt: item.storedAt,
     returnedAt: returnRecord?.returnedAt,
   });
   return (

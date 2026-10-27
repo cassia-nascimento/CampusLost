@@ -16,7 +16,7 @@ import { toViewerItem } from "./viewer";
 function toView(db: Db, record: ReturnRecord, viewer: User): ReturnView {
   return {
     ...record,
-    item: toViewerItem(findItem(db, record.itemId), viewer),
+    item: toViewerItem(findItem(db, record.itemId), viewer, db.claims),
     returnedTo: findUser(db, record.returnedToId),
     registeredBy: toPublicUser(findUser(db, record.registeredById)),
   };

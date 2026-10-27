@@ -186,3 +186,15 @@ def find_item(db: Session, item_id: str):
     if item is None:
         raise ServiceError("NOT_FOUND", "Item não encontrado.")
     return item
+
+
+def accepted_claims_of(db: Session, viewer: UserRow | None) -> list:
+    """Reivindicações ACEITAS do visualizador (uma consulta), insumo de `rules.items.can_view_stored_at`.
+    Visitante e administração não precisam delas (a regra já decide por papel)."""
+    from sqlalchemy import select
+
+    from .models import ClaimRow
+
+    if viewer is None or viewer.role == "admin":
+        return []
+    return list(db.scalars(select(ClaimRow).where(ClaimRow.claimant_id == viewer.id, ClaimRow.status == "accepted")).all())

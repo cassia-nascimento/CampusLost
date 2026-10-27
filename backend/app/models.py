@@ -98,7 +98,7 @@ class ItemRow(Base):
     category_detail: Mapped[str | None] = mapped_column(String(40), nullable=True)  # só com category == "Outros"
     found_location: Mapped[str] = mapped_column(String(120))
     found_date: Mapped[str] = mapped_column(String(10))  # YYYY-MM-DD
-    stored_at: Mapped[str | None] = mapped_column(String(120), nullable=True)  # só admin vê
+    stored_at: Mapped[str] = mapped_column(String(120))  # obrigatório; só admin e reivindicante aceito (item aguardando devolução) veem
     photo_url: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(16), index=True)
     created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"))

@@ -213,7 +213,7 @@ def validate_item(data: Any, today: str) -> dict[str, str | None]:
             "categoryOther": category_other,
             "foundLocation": lambda v: _bounded_text(v, "o local onde foi encontrado", 3, ITEM_LOCATION_MAX),
             "foundDate": found_date,
-            "storedAt": _optional(lambda v: _bounded_text(v, "onde o item está guardado", 3, ITEM_STORED_AT_MAX)),
+            "storedAt": lambda v: _bounded_text(v, "onde o item está guardado", 3, ITEM_STORED_AT_MAX),
         },
     )
 

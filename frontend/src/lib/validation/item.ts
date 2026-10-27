@@ -23,7 +23,7 @@ const emptyToNull = (value: string | null | undefined): string | null => {
  * Schema do item (RF02). A data não pode ser futura: `getToday` devolve o dia local de referência.
  * - `category` é uma das categorias demonstrativas; "Outros" é a opção "Outro" e exige `categoryOther`
  *   (3–40). Com outra categoria, `categoryOther` é descartado (`null`), sem deixar dado inconsistente.
- * - `foundLocation` é texto livre (3–120). `storedAt` é opcional (vazio -> `null`; se vier, 3–120).
+ * - `foundLocation` é texto livre (3–120). `storedAt` é OBRIGATÓRIO (aparado, 3–120; vazio -> "Informe onde o item está guardado.").
  */
 export function createItemSchema(getToday: () => string = () => toLocalDateString(new Date())) {
   return z
@@ -36,11 +36,7 @@ export function createItemSchema(getToday: () => string = () => toLocalDateStrin
       foundDate: isoDate.refine((d) => !isFutureDate(d, getToday()), {
         error: "A data não pode ser no futuro.",
       }),
-      storedAt: z
-        .string()
-        .nullish()
-        .transform(emptyToNull)
-        .pipe(boundedText("onde o item está guardado", 3, ITEM_STORED_AT_MAX).nullable()),
+      storedAt: boundedText("onde o item está guardado", 3, ITEM_STORED_AT_MAX),
     })
     .superRefine((v, ctx) => {
       if (!isOtherCategory(v.category)) return;
@@ -52,9 +48,9 @@ export function createItemSchema(getToday: () => string = () => toLocalDateStrin
     .transform((v) => ({ ...v, categoryOther: isOtherCategory(v.category) ? v.categoryOther : null }));
 }
 export const itemSchema = createItemSchema();
-/** Valores validados (saída do schema): `categoryOther` e `storedAt` são `string | null`. */
+/** Valores validados (saída do schema): `categoryOther` é `string | null`; `storedAt` é `string`. */
 export type ItemFormValues = z.output<typeof itemSchema>;
-/** O que o formulário/serviço aceita: `categoryOther` e `storedAt` podem ser `""`, `null` ou ausentes. */
+/** O que o formulário/serviço aceita: `categoryOther` pode ser `""`, `null` ou ausente. */
 export type ItemFormInput = z.input<typeof itemSchema>;
 
 const optionalDate = z.preprocess(emptyToUndefined, isoDate.optional());

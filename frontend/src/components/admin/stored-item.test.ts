@@ -13,13 +13,12 @@ describe("toStoredItem", () => {
     expect(toStoredItem(item).createdById).toBe("user-9");
   });
 
-  it("não inventa o local de guarda: ausente continua ausente e null continua null", () => {
+  it("não inventa o local de guarda: ausente continua ausente", () => {
     const { storedAt: _storedAt, createdById: _createdById, ...view } = makeItem();
     void _storedAt;
     void _createdById;
     const withoutPermission = toStoredItem(view);
     expect("storedAt" in withoutPermission).toBe(false);
     expect(withoutPermission.createdById).toBe("");
-    expect(toStoredItem(makeItem({ storedAt: null })).storedAt).toBeNull();
   });
 });

@@ -298,7 +298,7 @@ export function createAuthService(ctx: MockContext): AuthService {
             termsAcceptedAt: null,
             termsVersion: null,
           },
-          itemsRegistered: db.items.filter((i) => i.createdById === user.id).map((i) => toViewerItem(i, user)),
+          itemsRegistered: db.items.filter((i) => i.createdById === user.id).map((i) => toViewerItem(i, user, db.claims)),
           claims: db.claims
             .filter((c) => c.claimantId === user.id)
             .map((c) => ({ ...c, itemTitle: db.items.find((i) => i.id === c.itemId)?.title ?? null })),

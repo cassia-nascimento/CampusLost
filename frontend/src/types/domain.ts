@@ -90,10 +90,11 @@ export interface Item {
   /** Data em que foi encontrado, `YYYY-MM-DD` (calendário local). */
   foundDate: string;
   /**
-   * Onde o item está guardado agora (opcional). PRIVADO: só a administração o recebe; para os demais a chave é
-   * AUSENTE (`undefined`). `null` = administração sem local informado.
+   * Onde o item está guardado agora (obrigatório no registro). PRIVADO: só a administração e quem tem
+   * reivindicação ACEITA neste item (enquanto aguarda devolução) o recebem (`canViewStoredAt`); para os demais a
+   * chave é AUSENTE (`undefined` = sem permissão).
    */
-  storedAt?: string | null;
+  storedAt?: string;
   /**
    * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário no mock), um
    * caminho público `/seed/<slug>.svg|webp` (imagens demonstrativas do seed, P27) OU, em modo API, a URL absoluta de

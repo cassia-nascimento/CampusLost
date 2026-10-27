@@ -81,9 +81,10 @@ export type PublicItemView = Omit<Item, "storedAt" | "createdById">;
 /**
  * Item como a UI o recebe: `PublicItemView` mais `storedAt` e `createdById` OPCIONAIS. Visitantes não recebem
  * nenhum dos dois; usuários logados recebem `createdById`; `storedAt` (local de guarda) é PRIVADO e só a
- * administração o recebe (a chave é ausente para os demais, mesmo criador/reivindicante). Um `Item` é um `ItemView` válido.
+ * administração e quem tem reivindicação aceita neste item (aguardando devolução) o recebem; para os demais a
+ * chave é ausente (mesmo criador ou reivindicante pendente/recusado). Um `Item` é um `ItemView` válido.
  */
-export type ItemView = PublicItemView & { storedAt?: string | null; createdById?: string };
+export type ItemView = PublicItemView & { storedAt?: string; createdById?: string };
 
 export interface ItemDetail {
   item: ItemView;
@@ -297,11 +298,11 @@ export interface AuthService {
 export interface ItemService {
   /**
    * Busca (pública, P26: funciona sem login). Nunca devolve itens Devolvidos; mais recentes primeiro
-   * por padrão. Filtros combinam entre si (AC03.x). `storedAt` só vem para a administração; visitante também não recebe `createdById`.
+   * por padrão. Filtros combinam entre si (AC03.x). `storedAt` só vem para a administração e para quem tem reivindicação aceita no item aguardando devolução; visitante também não recebe `createdById`.
    */
   list(filters?: ItemFilters): Promise<ItemView[]>;
   /**
-   * Detalhe (público, P26). Sem `storedAt` (só a administração o recebe); visitante: sem `createdById`, `createdBy: null`, `myClaims`/`claims` vazios, sem devolução e
+   * Detalhe (público, P26). Sem `storedAt` para quem não tem permissão (administração ou reivindicante aceito); visitante: sem `createdById`, `createdBy: null`, `myClaims`/`claims` vazios, sem devolução e
    * `viewer.*` negado com `UNAUTHENTICATED`; item Devolvido é `NOT_FOUND` para ele.
    */
   get(id: string): Promise<ItemDetail>;

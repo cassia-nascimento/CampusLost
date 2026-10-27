@@ -9,6 +9,7 @@ from .. import audit
 from ..config import random_id
 from ..deps import ClockDep, DbDep, LockDep, OptionalUser, SettingsDep, client_ip, ensure_admin_2fa, find_item, require_user
 from ..models import ClaimRow, ReturnRow, UserRow
+from ..rules.items import can_view_stored_at
 from ..rules.returns import filter_returns_by_period, register_return, sort_returns
 from ..rules.validation import validate_period
 from ..schemas import return_view_json
@@ -19,7 +20,11 @@ router = APIRouter(tags=["returns"])
 def _view(db, r: ReturnRow, viewer: UserRow):
     from ..models import ItemRow
 
-    return return_view_json(r, db.get(ItemRow, r.item_id), db.get(UserRow, r.returned_to_id), db.get(UserRow, r.registered_by_id), viewer)
+    item = db.get(ItemRow, r.item_id)
+    return return_view_json(
+        r, item, db.get(UserRow, r.returned_to_id), db.get(UserRow, r.registered_by_id), viewer,
+        can_view_stored_at(viewer, item, []),  # só administração acessa devoluções
+    )
 
 
 @router.post("/items/{item_id}/return", status_code=201)

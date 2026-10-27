@@ -12,6 +12,11 @@ export interface ClaimMessageInput {
   itemStatus: ItemStatus;
   /** Instante da devolução, quando a tela o conhece (hoje só a administração recebe o registro). */
   returnedAt?: string | null;
+  /**
+   * Local de guarda, só usado no texto da reivindicação ACEITA com o item aguardando devolução. O serviço só o
+   * entrega a quem tem permissão (`canViewStoredAt`); sem ele, o texto manda procurar a administração.
+   */
+  storedAt?: string;
 }
 
 export interface ClaimMessages {
@@ -37,7 +42,7 @@ export function returnedItemNotice(returnedAt?: string | null): string {
   return returnedAt ? `Este item já foi devolvido em ${formatInstantDate(returnedAt)}.` : "Este item já foi devolvido.";
 }
 
-export function getClaimMessages({ claimStatus, itemStatus, returnedAt }: ClaimMessageInput): ClaimMessages {
+export function getClaimMessages({ claimStatus, itemStatus, returnedAt, storedAt }: ClaimMessageInput): ClaimMessages {
   const returned = itemStatus === "returned";
 
   switch (claimStatus) {
@@ -61,16 +66,20 @@ export function getClaimMessages({ claimStatus, itemStatus, returnedAt }: ClaimM
           blocked: null,
         };
       }
-      // O local de guarda é privado (só administração): o texto manda procurar a administração.
-      return {
-        noticeTitle: "Reivindicação aceita",
-        notice: "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
-        nextStep: {
-          highlight: "Aceita!",
-          text: "Procure a administração para retirar o item.",
-        },
-        blocked: "Sua reivindicação foi aceita. Procure a administração para retirar o item.",
-      };
+      // O local de guarda é privado: só aparece aqui, na reivindicação aceita (pendente e recusada nunca o citam).
+      {
+        const accepted = "Sua reivindicação foi aceita. Procure a administração para retirar o item.";
+        const where = storedAt ? ` Ele está guardado em ${storedAt}.` : "";
+        return {
+          noticeTitle: "Reivindicação aceita",
+          notice: accepted + where,
+          nextStep: {
+            highlight: "Aceita!",
+            text: `Procure a administração para retirar o item.${where}`,
+          },
+          blocked: accepted + where,
+        };
+      }
 
     case "rejected":
       // Com o item devolvido não há mais o que reenviar nem retirar: só informa a recusa.

@@ -134,7 +134,7 @@ function EditContent({
           categoryOther: item.categoryOther ?? "",
           foundLocation: item.foundLocation,
           foundDate: item.foundDate,
-          // Administração: o valor atual; `null`/ausente = ainda não informado (campo vazio).
+          // Administração sempre recebe o valor atual (obrigatório).
           storedAt: item.storedAt ?? "",
         }}
         existingPhotoUrl={item.photoDataUrl ?? null}

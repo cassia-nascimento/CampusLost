@@ -1,4 +1,4 @@
-import type { Item, ItemStatus, User } from "@/types/domain";
+import type { Claim, Item, ItemStatus, User } from "@/types/domain";
 import { ALLOW, deny, type Decision } from "./decision";
 import { checkEmailVerified, hasCapability } from "./permissions";
 import { isItemLocked } from "./item-status";
@@ -38,6 +38,24 @@ export interface ItemFilters {
 /** Devolvidos somem da busca (AC03.2). */
 export function isVisibleInSearch(item: Pick<Item, "status">): boolean {
   return item.status !== "returned";
+}
+
+/**
+ * Regra ÚNICA de visibilidade do local de guarda (`storedAt`, privado). Pode ver: (a) a administração; (b) quem tem
+ * reivindicação ACEITA neste item enquanto ele aguarda devolução (`under_claim`). Depois de devolvido (`returned`)
+ * volta a ficar oculto. Não podem: visitante, usuário comum, criador (salvo se também tiver reivindicação aceita),
+ * reivindicante pendente ou recusado, nem reivindicante aceito de OUTRO item. Pura: `claims` pode ser a lista
+ * inteira do sistema ou só a do item (só as reivindicações deste item contam).
+ */
+export function canViewStoredAt(
+  viewer: User | null | undefined,
+  item: Pick<Item, "id" | "status">,
+  claims: readonly Pick<Claim, "itemId" | "claimantId" | "status">[],
+): boolean {
+  if (viewer == null) return false;
+  if (viewer.role === "admin") return true;
+  if (item.status !== "under_claim") return false;
+  return claims.some((c) => c.itemId === item.id && c.claimantId === viewer.id && c.status === "accepted");
 }
 
 export function canRegisterItem(actor: User | null | undefined): Decision {

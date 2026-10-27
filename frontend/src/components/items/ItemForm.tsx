@@ -60,7 +60,7 @@ export interface ItemFormProps {
    */
   mode: "create" | "edit";
   /**
-   * Valores iniciais dos campos (edição). Datas em `YYYY-MM-DD`; `categoryOther` e `storedAt` aceitam `""`/`null`.
+   * Valores iniciais dos campos (edição). Datas em `YYYY-MM-DD`; `categoryOther` aceita `""`/`null`.
    * No modo `create`, `foundDate` começa em hoje. Lido só na montagem: para trocar os valores, remonte o
    * formulário com `key`.
    */
@@ -100,7 +100,7 @@ export interface ItemFormProps {
 /**
  * Formulário de item (RF02/AC02.1–02.2): foto opcional (arquivo ou câmera) com pré-visualização, título,
  * descrição, categoria (com "Especifique a categoria" só em "Outros"), local (texto livre), data (não futura) e
- * onde está guardado (opcional, visível só à administração). Reutilizado na edição administrativa.
+ * onde está guardado (obrigatório; privado: administração e dono confirmado). Reutilizado na edição administrativa.
  *
  * react-hook-form + `createItemSchema` (mesmas regras do serviço). Erros por campo ligados por
  * `aria-describedby`, foco no primeiro campo inválido e anúncio "Corrija N campos para continuar".
@@ -345,8 +345,7 @@ export function ItemForm({
 
       <Field
         label="Onde está guardado agora?"
-        optional
-        hint="Opcional. Só a administração vê esta informação; ela não aparece para outras pessoas."
+        hint="Informe onde o objeto está guardado. Essa informação é privada e só poderá ser acessada pela administração e pelo proprietário após a confirmação da posse."
         error={errors.storedAt?.message}
       >
         <Input {...register("storedAt")} maxLength={ITEM_STORED_AT_MAX} placeholder="Ex.: Portaria" autoComplete="off" />

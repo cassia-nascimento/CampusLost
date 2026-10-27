@@ -167,6 +167,7 @@ def test_create_item_missing_fields(client, student):
         "category": "Escolha uma categoria.",
         "foundLocation": "Informe o local onde foi encontrado.",
         "foundDate": "Informe a data.",
+        "storedAt": "Informe onde o item está guardado.",
     }
 
 

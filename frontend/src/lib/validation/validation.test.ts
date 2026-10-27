@@ -222,19 +222,25 @@ describe("item (AC02.1, AC02.2)", () => {
     });
   });
 
-  describe("storedAt opcional", () => {
-    it("vazio, só espaços, null ou ausente viram null", () => {
+  describe("storedAt obrigatório", () => {
+    it("vazio, só espaços, null ou ausente são recusados com a mensagem de obrigatório", () => {
       for (const storedAt of ["", "   ", null, undefined]) {
-        expect(schema.parse({ ...valid, storedAt }).storedAt).toBeNull();
+        const result = schema.safeParse({ ...valid, storedAt });
+        expect(result.success).toBe(false);
+        expect(toFieldErrors(result.error!).storedAt).toBe("Informe onde o item está guardado.");
       }
       const { storedAt: _s, ...without } = valid;
       void _s;
-      expect(schema.parse(without).storedAt).toBeNull();
+      expect(toFieldErrors(schema.safeParse(without).error!).storedAt).toBe("Informe onde o item está guardado.");
     });
 
-    it("quando vem, apara e exige 3–120", () => {
+    it("apara e exige 3–120 caracteres", () => {
       expect(schema.parse({ ...valid, storedAt: "  Armário 2 " }).storedAt).toBe("Armário 2");
       expect(toFieldErrors(schema.safeParse({ ...valid, storedAt: "ab" }).error!).storedAt).toBe("Use pelo menos 3 caracteres.");
+      expect(toFieldErrors(schema.safeParse({ ...valid, storedAt: "  ab  " }).error!).storedAt).toBe("Use pelo menos 3 caracteres.");
+      expect(toFieldErrors(schema.safeParse({ ...valid, storedAt: "x".repeat(121) }).error!).storedAt).toBe("Use no máximo 120 caracteres.");
+      expect(schema.safeParse({ ...valid, storedAt: "abc" }).success).toBe(true);
+      expect(schema.safeParse({ ...valid, storedAt: "x".repeat(120) }).success).toBe(true);
     });
   });
 

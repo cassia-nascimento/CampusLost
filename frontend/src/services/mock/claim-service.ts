@@ -8,7 +8,7 @@ import type { Db } from "./seed";
 import { toViewerItem } from "./viewer";
 
 function toView(db: Db, claim: Claim, viewer: User): ClaimView {
-  return { ...claim, claimant: findUser(db, claim.claimantId), item: toViewerItem(findItem(db, claim.itemId), viewer) };
+  return { ...claim, claimant: findUser(db, claim.claimantId), item: toViewerItem(findItem(db, claim.itemId), viewer, db.claims) };
 }
 
 export function createClaimService(ctx: MockContext): ClaimService {
@@ -37,7 +37,7 @@ export function createClaimService(ctx: MockContext): ClaimService {
           target: ["claim", claimId],
           metadata: { itemId: item.id, autoRejected: result.autoRejectedIds.length },
         });
-        return { claim: result.claim, item: toViewerItem(result.item, actor), autoRejectedIds: result.autoRejectedIds };
+        return { claim: result.claim, item: toViewerItem(result.item, actor, db.claims), autoRejectedIds: result.autoRejectedIds };
       }),
     );
 

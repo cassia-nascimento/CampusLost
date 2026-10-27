@@ -45,7 +45,7 @@ export function createItemService(ctx: MockContext): ItemService {
         assertAllowed(checkCapability(user, "search_items"));
         const parsed = parseInput(itemFiltersSchema, filters ?? {});
         const found = searchItems(db.items, parsed);
-        return found.map((i) => toViewerItem(i, user));
+        return found.map((i) => toViewerItem(i, user, db.claims));
       }),
 
     get: (id) =>
@@ -60,7 +60,7 @@ export function createItemService(ctx: MockContext): ItemService {
           // Visitante: devolvido é invisível (mesmo erro de item inexistente) e nada de terceiros.
           if (!isVisibleInSearch(item)) throw new ServiceError("NOT_FOUND", "Item não encontrado.");
           return {
-            item: toViewerItem(item, null),
+            item: toViewerItem(item, null, db.claims),
             createdBy: null,
             myClaims: [],
             claims: [],
@@ -76,7 +76,7 @@ export function createItemService(ctx: MockContext): ItemService {
         const canReview = hasCapability(user, "review_claims");
         const canSeeReturns = hasCapability(user, "view_returns");
         return {
-          item: toViewerItem(item, user),
+          item: toViewerItem(item, user, db.claims),
           createdBy,
           myClaims: itemClaims
             .filter((c) => c.claimantId === user.id)
@@ -114,7 +114,7 @@ export function createItemService(ctx: MockContext): ItemService {
             createdAt: ctx.now().toISOString(),
           };
           db.items.push(item);
-          return toViewerItem(item, user);
+          return toViewerItem(item, user, db.claims);
         });
       }),
 
@@ -137,7 +137,7 @@ export function createItemService(ctx: MockContext): ItemService {
             ...(nextPhoto ? { photoDataUrl: nextPhoto } : {}),
           };
           db.items[db.items.findIndex((i) => i.id === id)] = updated;
-          return toViewerItem(updated, user);
+          return toViewerItem(updated, user, db.claims);
         });
       }),
 

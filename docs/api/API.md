@@ -140,13 +140,15 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
   "createdAt": "2026-10-20T13:00:00.000Z"
 }
 ```
-`foundLocation`: **texto livre** (3–120). `categoryOther`: sempre presente (string ou `null`); só tem valor quando `category == "Outros"` (especificação, 3–40) e é informação pública. `storedAt` (local de guarda): **opcional** (`string | null`) e **só aparece para administração** (ver abaixo).
+`foundLocation`: **texto livre** (3–120). `categoryOther`: sempre presente (string ou `null`); só tem valor quando `category == "Outros"` (especificação, 3–40) e é informação pública. `storedAt` (local de guarda): **obrigatório** no registro e na edição (string 3–120) e **privado**: só aparece para administração ou para o reivindicante com reivindicação **aceita** enquanto o item aguarda devolução (ver abaixo).
 
 `status`: `"available" | "under_claim" | "returned"`. Diferença para o tipo do frontend: `photoDataUrl?: string` ⇒ **`photoUrl: string | null`**.
 
 ### `ItemView` / `PublicItemView` (listas e detalhe)
 - **Administração**: igual a `Item` (traz `storedAt` e `createdById`).
-- **Usuário comum logado** (inclusive quem registrou o item e quem o reivindicou, mesmo com reivindicação aceita): `Item` **sem a chave `storedAt`** (omitida, não `null`); traz `createdById`.
+- **Usuário com reivindicação `accepted` NESSE item enquanto o item está `under_claim`** ("aguardando devolução"): igual a `Item`, **com** `storedAt`. Depois do registro da devolução (`returned`) a chave volta a ser omitida.
+- **Demais usuários logados** (sem relação, quem registrou o item — por ser o autor —, reivindicação `pending` ou `rejected`, reivindicação aceita de OUTRO item): `Item` **sem a chave `storedAt`** (omitida, não `null`); traz `createdById`.
+- A regra é única no servidor (`can_view_stored_at`, `app/rules/items.py`), usa só dados do banco (status da reivindicação e do item; nada vindo do cliente) e vale em todo ponto que serializa item: `GET /items`, `GET /items/{id}`, respostas de `POST`/`PUT /items`, `ClaimView.item` (`/claims/mine`, `/claims/{id}`, `/claims/pending`, `/items/{id}/claims`, accept/reject), `ReturnView.item` e `/me/export` (`itemsRegistered`). A transição `pending → accepted` (ação da administração) é o único gatilho que libera; `rejected` e `returned` voltam a ocultar.
 - **Visitante** (sem `Authorization`): `PublicItemView` — **as chaves `storedAt` e `createdById` não existem no JSON**:
 ```json
 { "id": "item-03", "title": "...", "description": "...", "category": "Chaves", "categoryOther": null, "foundLocation": "Bloco A",
@@ -167,7 +169,7 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
 
 ### `ClaimWithClaimant` = `Claim` + `"claimant": User` (completo, com e-mail).
 
-### `ClaimView` = `Claim` + `"claimant": User` + `"item": Item` (o `item` segue a regra de `storedAt` do visualizador: só administração o recebe).
+### `ClaimView` = `Claim` + `"claimant": User` + `"item": Item` (o `item` segue a regra de `storedAt` do visualizador: administração, ou o reivindicante aceito com o item aguardando devolução).
 ```json
 {
   "id": "claim-06", "itemId": "item-07", "claimantId": "user-marina",
@@ -359,7 +361,7 @@ Corpo: `{ "token": "<do e-mail>", "name": "Nome Completo", "password": "..." }`.
 
 #### `GET /items` — público (P26)
 Query (todos opcionais; valor vazio é ignorado): `category` (uma de `/catalog`), `location` (**texto livre**, até 120: itens cujo `foundLocation` CONTÉM o texto, sem diferenciar maiúsculas/minúsculas nem acentos; vazio é ignorado), `from` e `to` (`YYYY-MM-DD`, inclusivos, sobre `foundDate` — P11), `status` (`available`|`under_claim`; `returned` é inválido), `sort` (`registered` padrão = mais recentemente registrado primeiro; `found` = mais recentemente encontrado primeiro). Filtros combinam (E). **Itens devolvidos nunca aparecem.** Desempate: o outro critério e depois o `id`.
-- **200** `ItemView[]` (`storedAt` só para administração; visitante também sem `createdById`).
+- **200** `ItemView[]` (`storedAt` só para administração ou para o ator com reivindicação aceita naquele item aguardando devolução; visitante também sem `createdById`). A busca por `location` considera apenas `foundLocation`, nunca `storedAt`.
 - 422 `VALIDATION`: "Categoria inválida.", "Use no máximo 120 caracteres." (`location`), "Situação inválida.", "Ordenação inválida.", "Informe uma data válida." (`from`/`to`), "A data final deve ser igual ou posterior à inicial." (em `to`).
 
 #### `GET /items/{id}` — público (P26)
@@ -376,7 +378,7 @@ Query (todos opcionais; valor vazio é ignorado): `category` (uma de `/catalog`)
 | `categoryOther` | obrigatório **somente** com `category=Outros` (3–40, trim; vazio: "Especifique a categoria."). Com outra categoria o valor enviado é ignorado e gravado `null` |
 | `foundLocation` | texto livre, 3–120 (trim; "Informe o local onde foi encontrado.", "Use pelo menos 3 caracteres.", "Use no máximo 120 caracteres.") |
 | `foundDate` | `YYYY-MM-DD` válida, não futura ("Informe a data.", "Informe uma data válida.", "A data não pode ser no futuro.") |
-| `storedAt` | **opcional**: vazio/ausente = `null`; se vier, 3–120 (trim). Só administração o lê de volta |
+| `storedAt` | **obrigatório**, texto 3–120 (trim; "Informe onde o item está guardado.", "Use pelo menos 3 caracteres.", "Use no máximo 120 caracteres."). Só quem a regra de visibilidade permite o lê de volta; o autor comum não |
 | `photo` | opcional. JPEG, PNG ou WebP **identificado pelo conteúdo** (assinatura do arquivo; extensão e `Content-Type` declarados são ignorados), até 10 MB. Parte de arquivo vazia e sem nome (navegador sem arquivo escolhido) = sem foto |
 
 Campos extras (`status`, `createdById`, `photoUrl`…) são ignorados: o item nasce `available`, com `createdById` = usuário do token.
@@ -393,7 +395,7 @@ curl -X POST http://127.0.0.1:8000/items -H "Authorization: Bearer $TOKEN" \
 
 #### `PUT /items/{id}` — admin
 Mesmos campos de `POST /items`, mais `removePhoto` (`true`/`1`/`on`). Foto: arquivo novo substitui (e apaga o arquivo antigo); sem arquivo mantém; `removePhoto=true` sem arquivo remove (arquivo novo vence `removePhoto`). O status do item não muda.
-- **200** `Item` (admin: inclui `storedAt`; `storedAt` vazio limpa para `null`). Ordem de erros: 401 → 404 → 403 `FORBIDDEN` "Somente a administração pode editar itens." → 409 `ITEM_RETURNED` "Itens devolvidos não podem ser editados." → 422.
+- **200** `Item` (admin: inclui `storedAt`, obrigatório como no registro; vazio → 422 "Informe onde o item está guardado."). Ordem de erros: 401 → 404 → 403 `FORBIDDEN` "Somente a administração pode editar itens." → 409 `ITEM_RETURNED` "Itens devolvidos não podem ser editados." → 422.
 
 #### `DELETE /items/{id}` — admin
 **204**. Remove também as reivindicações do item (P18) e o arquivo da foto enviada (nunca as ilustrações do seed). Erros: 404; 403 "Somente a administração pode excluir itens."; 409 `ITEM_RETURNED` "Itens devolvidos não podem ser excluídos.".
@@ -514,7 +516,7 @@ Corpo: `{ "role": "admin" }` (`user` | `admin`) e/ou `{ "active": false }`. **20
 
 Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (`user-marina`), `rafael@` (`user-rafael`), `lucas@`, `beatriz@` — todas `role: user`, `affiliation: institutional` (gravado explicitamente, apesar do domínio `@demo.test`); `externo@` (`user-externo`): `user` + `external`; `admin@` (`user-admin`): `admin` + `institutional`. Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<arquivo>.svg|webp`. Locais de encontro e de guarda do seed são texto de exemplo; todos os itens "Outros" do seed têm `categoryOther` (ex.: "Mochila escolar", "Garrafa térmica", "Guarda-chuva", "Óculos de grau"); o carregador (`item-11`) segue em "Eletrônicos", sem detalhe.
 
-**Migração Alembic `0004`** (`item_free_location_other_category`; `alembic upgrade head`): `items.found_location` 40→120, `items.stored_at` passa a aceitar NULL, nova coluna `items.category_detail` (40, NULL). Nenhum dado é alterado ou apagado. Bancos antigos sem `items.category_detail` são acusados pela checagem de esquema da subida. Downgrade: `stored_at` NULL vira "Não informado", `found_location` é truncado a 40 caracteres e `category_detail` é descartado.
+**Migração Alembic `0004`** (`item_free_location_other_category`; `alembic upgrade head`): `items.found_location` 40→120, nova coluna `items.category_detail` (40, NULL). `items.stored_at` **continua NOT NULL** (a 0004 não o altera). Nenhum dado é alterado ou apagado. Bancos antigos sem `items.category_detail` são acusados pela checagem de esquema da subida. Downgrade: `found_location` é truncado a 40 caracteres e `category_detail` é descartado.
 
 ## 6. Diferenças em relação ao mock (para o cliente tratar)
 
@@ -526,7 +528,7 @@ Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (`user-m
 6. **Códigos novos** que o tipo `ServiceErrorCode` do frontend ainda não tem: `RATE_LIMITED`, `EMAIL_NOT_VERIFIED`, `CSRF_FAILED`, `INVALID_TOKEN`, `CAPTCHA_FAILED`, `ACCOUNT_DISABLED`, `TWO_FACTOR_REQUIRED`. Também novos: `role` reduzido a `user|admin` e `affiliation` (`institutional|external`) em `AccountUser`, `emailVerified` no usuário da sessão, `acceptTerms` no cadastro e o ramo `needs_terms` do Google.
 7. **Latência/falha simulada** do mock não existem; erros de rede são `NETWORK` no cliente.
 8. **Concorrência**: o servidor serializa as escritas (um processo); duas reivindicações simultâneas do mesmo usuário no mesmo item resultam em uma 201 e uma 409 `DUPLICATE_CLAIM`.
-9. **Local livre e `storedAt`**: `foundLocation` deixa de ser enum (texto 3–120); `categoryOther` é novo; `storedAt` é opcional e só vem para administração (a chave é omitida para usuário comum e visitante, inclusive no item embutido de reivindicações e no export de dados).
+9. **Local livre e `storedAt`**: `foundLocation` deixa de ser enum (texto 3–120); `categoryOther` é novo; `storedAt` é obrigatório e só vem para administração ou reivindicante aceito com item aguardando devolução (a chave é omitida para os demais e para visitante, inclusive no item embutido de reivindicações e no export de dados).
 10. **`createdBy`** continua no `ItemDetail` do visitante como `null` (contrato), sem nenhum dado do autor.
 
 ## 7. Cabeçalhos de segurança no Next (recomendação; arquivo do frontend)

@@ -120,10 +120,8 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
               { label: "Categoria", value: formatCategory(item.category, item.categoryOther), icon: Tag },
               { label: "Encontrado em", value: item.foundLocation, icon: MapPin },
               { label: "Data", value: <FoundDate date={item.foundDate} />, icon: Calendar },
-              // Local de guarda: só a administração o recebe (`undefined` = sem permissão); `null` = ainda não informado.
-              ...(item.storedAt !== undefined
-                ? [{ label: "Guardado em", value: item.storedAt ?? "Ainda não informado", icon: Archive }]
-                : []),
+              // Local de guarda: só quem tem permissão o recebe (administração ou reivindicante aceito); `undefined` = sem permissão.
+              ...(item.storedAt !== undefined ? [{ label: "Guardado em", value: item.storedAt, icon: Archive }] : []),
               ...(createdBy ? [{ label: "Registrado por", value: createdBy.name, icon: UserRound }] : []),
             ]}
           />
