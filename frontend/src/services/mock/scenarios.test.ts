@@ -9,6 +9,12 @@ import { DEMO_PASSWORD } from "./seed";
 import { DB_KEY, SESSION_KEY } from "./store";
 import { createHarness, expectCode, fakeFile, validClaim, validItem, type Harness, signInAsRafael, userOf } from "./test-utils";
 
+const CREATOR_MESSAGE = "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração.";
+
+function signInAsLucas(h: Harness) {
+  return h.services.auth.signIn({ email: "lucas@demo.test", password: DEMO_PASSWORD });
+}
+
 /** `student` = usuário institucional demo (Marina); `teacher` = Rafael (usuário institucional de apoio); `admin`. */
 async function as(h: Harness, who: "student" | "teacher" | "admin") {
   if (who === "teacher") return signInAsRafael(h.services);
@@ -206,12 +212,12 @@ describe("RF04 — reivindicação", () => {
   it("AC04.3: usuários diferentes reivindicam o mesmo item", async () => {
     const h = createHarness();
     await as(h, "student");
-    await h.services.claims.create("item-01", validClaim);
+    await h.services.claims.create("item-02", validClaim);
     await as(h, "teacher");
-    await h.services.claims.create("item-01", validClaim);
+    await h.services.claims.create("item-02", validClaim);
     await as(h, "admin");
-    expect((await h.services.claims.listByItem("item-01")).map((c) => c.status)).toEqual(["pending", "pending"]);
-    expect((await h.services.items.get("item-01")).item.status).toBe("under_claim");
+    expect((await h.services.claims.listByItem("item-02")).map((c) => c.status)).toEqual(["pending", "pending"]);
+    expect((await h.services.items.get("item-02")).item.status).toBe("under_claim");
   });
 
   it("AC04.1: duplicada, recusada, aceita-de-outro e papéis são bloqueados com o código certo", async () => {
@@ -221,18 +227,80 @@ describe("RF04 — reivindicação", () => {
     await expectCode(h.services.claims.create("item-05", validClaim), "DUPLICATE_CLAIM");
     await expectCode(h.services.claims.create("item-04", validClaim), "CLAIM_BLOCKED"); // AC04.7
     await expectCode(h.services.claims.create("item-10", validClaim), "ITEM_RETURNED");
-    await as(h, "teacher");
-    await expectCode(h.services.claims.create("item-05", validClaim), "CLAIM_BLOCKED"); // já há aceita
+    await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD });
+    await expectCode(h.services.claims.create("item-05", validClaim), "CLAIM_BLOCKED"); // já há aceita (item de Rafael)
     await as(h, "admin");
     await expectCode(h.services.claims.create("item-01", validClaim), "FORBIDDEN");
   });
 
-  it("P8: quem registrou o item pode reivindicá-lo", async () => {
+  it("P46: quem registrou o item não pode reivindicá-lo (nada é gravado)", async () => {
     const h = createHarness();
     await as(h, "student");
     const mine = await h.services.items.create(validItem);
-    await h.services.claims.create(mine.id, validClaim);
+    const d = await h.services.items.get(mine.id);
+    expect(d.viewer.claim).toEqual({ allowed: false, code: "FORBIDDEN", message: CREATOR_MESSAGE });
+    const err = await expectCode(h.services.claims.create(mine.id, validClaim), "FORBIDDEN");
+    expect(err.message).toBe(CREATOR_MESSAGE);
+    expect((await h.services.items.get(mine.id)).item.status).toBe("available");
+    await as(h, "admin");
+    expect(await h.services.claims.listByItem(mine.id)).toEqual([]);
+  });
+
+  it("P46 ponta a ponta: A cadastra e é recusada; B reivindica; cadastrar não confere posse", async () => {
+    const h = createHarness();
+    await as(h, "student"); // A = Marina
+    const mine = await h.services.items.create(validItem);
+    await expectCode(h.services.claims.create(mine.id, validClaim), "FORBIDDEN");
+    await as(h, "teacher"); // B = Rafael
+    expect((await h.services.items.get(mine.id)).viewer.claim).toEqual({ allowed: true });
+    const claim = await h.services.claims.create(mine.id, validClaim);
+    expect(claim.claimantId).toBe("user-rafael");
     expect((await h.services.items.get(mine.id)).item.status).toBe("under_claim");
+    await as(h, "student"); // A segue bloqueada e sem reivindicação própria
+    const d = await h.services.items.get(mine.id);
+    expect(d.viewer.claim).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    expect(d.myClaims).toEqual([]);
+    await as(h, "admin");
+    await h.services.claims.accept(claim.id);
+    const accepted = (await h.services.claims.listByItem(mine.id)).filter((c) => c.status === "accepted");
+    expect(accepted.map((c) => c.claimantId)).toEqual(["user-rafael"]); // proprietário confirmado = solicitante aceito
+  });
+
+  it("P46: a regra é por item; quem cadastrou outros itens reivindica o de outra pessoa", async () => {
+    const h = createHarness();
+    await as(h, "student");
+    await h.services.items.create(validItem);
+    expect((await h.services.items.get("item-01")).viewer.claim).toEqual({ allowed: true }); // item-01: Rafael
+    await h.services.claims.create("item-01", validClaim);
+  });
+
+  it("P46: item com reivindicações de terceiros — cadastrante vê o bloqueio e nada é alterado", async () => {
+    const h = createHarness();
+    await signInAsLucas(h); // registrou item-03 (claim-01 Beatriz e claim-02 Rafael pendentes)
+    expect((await h.services.items.get("item-03")).viewer.claim).toMatchObject({ allowed: false, code: "FORBIDDEN" });
+    await expectCode(h.services.claims.create("item-03", validClaim), "FORBIDDEN");
+    await as(h, "admin");
+    expect((await h.services.claims.listByItem("item-03")).map((c) => c.id)).toEqual(["claim-01", "claim-02"]);
+    expect((await h.services.items.get("item-03")).item.status).toBe("under_claim");
+  });
+
+  it("P46: administração que cadastrou o item continua sem reivindicar e não vira proprietária", async () => {
+    const h = createHarness();
+    await as(h, "admin");
+    const mine = await h.services.items.create(validItem);
+    const d = await h.services.items.get(mine.id);
+    expect(d.viewer.claim).toEqual({
+      allowed: false,
+      code: "FORBIDDEN",
+      message: "A administração analisa reivindicações, mas não reivindica itens.",
+    });
+    await expectCode(h.services.claims.create(mine.id, validClaim), "FORBIDDEN");
+    expect(await h.services.claims.listByItem(mine.id)).toEqual([]);
+  });
+
+  it("P46: visitante continua UNAUTHENTICATED", async () => {
+    const h = createHarness();
+    await expectCode(h.services.claims.create("item-01", validClaim), "UNAUTHENTICATED");
   });
 
   it("P7: as duas perguntas são obrigatórias", async () => {
@@ -511,13 +579,13 @@ describe("invariantes da máquina de estados após sequências de operações", 
     await as(studentTab, "student");
     await as(teacherTab, "teacher");
     const results = await Promise.all([
-      studentTab.services.claims.create("item-01", validClaim),
-      teacherTab.services.claims.create("item-01", validClaim),
+      studentTab.services.claims.create("item-02", validClaim),
+      teacherTab.services.claims.create("item-02", validClaim),
     ]);
     expect(new Set(results.map((c) => c.claimantId))).toEqual(new Set(["user-marina", "user-rafael"]));
     const adminTab = createHarness({ storage: studentTab.storage });
     await as(adminTab, "admin");
-    const detail = await adminTab.services.items.get("item-01");
+    const detail = await adminTab.services.items.get("item-02");
     expect(detail.item.status).toBe("under_claim");
     expect(detail.claims.map((c) => c.status)).toEqual(["pending", "pending"]);
   });
@@ -539,9 +607,9 @@ describe("invariantes da máquina de estados após sequências de operações", 
 });
 
 describe("ItemDetail.viewer (B1)", () => {
-  it("professor no item com reivindicação aceita de terceiro: claim bloqueado com CLAIM_BLOCKED, sem vazar reivindicações alheias", async () => {
+  it("terceiro no item com reivindicação aceita de outra pessoa: claim bloqueado com CLAIM_BLOCKED, sem vazar reivindicações alheias", async () => {
     const h = createHarness();
-    await as(h, "teacher"); // Rafael
+    await h.services.auth.signIn({ email: "externo@demo.test", password: DEMO_PASSWORD }); // Camila (item-05 é de Rafael)
     const d = await h.services.items.get("item-05"); // aceita: Marina
     expect(d.viewer.claim).toMatchObject({ allowed: false, code: "CLAIM_BLOCKED" });
     expect(d.viewer.claim.allowed === false && d.viewer.claim.message).toMatch(/aceita/);

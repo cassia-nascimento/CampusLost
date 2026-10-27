@@ -45,7 +45,7 @@ Também é possível **criar conta** em `/cadastro` (nome, e-mail, senha de pelo
 - **Duas reivindicações no mesmo item:** aceitar uma **recusa automaticamente** a outra. (No estado inicial, `Chaveiro com três chaves` já tem duas pendentes.)
 - **Várias reivindicações na análise:** como Administração, abrir o item `Chaveiro com três chaves` (duas pendentes), **Analisar** uma delas e usar **Próxima**/**Anterior** ou a lista "Reivindicações deste item" para alternar sem voltar ao item. Aceitar uma: as outras aparecem como **Recusada** na lista, sem recarregar. A partir de 768 px, o link **Voltar ao item** (ou **Voltar ao painel**, se abriu pelo painel) aparece acima do título; no celular a seta do header faz o mesmo.
 - **Editar/excluir (admin):** no detalhe do item, **Editar**; na edição há **Excluir item**, que pede confirmação e informa quantas reivindicações serão removidas junto.
-- **Permissões:** com qualquer usuário comum (institucional ou externo), abrir `/admin` → **Acesso restrito**. A administração **não vê "É meu"** (não reivindica; premissa P8).
+- **Permissões:** com qualquer usuário comum (institucional ou externo), abrir `/admin` → **Acesso restrito**. A administração **não vê "É meu"** (não reivindica; premissa P8). Quem registrou um item também **não vê "É meu"** nele e lê "Você registrou este item, então não pode reivindicá-lo…" (premissa P46); no seed, Rafael registrou `Fones de ouvido sem fio`.
 - **Voltar no celular:** de **Minhas reivindicações** → **Ver item** → voltar retorna a **Minhas reivindicações**; da busca com filtros, o voltar preserva os filtros.
 
 ## 5. Limitações a declarar com honestidade
@@ -57,7 +57,7 @@ Também é possível **criar conta** em `/cadastro` (nome, e-mail, senha de pelo
 - As ações levam de 300 a 600 ms de latência **simulada**; o envio de uma reivindicação encadeia várias operações e leva cerca de 2 s (medido). Avise a plateia para não parecer travamento.
 - Após navegar entre telas, o foco do teclado volta ao início da página (existe o link "Pular para o conteúdo"). É uma limitação de acessibilidade conhecida, não corrigida.
 - A faixa de demonstração ocupa cerca de 78 px (3 linhas) no celular.
-- Premissas **P8–P10, P14–P25 e P40** (SPEC §9) aguardam confirmação da equipe/professor.
+- Premissas **P8–P10, P14–P25, P40 e P46** (SPEC §9) aguardam confirmação da equipe/professor.
 - Verificado em Chromium; Safari, Firefox, leitor de tela e dispositivos reais **não** foram testados (ver `docs/prototype/qa/RELATORIO-QA.md`).
 - Trello e Figma ainda não foram sincronizados com este protótipo.
 

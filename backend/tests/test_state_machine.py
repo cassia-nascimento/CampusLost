@@ -18,6 +18,7 @@ def status_of(client, item_id, headers):
 
 # ---------- AC04.1: botão "É meu" e motivos ----------
 def test_ac04_1_viewer_claim_decisions(client, student, teacher, admin):
+    external = password_login(client, "externo@demo.test")  # item-05 foi registrado pelo professor (P46)
     def claim_decision(item_id, headers):
         return client.get(f"/items/{item_id}", headers=headers).json()["viewer"]["claim"]
 
@@ -36,7 +37,7 @@ def test_ac04_1_viewer_claim_decisions(client, student, teacher, admin):
         "message": "Sua reivindicação para este item foi recusada. Procure a administração.",
     }
     # P14: item com reivindicação aceita bloqueia qualquer outra pessoa
-    assert claim_decision("item-05", teacher) == {
+    assert claim_decision("item-05", external) == {
         "allowed": False,
         "code": "CLAIM_BLOCKED",
         "message": "Este item já tem uma reivindicação aceita e aguarda a devolução.",
@@ -71,8 +72,9 @@ def test_duplicate_active_claim_is_409(client, student):
 
 
 def test_claim_on_blocked_or_returned_items(client, student, teacher):
+    external = password_login(client, "externo@demo.test")
     assert client.post("/items/item-04/claims", json=BODY, headers=student).json()["code"] == "CLAIM_BLOCKED"
-    assert client.post("/items/item-05/claims", json=BODY, headers=teacher).json()["code"] == "CLAIM_BLOCKED"
+    assert client.post("/items/item-05/claims", json=BODY, headers=external).json()["code"] == "CLAIM_BLOCKED"
     r = client.post("/items/item-10/claims", json=BODY, headers=student)
     assert r.status_code == 409 and r.json()["code"] == "ITEM_RETURNED"
     assert client.post("/items/item-zz/claims", json=BODY, headers=student).status_code == 404

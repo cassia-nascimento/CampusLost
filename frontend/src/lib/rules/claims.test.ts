@@ -16,7 +16,7 @@ describe("canClaim: external e e-mail verificado", () => {
   });
 });
 
-describe("canClaim (AC04.1, P8)", () => {
+describe("canClaim (AC04.1, P46)", () => {
   it("usuário comum pode reivindicar item Disponível", () => {
     expect(canClaim(student, makeItem(), [])).toEqual({ allowed: true });
     expect(canClaim(teacher, makeItem(), [])).toEqual({ allowed: true });
@@ -28,8 +28,32 @@ describe("canClaim (AC04.1, P8)", () => {
     expect(canClaim(student, item, others)).toEqual({ allowed: true });
   });
 
-  it("quem registrou o item pode reivindicá-lo (P8)", () => {
-    expect(canClaim(student, makeItem({ createdById: student.id }), [])).toEqual({ allowed: true });
+  it("quem registrou o item não pode reivindicá-lo (P46, AC04.12)", () => {
+    const own = makeItem({ createdById: student.id });
+    const denied = {
+      allowed: false,
+      code: "FORBIDDEN",
+      message: "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração.",
+    };
+    expect(canClaim(student, own, [])).toEqual(denied);
+    expect(() => submitClaim({ actor: student, item: own, itemClaims: [], input, now: NOW, id: "c1" })).toThrow(
+      expect.objectContaining({ code: "FORBIDDEN", message: denied.message }),
+    );
+    // a regra é por item e não mexe nas reivindicações de terceiros
+    expect(canClaim(student, makeItem({ createdById: otherStudent.id }), [])).toEqual({ allowed: true });
+    expect(canClaim(student, { ...own, status: "under_claim" }, [makeClaim({ claimantId: otherStudent.id })])).toEqual(denied);
+  });
+
+  it("administração que registrou o item: a mensagem da capacidade prevalece", () => {
+    expect(canClaim(admin, makeItem({ createdById: admin.id }), [])).toEqual({
+      allowed: false,
+      code: "FORBIDDEN",
+      message: "A administração analisa reivindicações, mas não reivindica itens.",
+    });
+  });
+
+  it("cadastrante com e-mail não verificado: EMAIL_NOT_VERIFIED vem antes", () => {
+    expect(canClaim(unverified, makeItem({ createdById: unverified.id }), [])).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
   });
 
   it("administração não reivindica", () => {

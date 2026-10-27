@@ -11,9 +11,9 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-from app.models import ItemRow
+from app.models import ClaimRow, ItemRow
 from app.rules.items import can_view_stored_at
-from tests.conftest import ITEM_FORM, password_login
+from tests.conftest import FIXED_NOW, ITEM_FORM, password_login
 from tests.helpers import CLAIM
 
 ITEM_IDS = [f"item-{n:02d}" for n in range(1, 12)]
@@ -219,10 +219,16 @@ def test_flow_reject_keeps_hidden(client, admin, lucas, marina):
     assert in_my_claims(client, marina, "item-01")[1] == [None]
 
 
-def test_creator_who_is_also_accepted_claimant_sees_it(client, admin, marina):
+def test_creator_who_is_also_accepted_claimant_sees_it(app, client, admin, marina):
+    # P46: o cadastrante não consegue mais reivindicar o próprio item; o caso só existe em dado legado,
+    # então a reivindicação aceita é gravada direto no banco (a regra de visibilidade continua valendo).
     iid = client.post("/items", data=ITEM_FORM, headers=marina).json()["id"]
-    cid = _claim(client, marina, iid)
-    client.post(f"/claims/{cid}/accept", headers=admin)
+    with app.state.session_factory() as s:
+        item = s.get(ItemRow, iid)
+        item.status = "under_claim"
+        s.add(ClaimRow(id="claim-legado", item_id=iid, claimant_id=item.created_by_id, proof_details="Dado legado.",
+                       lost_where_when="Dado legado.", status="accepted", created_at=FIXED_NOW, reviewed_at=FIXED_NOW))
+        s.commit()
     export = client.get("/me/export", headers=marina).json()["itemsRegistered"]
     by_id = {i["id"]: i.get("storedAt") for i in export}
     assert by_id[iid] == ITEM_FORM["storedAt"]

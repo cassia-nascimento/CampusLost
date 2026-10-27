@@ -35,7 +35,7 @@ Toda falha tem este corpo (mesmo para 404 de rota, 405, 413 e 500):
 |---|---|---|
 | `UNAUTHENTICATED` | 401 | Sem sessão ("Entre na sua conta para continuar."), token inválido/expirado ("Sua sessão expirou. Entre novamente."), credencial Google inválida. |
 | `INVALID_CREDENTIALS` | 401 / 403 | Login: e-mail inexistente, senha errada, conta só-Google ou conta excluída (401, mensagem única: "E-mail ou senha incorretos."). **403** em `DELETE /me` com confirmação errada. |
-| `FORBIDDEN` | 403 | Papel sem permissão. |
+| `FORBIDDEN` | 403 | Papel sem permissão. Também em `POST /items/{id}/claims` quando o usuário autenticado é quem **registrou o item** (`items.created_by_id`, P46/AC04.12): "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração." Nada é gravado; o `viewer.claim` do detalhe já traz `allowed:false, code:"FORBIDDEN"` com essa mensagem. Administração continua barrada antes, pela capacidade. |
 | `FORBIDDEN_DOMAIN` | 403 | **Não é mais emitido** (e-mail Google fora do domínio institucional agora vira conta com `affiliation: external`). Mantido na tabela por compatibilidade com o tipo do frontend. |
 | `EMAIL_NOT_VERIFIED` | 403 | **Novo.** Conta de senha ainda sem e-mail confirmado tentou cadastrar item (`POST /items`) ou reivindicar (`POST /items/{id}/claims`). "Confirme seu e-mail para continuar. Enviamos um link de confirmação para a sua caixa de entrada." O `viewer.claim` do detalhe do item já traz `allowed:false, code:"EMAIL_NOT_VERIFIED"`. |
 | `CSRF_FAILED` | 403 | **Novo.** Modo cookie sem `X-Requested-With` ou com `Origin` não permitida. |
@@ -405,7 +405,7 @@ Mesmos campos de `POST /items`, mais `removePhoto` (`true`/`1`/`on`). Foto: arqu
 #### `POST /items/{id}/claims` — `user`
 Corpo: `{ "proofDetails": "Tem um adesivo azul na parte de trás.", "lostWhereWhen": "Biblioteca, ontem de manhã." }` — `proofDetails` 10–500, `lostWhereWhen` 5–300 (trim). Item `available` passa a `under_claim`.
 - **201** `Claim` (`status: "pending"`).
-- 422 `VALIDATION` (primeiro, antes da checagem de sessão); 401; 403 (admin: "Você não tem permissão para realizar esta ação."); 404 item; e as decisões de `viewer.claim`: 409 `ITEM_RETURNED` "Este item já foi devolvido."; 409 `DUPLICATE_CLAIM` ("Sua reivindicação foi aceita. Procure a administração para retirar o item." / "Você já tem uma reivindicação em andamento para este item."); 409 `CLAIM_BLOCKED` ("Sua reivindicação para este item foi recusada. Procure a administração." / "Este item já tem uma reivindicação aceita e aguarda a devolução." — P14).
+- 422 `VALIDATION` (primeiro, antes da checagem de sessão); 401; 403 (admin: "Você não tem permissão para realizar esta ação."); 404 item; e as decisões de `viewer.claim`: 409 `ITEM_RETURNED` "Este item já foi devolvido."; 409 `DUPLICATE_CLAIM` ("Sua reivindicação foi aceita. Procure a administração para retirar o item." / "Você já tem uma reivindicação em andamento para este item."); 403 `FORBIDDEN` para o cadastrante do item (mensagem acima; checada depois de sessão/capacidade/e-mail e antes de status e reivindicações; identidade só da sessão e do banco, `claimantId`/`createdById` no corpo são ignorados); 409 `CLAIM_BLOCKED` ("Sua reivindicação para este item foi recusada. Procure a administração." / "Este item já tem uma reivindicação aceita e aguarda a devolução." — P14).
 
 #### `GET /items/{id}/claims` — admin
 **200** `ClaimView[]`, mais antigas primeiro. 404 se o item não existir.

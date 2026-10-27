@@ -24,7 +24,7 @@ export function canViewClaim(actor: User | null | undefined, claim: Claim): Deci
 }
 
 /**
- * O usuário pode reivindicar este item? (RF04 / AC04.1, P8)
+ * O usuário pode reivindicar este item? (RF04 / AC04.1, AC04.12, P46)
  * `itemClaims` são as reivindicações do item (de qualquer usuário; a função filtra).
  */
 export function canClaim(
@@ -38,6 +38,13 @@ export function canClaim(
   }
   const verified = checkEmailVerified(actor);
   if (!verified.allowed) return verified;
+  // Quem registrou o item não o reivindica (P46).
+  if (item.createdById === actor.id) {
+    return deny(
+      "FORBIDDEN",
+      "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração.",
+    );
+  }
   if (item.status === "returned") {
     return deny("ITEM_RETURNED", "Este item já foi devolvido.");
   }

@@ -12,6 +12,9 @@ from .item_status import assert_transition
 from .permissions import email_not_verified, has_capability
 
 
+CREATOR_CLAIM_MESSAGE = "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração."
+
+
 def is_active_claim(claim: ClaimRow) -> bool:
     return claim.status in ("pending", "accepted")
 
@@ -30,7 +33,7 @@ def can_view_claim(actor: Any, claim: ClaimRow) -> Decision:
 
 
 def can_claim(actor: Any, item: ItemRow, item_claims: Sequence[ClaimRow]) -> Decision:
-    """O usuário pode reivindicar este item? (RF04 / AC04.1, P8, P14)"""
+    """O usuário pode reivindicar este item? (RF04 / AC04.1, AC04.12, P14, P46)"""
     if actor is None:
         return deny("UNAUTHENTICATED", "Entre para reivindicar este item.")
     if not has_capability(actor, "claim_item"):
@@ -38,6 +41,9 @@ def can_claim(actor: Any, item: ItemRow, item_claims: Sequence[ClaimRow]) -> Dec
     unverified = email_not_verified(actor)
     if unverified:
         return unverified
+    # Quem registrou o item não o reivindica (P46): a identidade vem da sessão e de `items.created_by_id`.
+    if item.created_by_id == actor.id:
+        return deny("FORBIDDEN", CREATOR_CLAIM_MESSAGE)
     if item.status == "returned":
         return deny("ITEM_RETURNED", "Este item já foi devolvido.")
     mine = [c for c in item_claims if c.claimant_id == actor.id]
