@@ -65,7 +65,7 @@ export const rawItem = {
   foundLocation: "Bloco A",
   foundDate: "2026-10-20",
   storedAt: "Portaria",
-  photoUrl: "/uploads/seed/chaveiro.svg",
+  photoUrl: "/uploads/seed/chaveiro.webp",
   status: "under_claim",
   createdById: "user-lucas",
   createdAt: "2026-10-20T13:00:00.000Z",

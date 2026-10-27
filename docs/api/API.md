@@ -60,8 +60,8 @@ Ordem de verificação (igual à do mock): sessão → existência do recurso �
 
 ### 1.2 Regra de `photoUrl`
 
-- `photoUrl` substitui `photoDataUrl`. É `null` (sem foto) ou um **caminho relativo ao servidor da API**: `/uploads/<uuid32>.jpg|png|webp` (foto enviada) ou `/uploads/seed/<slug>.svg` (ilustração do seed, P27).
-- O cliente monta a URL final com `API_BASE + photoUrl` (ex.: `http://127.0.0.1:8000/uploads/seed/oculos.svg`). Se usar `next/image`, liberar o host da API em `images.remotePatterns` (e `dangerouslyAllowSVG` para os SVG do seed, ou usar `<img>`/`unoptimized`).
+- `photoUrl` substitui `photoDataUrl`. É `null` (sem foto) ou um **caminho relativo ao servidor da API**: `/uploads/<uuid32>.jpg|png|webp` (foto enviada) ou `/uploads/seed/<arquivo>.svg|webp` (ilustração do seed, P27).
+- O cliente monta a URL final com `API_BASE + photoUrl` (ex.: `http://127.0.0.1:8000/uploads/seed/oculos.webp`). Se usar `next/image`, liberar o host da API em `images.remotePatterns` (e `dangerouslyAllowSVG` para os SVG do seed, ou usar `<img>`/`unoptimized`).
 - Os arquivos são públicos (`GET /uploads/<arquivo>`, sem autenticação), com nome aleatório não adivinhável.
 - A API **não redimensiona** (o mock reduzia para 640 px no navegador). O cliente pode continuar reduzindo antes de enviar; o limite do servidor é 10 MB.
 
@@ -133,7 +133,7 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
   "foundLocation": "Bloco A",
   "foundDate": "2026-10-20",
   "storedAt": "Portaria",
-  "photoUrl": "/uploads/seed/chaveiro.svg",
+  "photoUrl": "/uploads/seed/chaveiro.webp",
   "status": "under_claim",
   "createdById": "user-lucas",
   "createdAt": "2026-10-20T13:00:00.000Z"
@@ -146,7 +146,7 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
 - **Visitante** (sem `Authorization`): `PublicItemView` — **as chaves `storedAt` e `createdById` não existem no JSON**:
 ```json
 { "id": "item-03", "title": "...", "description": "...", "category": "Chaves", "foundLocation": "Bloco A",
-  "foundDate": "2026-10-20", "photoUrl": "/uploads/seed/chaveiro.svg", "status": "under_claim", "createdAt": "2026-10-20T13:00:00.000Z" }
+  "foundDate": "2026-10-20", "photoUrl": "/uploads/seed/chaveiro.webp", "status": "under_claim", "createdAt": "2026-10-20T13:00:00.000Z" }
 ```
 
 ### `Claim`
@@ -169,7 +169,7 @@ Além do corpo, `signup`, `login`, `google` (`signed_in`), `google/complete`, `r
   "id": "claim-06", "itemId": "item-07", "claimantId": "user-marina",
   "proofDetails": "...", "lostWhereWhen": "...", "status": "pending", "createdAt": "2026-10-21T09:00:00.000Z",
   "claimant": { "id": "user-marina", "name": "Marina Alves", "email": "marina@demo.test", "role": "user" },
-  "item": { "id": "item-07", "title": "Calculadora científica", "...": "...", "storedAt": "Portaria", "photoUrl": "/uploads/seed/calculadora.svg", "status": "under_claim", "createdById": "user-lucas", "createdAt": "2026-10-19T13:00:00.000Z" }
+  "item": { "id": "item-07", "title": "Calculadora científica", "...": "...", "storedAt": "Portaria", "photoUrl": "/uploads/seed/calculadora.webp", "status": "under_claim", "createdById": "user-lucas", "createdAt": "2026-10-19T13:00:00.000Z" }
 }
 ```
 
@@ -233,7 +233,7 @@ Categorias e locais **demonstrativos** (P5).
 ```
 
 #### `GET /uploads/{arquivo}` — público
-Serve fotos (`/uploads/<uuid>.jpg`) e ilustrações do seed (`/uploads/seed/<slug>.svg`). 404 se não existir.
+Serve fotos (`/uploads/<uuid>.jpg`) e ilustrações do seed (`/uploads/seed/<arquivo>.svg|webp`). 404 se não existir.
 
 ### 4.2 Autenticação
 
@@ -507,7 +507,7 @@ Corpo: `{ "role": "admin" }` (`user` | `admin`) e/ou `{ "active": false }`. **20
 
 ## 5. Dados de demonstração (seed)
 
-Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (`user-marina`), `rafael@` (`user-rafael`), `lucas@`, `beatriz@` — todas `role: user`, `affiliation: institutional` (gravado explicitamente, apesar do domínio `@demo.test`); `externo@` (`user-externo`): `user` + `external`; `admin@` (`user-admin`): `admin` + `institutional`. Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<slug>.svg`.
+Contas `*@demo.test`, senha **`demonstracao123`** (pública): `marina@` (`user-marina`), `rafael@` (`user-rafael`), `lucas@`, `beatriz@` — todas `role: user`, `affiliation: institutional` (gravado explicitamente, apesar do domínio `@demo.test`); `externo@` (`user-externo`): `user` + `external`; `admin@` (`user-admin`): `admin` + `institutional`. Todas já com e-mail verificado. 11 itens (`item-01`…`item-11`; `item-10` e `item-11` devolvidos), 9 reivindicações, 2 devoluções, mesmos ids, textos e datas relativas ao mock (`frontend/src/services/mock/seed.ts`). Fotos: `/uploads/seed/<arquivo>.svg|webp`.
 
 ## 6. Diferenças em relação ao mock (para o cliente tratar)
 

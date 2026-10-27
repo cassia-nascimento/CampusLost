@@ -47,19 +47,19 @@ USERS = [
     ("user-externo", "Visitante Externo", "externo@demo.test", "user", "external"),
 ]
 
-# (n, createdHoursAgo, foundDaysAgo, title, photo, description, category, foundLocation, storedAt, status, createdById)
+# (n, createdHoursAgo, foundDaysAgo, title, photo (arquivo em seed_assets, com extensão), description, category, foundLocation, storedAt, status, createdById)
 ITEMS = [
-    (1, 3, 0, "Fones de ouvido sem fio", "fones-de-ouvido", "Fones intra-auriculares brancos, com estojo de carregamento pequeno.", "Eletrônicos", "Biblioteca", "Biblioteca", "available", "user-rafael"),
-    (2, 26, 1, "Carteira de estudante", "carteira-de-estudante", "Carteira de estudante dentro de uma capinha transparente, encontrada no chão.", "Documentos", "Portaria", "Portaria", "available", "user-admin"),
-    (3, 50, 2, "Chaveiro com três chaves", "chaveiro", "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.", "Chaves", "Bloco A", "Portaria", "under_claim", "user-lucas"),
-    (7, 74, 3, "Calculadora científica", "calculadora", "Calculadora científica preta com capa deslizante e arranhões na tampa.", "Eletrônicos", "Bloco A", "Portaria", "under_claim", "user-lucas"),
-    (4, 98, 4, "Casaco azul-marinho", "casaco", "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.", "Roupas", "Cantina", "Portaria", "available", "user-beatriz"),
-    (5, 122, 5, "Notebook cinza", "notebook", "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.", "Eletrônicos", "Biblioteca", "Portaria", "under_claim", "user-rafael"),
-    (6, 146, 6, "Garrafa térmica verde", "garrafa-termica", "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.", "Outros", "Cantina", "Cantina", "available", "user-admin"),
-    (8, 194, 8, "Guarda-chuva preto", "guarda-chuva", "Guarda-chuva preto automático com cabo curvo de madeira.", "Outros", "Portaria", "Portaria", "available", "user-marina"),
-    (10, 218, 9, "Mochila preta", "mochila", "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.", "Outros", "Bloco A", "Entregue ao dono", "returned", "user-admin"),
-    (9, 266, 11, "Óculos de grau", "oculos", "Óculos de grau com armação preta retangular, dentro de um estojo cinza.", "Outros", "Cantina", "Portaria", "available", "user-rafael"),
-    (11, 362, 15, "Carregador USB-C", "carregador", "Carregador de parede branco com cabo USB-C de 1 metro enrolado.", "Eletrônicos", "Biblioteca", "Entregue ao dono", "returned", "user-admin"),
+    (1, 3, 0, "Fones de ouvido sem fio", "fones-de-ouvido.webp", "Fones intra-auriculares brancos, com estojo de carregamento pequeno.", "Eletrônicos", "Biblioteca", "Biblioteca", "available", "user-rafael"),
+    (2, 26, 1, "Boné bege", "bone.webp", "Boné bege com um bordado verde na frente, encontrado no pátio.", "Roupas", "Portaria", "Portaria", "available", "user-admin"),
+    (3, 50, 2, "Chaveiro com três chaves", "chaveiro.webp", "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.", "Chaves", "Bloco A", "Portaria", "under_claim", "user-lucas"),
+    (7, 74, 3, "Calculadora científica", "calculadora.webp", "Calculadora científica preta com capa deslizante e arranhões na tampa.", "Eletrônicos", "Bloco A", "Portaria", "under_claim", "user-lucas"),
+    (4, 98, 4, "Casaco azul-marinho", "casaco.webp", "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.", "Roupas", "Cantina", "Portaria", "available", "user-beatriz"),
+    (5, 122, 5, "Notebook cinza", "notebook.webp", "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.", "Eletrônicos", "Biblioteca", "Portaria", "under_claim", "user-rafael"),
+    (6, 146, 6, "Garrafa térmica verde", "garrafa-termica.webp", "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.", "Outros", "Cantina", "Cantina", "available", "user-admin"),
+    (8, 194, 8, "Guarda-chuva preto", "guarda-chuva.webp", "Guarda-chuva preto automático com cabo curvo de madeira.", "Outros", "Portaria", "Portaria", "available", "user-marina"),
+    (10, 218, 9, "Mochila preta", "mochila.svg", "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.", "Outros", "Bloco A", "Entregue ao dono", "returned", "user-admin"),
+    (9, 266, 11, "Óculos de grau", "oculos.webp", "Óculos de grau com armação preta retangular, dentro de um estojo cinza.", "Outros", "Cantina", "Portaria", "available", "user-rafael"),
+    (11, 362, 15, "Carregador USB-C", "carregador.svg", "Carregador de parede branco com cabo USB-C de 1 metro enrolado.", "Eletrônicos", "Biblioteca", "Entregue ao dono", "returned", "user-admin"),
 ]
 
 # (n, itemN, claimantId, createdHoursAgo, status, reviewedHoursAgo, proofDetails, lostWhereWhen)
@@ -121,7 +121,7 @@ def seed_database(session: Session, settings: Settings, now=None) -> None:
             ItemRow(
                 id=f"item-{n:02d}", title=title, description=desc, category=cat, found_location=loc,
                 found_date=add_days_str(today, -found_d), stored_at=stored,
-                photo_url=f"/uploads/seed/{photo}.svg", status=status, created_by_id=by, created_at=at(created_h),
+                photo_url=f"/uploads/seed/{photo}", status=status, created_by_id=by, created_at=at(created_h),
             )
         )
     session.flush()

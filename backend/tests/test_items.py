@@ -52,7 +52,7 @@ def test_empty_filter_values_are_ignored(client):
 
 
 def test_returned_never_appears_even_when_filtered(client):
-    assert ids(client, {"category": "Documentos"}) == ["item-02"]
+    assert ids(client, {"category": "Documentos"}) == []
     assert ids(client, {"location": "Biblioteca"}) == ["item-01", "item-05"]  # item-11 (devolvido) fica de fora
 
 
@@ -179,7 +179,7 @@ def test_admin_updates_item(client, admin):
     assert item["id"] == "item-01" and item["title"] == "Fones azuis" and item["storedAt"] == "Secretaria"
     assert item["status"] == "available"
     assert item["createdById"] == "user-rafael" and item["createdAt"].startswith("2026-10-22T12:00")
-    assert item["photoUrl"] == "/uploads/seed/fones-de-ouvido.svg"  # sem foto no envio: mantém
+    assert item["photoUrl"] == "/uploads/seed/fones-de-ouvido.webp"  # sem foto no envio: mantém
 
 
 def test_update_keeps_status(client, admin):

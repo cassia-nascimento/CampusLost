@@ -420,11 +420,11 @@ describe("AC06.1 — editar e excluir", () => {
     expect((await h.services.items.update("item-01", { ...validItem, photo: null })).photoDataUrl).toBeUndefined();
   });
 
-  it("foto ilustrativa do seed (/seed/*.svg) é mantida ao editar sem trocar a foto (P27)", async () => {
+  it("foto ilustrativa do seed (/seed/*.svg|webp) é mantida ao editar sem trocar a foto (P27)", async () => {
     const h = createHarness();
     await as(h, "admin");
     const before = (await h.services.items.get("item-01")).item.photoDataUrl;
-    expect(before).toBe("/seed/fones-de-ouvido.svg");
+    expect(before).toBe("/seed/fones-de-ouvido.webp");
     expect((await h.services.items.update("item-01", { ...validItem, title: "Fones novos" })).photoDataUrl).toBe(before);
     expect((await h.services.items.get("item-01")).item.photoDataUrl).toBe(before);
     expect((await h.services.items.update("item-01", { ...validItem, photo: null })).photoDataUrl).toBeUndefined();

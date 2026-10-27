@@ -100,16 +100,18 @@ export interface Db {
 export const AUDIT_LIMIT = 500;
 
 /**
- * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg`, P27). v3: login por senha e Google (P29/P30;
+ * v2: o seed ganhou fotos ilustrativas (`/seed/*.svg|webp`, P27). v3: login por senha e Google (P29/P30;
  * `credentials` no banco). Subir a versão troca a chave do armazenamento e faz navegadores com o
  * seed antigo receberem o novo (o antigo é removido).
  * v4: papel `external`, `emailVerified` no usuário, política de senha nova (senha demo `demonstracao123`) e `tokens`
  * (verificação de e-mail e redefinição de senha).
  * v6: papéis `user`/`admin` e `affiliation` (vínculo pelo domínio do e-mail). Contas antigas do mock NÃO são migradas:
  * o banco v5 é descartado e o seed novo o substitui.
+ * v7: o seed trocou a "Carteira de estudante" por "Boné bege" e 9 dos 11 itens passaram a usar fotos reais
+ * (`/seed/*.webp`); `mochila` e `carregador` seguem ilustrações SVG (P27). O banco v6 é descartado.
  * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 /** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
 export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
@@ -181,7 +183,7 @@ export function buildSeed(now: Date): Db {
   const items: Item[] = [
     item(1, 3, 0, {
       title: "Fones de ouvido sem fio",
-      photoDataUrl: "/seed/fones-de-ouvido.svg",
+      photoDataUrl: "/seed/fones-de-ouvido.webp",
       description: "Fones intra-auriculares brancos, com estojo de carregamento pequeno.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
@@ -190,10 +192,10 @@ export function buildSeed(now: Date): Db {
       createdById: "user-rafael",
     }),
     item(2, 26, 1, {
-      title: "Carteira de estudante",
-      photoDataUrl: "/seed/carteira-de-estudante.svg",
-      description: "Carteira de estudante dentro de uma capinha transparente, encontrada no chão.",
-      category: "Documentos",
+      title: "Boné bege",
+      photoDataUrl: "/seed/bone.webp",
+      description: "Boné bege com um bordado verde na frente, encontrado no pátio.",
+      category: "Roupas",
       foundLocation: "Portaria",
       storedAt: "Portaria",
       status: "available",
@@ -201,7 +203,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(3, 50, 2, {
       title: "Chaveiro com três chaves",
-      photoDataUrl: "/seed/chaveiro.svg",
+      photoDataUrl: "/seed/chaveiro.webp",
       description: "Chaveiro de borracha vermelho com três chaves, sendo uma delas de cadeado.",
       category: "Chaves",
       foundLocation: "Bloco A",
@@ -211,7 +213,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(7, 74, 3, {
       title: "Calculadora científica",
-      photoDataUrl: "/seed/calculadora.svg",
+      photoDataUrl: "/seed/calculadora.webp",
       description: "Calculadora científica preta com capa deslizante e arranhões na tampa.",
       category: "Eletrônicos",
       foundLocation: "Bloco A",
@@ -221,7 +223,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(4, 98, 4, {
       title: "Casaco azul-marinho",
-      photoDataUrl: "/seed/casaco.svg",
+      photoDataUrl: "/seed/casaco.webp",
       description: "Casaco de moletom azul-marinho, tamanho M, com capuz e bolso frontal.",
       category: "Roupas",
       foundLocation: "Cantina",
@@ -231,7 +233,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(5, 122, 5, {
       title: "Notebook cinza",
-      photoDataUrl: "/seed/notebook.svg",
+      photoDataUrl: "/seed/notebook.webp",
       description: "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.",
       category: "Eletrônicos",
       foundLocation: "Biblioteca",
@@ -241,7 +243,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(6, 146, 6, {
       title: "Garrafa térmica verde",
-      photoDataUrl: "/seed/garrafa-termica.svg",
+      photoDataUrl: "/seed/garrafa-termica.webp",
       description: "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.",
       category: "Outros",
       foundLocation: "Cantina",
@@ -251,7 +253,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(8, 194, 8, {
       title: "Guarda-chuva preto",
-      photoDataUrl: "/seed/guarda-chuva.svg",
+      photoDataUrl: "/seed/guarda-chuva.webp",
       description: "Guarda-chuva preto automático com cabo curvo de madeira.",
       category: "Outros",
       foundLocation: "Portaria",
@@ -271,7 +273,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(9, 266, 11, {
       title: "Óculos de grau",
-      photoDataUrl: "/seed/oculos.svg",
+      photoDataUrl: "/seed/oculos.webp",
       description: "Óculos de grau com armação preta retangular, dentro de um estojo cinza.",
       category: "Outros",
       foundLocation: "Cantina",

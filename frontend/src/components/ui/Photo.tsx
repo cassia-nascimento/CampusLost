@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { isRenderablePhotoSrc } from "@/lib/validation/photo";
 
 export interface PhotoProps {
-  /** Caminho (`/seed/*.svg`), data URL, blob ou URL de `/uploads/*` da API (qualquer outro valor vira o placeholder). Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
+  /** Caminho (`/seed/*.svg|webp`), data URL, blob ou URL de `/uploads/*` da API (qualquer outro valor vira o placeholder). Sem valor, mostra o placeholder de etiqueta (DESIGN §2.5). */
   src?: string | null;
   /** Vazio (`""`) quando a foto é decorativa (o título do item já a descreve). */
   alt: string;
@@ -17,7 +17,7 @@ export interface PhotoProps {
 }
 
 /**
- * Foto do item com placeholder. `<img>` simples: as imagens são ilustrações SVG do seed (`/seed/*.svg`), data
+ * Foto do item com placeholder. `<img>` simples: as imagens são imagens do seed (`/seed/*.svg|webp`; fotos reais e ilustrações), data
  * URLs ou blobs do protótipo, que o otimizador do Next não trata (DESIGN §2.5).
  */
 export function Photo({ src, alt, aspect, iconSize = "md", eager = false, className }: PhotoProps) {

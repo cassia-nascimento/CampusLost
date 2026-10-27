@@ -79,6 +79,10 @@ describe("guardas de foto com a API", () => {
 
   it("isSeedImage: só ilustrações do seed (legenda 'Imagem ilustrativa')", () => {
     expect(isSeedImage("/seed/mochila.svg", API)).toBe(true);
+    expect(isSeedImage(`${API}/uploads/seed/bone.webp`, API)).toBe(true);
+    expect(isStoredPhotoSrc(`${API}/uploads/seed/bone.webp`, API)).toBe(true);
+    expect(isStoredPhotoSrc("/seed/bone.webp", API)).toBe(true);
+    expect(isStoredPhotoSrc("/seed/../bone.webp", API)).toBe(false);
     expect(isSeedImage(`${API}/uploads/seed/mochila.svg`, API)).toBe(true);
     expect(isSeedImage(`${API}/uploads/${UUID}.png`, API)).toBe(false);
     expect(isSeedImage("https://exemplo.com/uploads/seed/x.svg", API)).toBe(false);

@@ -90,7 +90,7 @@ export interface Item {
   storedAt: string;
   /**
    * Foto do item. Aceita um data URL (`data:image/jpeg;base64,...`, itens criados pelo usuário no mock), um
-   * caminho público `/seed/<slug>.svg` (ilustrações do seed, P27) OU, em modo API, a URL absoluta de
+   * caminho público `/seed/<slug>.svg|webp` (imagens demonstrativas do seed, P27) OU, em modo API, a URL absoluta de
    * `/uploads/...` (a API devolve `photoUrl` relativo; o cliente aplica o prefixo). Nome do campo histórico.
    */
   photoDataUrl?: string;

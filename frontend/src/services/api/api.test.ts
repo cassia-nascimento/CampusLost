@@ -19,7 +19,7 @@ describe("mapeamento (API.md §3)", () => {
     const { api, services } = createHarness();
     api.reply({ json: [rawItem, { ...rawItem, id: "item-04", photoUrl: null }] });
     const [withPhoto, withoutPhoto] = await services.items.list();
-    expect(withPhoto.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(withPhoto.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.webp`);
     expect("photoUrl" in withPhoto).toBe(false);
     expect(withoutPhoto.photoDataUrl).toBeUndefined();
     expect(withPhoto).toMatchObject({ id: "item-03", storedAt: "Portaria", createdById: "user-lucas" });
@@ -66,7 +66,7 @@ describe("mapeamento (API.md §3)", () => {
     });
     const detail = await services.items.get("item-03");
     expect(api.calls[0].url.pathname).toBe("/items/item-03");
-    expect(detail.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(detail.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.webp`);
     expect(detail.createdBy?.name).toBe("Lucas Prado");
     expect(detail.myClaims).toHaveLength(1);
     expect(detail.claims[0].claimant.email).toBe("marina@demo.test");
@@ -86,7 +86,7 @@ describe("mapeamento (API.md §3)", () => {
     const [view] = await services.claims.listMine();
     expect("reviewedAt" in view).toBe(false);
     expect(view.claimant.id).toBe("user-marina");
-    expect(view.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(view.item.photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.webp`);
   });
 
   it("decisão de reivindicação e devolução", async () => {
@@ -270,7 +270,7 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
     expect(api.calls[1]).toMatchObject({ method: "GET" });
     expect(api.calls[1].url.pathname).toBe("/me/export");
     expect(data.account.provider).toBe("password");
-    expect(data.itemsRegistered[0].photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.svg`);
+    expect(data.itemsRegistered[0].photoDataUrl).toBe(`${BASE}/uploads/seed/chaveiro.webp`);
     expect(data.claims).toHaveLength(1);
 
     api.reply({ status: 204 });
@@ -387,7 +387,7 @@ describe("sessão por cookie HttpOnly", () => {
     });
     const [item] = await h.services.items.list();
     expect(urls[0]).toBe("/backend/items");
-    expect(item.photoDataUrl).toBe("/backend/uploads/seed/chaveiro.svg");
+    expect(item.photoDataUrl).toBe("/backend/uploads/seed/chaveiro.webp");
   });
 
   it("signUp, demo e Google marcam a sessão", async () => {

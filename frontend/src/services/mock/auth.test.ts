@@ -283,22 +283,24 @@ describe("Google institucional (P30)", () => {
 });
 
 describe("migração DB_VERSION (P29/P30)", () => {
-  it("DB_VERSION é 6; v1/v2/v3 antigos são descartados e o seed novo traz credenciais", () => {
-    expect(DB_VERSION).toBe(6);
+  it("DB_VERSION é 7; v1/v2/v5/v6 antigos são descartados e o seed novo traz credenciais", () => {
+    expect(DB_VERSION).toBe(7);
     const storage = createMemoryStorage();
     const { credentials: _c, ...legacy } = buildSeed(TEST_NOW);
     void _c;
     storage.setItem("campuslost:proto:v1:db", JSON.stringify({ ...legacy, version: 1 }));
     storage.setItem("campuslost:proto:v2:db", JSON.stringify({ ...legacy, version: 2 }));
+    storage.setItem("campuslost:proto:v6:db", JSON.stringify({ ...legacy, version: 6 }));
     // contas antigas do mock (papéis student/teacher/external) NÃO são migradas: o v5 é descartado
     storage.setItem("campuslost:proto:v5:db", JSON.stringify({ ...legacy, version: 5 }));
     const db = new MockStore({ storage, now: () => TEST_NOW }).read();
-    expect(db.version).toBe(6);
+    expect(db.version).toBe(7);
     expect(db.tokens).toEqual([]);
     expect(db.credentials).toHaveLength(db.users.length);
     expect(storage.getItem("campuslost:proto:v1:db")).toBeNull();
     expect(storage.getItem("campuslost:proto:v2:db")).toBeNull();
     expect(storage.getItem("campuslost:proto:v5:db")).toBeNull();
+    expect(storage.getItem("campuslost:proto:v6:db")).toBeNull();
   });
 
   it("banco v5 sem `credentials` (adulterado) é descartado e regenerado", () => {

@@ -26,10 +26,10 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-const SEED_PATH = /^(?:\/uploads)?\/seed\/[a-z0-9-]+\.svg$/;
+const SEED_PATH = /^(?:\/uploads)?\/seed\/[a-z0-9-]+\.(?:svg|webp)$/;
 
 /**
- * Imagens ilustrativas do seed (P27): `/seed/*.svg` (mock) ou `<API>/uploads/seed/*.svg` (API). Fotos enviadas
+ * Imagens ilustrativas do seed (P27): `/seed/*.svg|webp` (mock) ou `<API>/uploads/seed/*.svg|webp` (API). Fotos enviadas
  * pelo usuário (data URL, `/uploads/<uuid>.jpg`) não entram. Só aceita URL absoluta da própria API.
  */
 export function isSeedImage(src: string | null | undefined, apiBaseUrl: string = getApiBaseUrl()): boolean {

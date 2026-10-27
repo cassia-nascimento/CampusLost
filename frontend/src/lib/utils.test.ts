@@ -40,6 +40,8 @@ describe("cn", () => {
 describe("isSeedImage", () => {
   it("reconhece só os caminhos das imagens ilustrativas do seed", () => {
     expect(isSeedImage("/seed/mochila.svg")).toBe(true);
+    expect(isSeedImage("/seed/bone.webp")).toBe(true);
+    expect(isSeedImage("/seed/bone.png")).toBe(false);
     expect(isSeedImage("data:image/jpeg;base64,AAAA")).toBe(false);
     expect(isSeedImage("blob:http://localhost/abc")).toBe(false);
     expect(isSeedImage("https://exemplo.com/seed/x.svg")).toBe(false);

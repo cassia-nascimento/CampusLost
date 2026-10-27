@@ -13,6 +13,7 @@ log = logging.getLogger("campuslost.photos")
 
 URL_PREFIX = "/uploads/"
 SEED_PREFIX = "/uploads/seed/"
+SEED_EXTENSIONS = {".svg", ".webp"}
 SEED_ASSETS_DIR = Path(__file__).resolve().parent / "seed_assets"
 
 
@@ -39,11 +40,12 @@ def delete_photo_file(settings: Settings, photo_url: str | None) -> None:
 
 
 def install_seed_images(settings: Settings) -> None:
-    """Copia as ilustrações do seed para `uploads/seed/`."""
+    """Copia as imagens do seed (svg e webp) para `uploads/seed/`."""
     dest = settings.uploads_dir / "seed"
     dest.mkdir(parents=True, exist_ok=True)
-    for svg in SEED_ASSETS_DIR.glob("*.svg"):
-        shutil.copyfile(svg, dest / svg.name)
+    for asset in SEED_ASSETS_DIR.iterdir():
+        if asset.suffix in SEED_EXTENSIONS:
+            shutil.copyfile(asset, dest / asset.name)
 
 
 def purge_uploaded_photos(settings: Settings) -> None:

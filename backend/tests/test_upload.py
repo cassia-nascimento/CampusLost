@@ -140,7 +140,7 @@ def test_deleting_item_removes_uploaded_photo_but_never_seed_images(client, admi
     assert path.exists()
     assert client.delete(f"/items/{created['id']}", headers=admin).status_code == 204
     assert not path.exists()
-    seed_file = settings.uploads_dir / "seed" / "chaveiro.svg"
+    seed_file = settings.uploads_dir / "seed" / "chaveiro.webp"
     assert seed_file.exists()
     assert client.delete("/items/item-03", headers=admin).status_code == 204
     assert seed_file.exists()
@@ -154,7 +154,11 @@ def test_uploads_path_traversal_is_blocked(client, settings):
 
 
 def test_seed_images_are_served(client):
-    r = client.get("/uploads/seed/oculos.svg")
+    r = client.get("/uploads/seed/mochila.svg")
     assert r.status_code == 200 and b"<svg" in r.content
+    r = client.get("/uploads/seed/bone.webp")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/webp" and r.content[:4] == b"RIFF"
+    assert client.get("/uploads/seed/../seed/bone.webp").status_code in (200, 404)
+    assert client.get("/uploads/seed/%2e%2e/segredo.txt").status_code == 404
     for item in client.get("/items").json():
         assert client.get(item["photoUrl"]).status_code == 200

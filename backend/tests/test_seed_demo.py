@@ -46,7 +46,7 @@ def test_seed_matches_frontend_mock_data(client):
     items = {i["id"]: i for i in client.get("/items", headers=login(client, "admin")).json()}
     assert sorted(items) == ["item-01", "item-02", "item-03", "item-04", "item-05", "item-06", "item-07", "item-08", "item-09"]
     assert items["item-01"]["title"] == "Fones de ouvido sem fio"
-    assert items["item-01"]["photoUrl"] == "/uploads/seed/fones-de-ouvido.svg"
+    assert items["item-01"]["photoUrl"] == "/uploads/seed/fones-de-ouvido.webp"
     assert items["item-03"]["status"] == "under_claim" and items["item-04"]["status"] == "available"
     assert items["item-01"]["foundDate"] == "2026-10-22"  # hoje
     assert items["item-09"]["foundDate"] == "2026-10-11"  # 11 dias antes
@@ -117,7 +117,7 @@ def test_demo_reset_restores_seed_and_removes_uploads(client, student, admin, se
     assert r.status_code == 204
     assert snapshot(client) == before
     assert not photo.exists()
-    assert (settings.uploads_dir / "seed" / "oculos.svg").exists()
+    assert (settings.uploads_dir / "seed" / "oculos.webp").exists()
     # a sessão de um perfil de demonstração continua valendo; a do usuário criado cai
     assert client.get("/auth/me", headers=student).status_code == 200
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {new_user['token']}"}).status_code == 401

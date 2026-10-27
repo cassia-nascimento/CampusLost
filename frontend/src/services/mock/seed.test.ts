@@ -94,10 +94,10 @@ describe("seed", () => {
     expect(new Set(db.items.map((i) => i.id)).size).toBe(db.items.length);
   });
 
-  it("todo item do seed tem foto ilustrativa /seed/*.svg e o arquivo existe em public/ (P27)", () => {
+  it("todo item do seed tem imagem do seed /seed/*.svg|webp e o arquivo existe em public/ (P27)", () => {
     expect(db.items.length).toBeGreaterThanOrEqual(11);
     for (const item of db.items) {
-      expect(item.photoDataUrl, item.title).toMatch(/^\/seed\/[a-z0-9-]+\.svg$/);
+      expect(item.photoDataUrl, item.title).toMatch(/^\/seed\/[a-z0-9-]+\.(svg|webp)$/);
       expect(isStoredPhotoSrc(item.photoDataUrl!)).toBe(true);
       const file = path.join(process.cwd(), "public", item.photoDataUrl!);
       expect(fs.existsSync(file), `${item.title}: falta ${file}`).toBe(true);
