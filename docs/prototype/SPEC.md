@@ -88,7 +88,7 @@ Regras associadas:
 | `/itens/novo` | Registrar item encontrado | RF02 | logado | Foto (arquivo ou câmera), descrição, categoria (com especificação em "Outros"), local (texto livre), data e onde está guardado agora (obrigatório). |
 | `/itens/[id]/reivindicar` | Formulário de reivindicação | RF04 | usuário | Validação por perguntas (sem chat). |
 | `/minhas-reivindicacoes` | Acompanhamento de status | RF04 | usuário | Substitui notificações (decisão: acompanhar na interface). |
-| `/admin` | Painel (reivindicações pendentes, itens em reivindicação) | RF04/05 | admin | Ponto de partida da administração. |
+| `/admin` | Painel (reivindicações pendentes, itens aguardando devolução) | RF04/05 | admin | Ponto de partida da administração. |
 | `/admin/reivindicacoes/[id]` | Análise: aceitar/recusar | RF04 | admin | Compara descrição pública × resposta do usuário. |
 | `/admin/itens/[id]/editar` | Editar item (e excluir com confirmação) | RF02 | admin | Só administração edita/exclui. |
 | `/admin/devolucoes` | Listagem de devoluções (filtro por período; sem exportar) | RF05 | admin | Relatório simples. |
@@ -173,6 +173,7 @@ Requisitos (sem renumerar RF01):
 
 **RF05**
 - AC05.1 Só administração vê o botão "Registrar devolução", e só com reivindicação aceita.
+- AC05.4 O painel `/admin` tem a fila "Reivindicações pendentes" (mais antigas primeiro) e a lista "Aguardando devolução": só itens com reivindicação aceita e sem devolução, da aceitação mais antiga para a mais nova, com o botão "Registrar devolução". Ao registrar a devolução o item sai da lista e o contador diminui (P45).
 - AC05.2 Confirmação em diálogo; ao confirmar, item → Devolvido, some da busca, aparece em `/admin/devolucoes`.
 - AC05.3 Listagem de devoluções filtra por período; sem botão de exportar.
 
@@ -223,7 +224,7 @@ Requisitos (sem renumerar RF01):
 
 | P21 | Sessão compartilhada entre abas quebraria a demonstração com duas abas (usuário + administração) | Sessão em `sessionStorage` (por aba, sobrevive a recarregar); dados em `localStorage` compartilhados | [Premissa] (revisão T03-a) |
 | P22 | Item pode mostrar ao usuário comum o motivo de não poder reivindicar sem expor reivindicações de terceiros | O serviço devolve `viewer.{claim,edit,delete,registerReturn}` (decisões prontas) em `items.get`; a UI só exibe | decisão técnica (revisão T03-a) |
-| P23 | Painel admin lista uma linha por item em reivindicação, mas o item pode ter várias reivindicações | A linha mostra a reivindicação aceita, se houver; senão a pendente mais antiga | [Premissa] (T08) |
+| P23 (substituída por P45) | Painel admin lista uma linha por item em reivindicação, mas o item pode ter várias reivindicações | A linha mostra a reivindicação aceita, se houver; senão a pendente mais antiga | [Premissa] (T08) |
 | P24 | Após registrar um item, o enunciado manda ir ao detalhe; DESIGN §9.5 diz voltar à lista | Vai ao detalhe do item criado (`router.replace`) | [Premissa] (T06) |
 | P25 | DESIGN §9.9 manda voltar ao painel após registrar devolução | Abre `/admin/devolucoes`, onde a devolução recém-registrada já aparece (fecha o fluxo da demo) | [Premissa] (QA, decisão do orquestrador) |
 | P26 | Usuária pediu (22/10/2026) que qualquer pessoa possa ver os itens sem criar conta ou entrar; a recomendação anterior era exigir login (RF03) e alertava que a busca pública expõe fotos e dados | Lista e detalhe públicos para visitantes. Não aparecem ao visitante: "onde está guardado" e qualquer dado de reivindicação. Reivindicar, registrar item e demais telas continuam exigindo login (visitante vai para `/entrar` e volta ao item depois de entrar). Devolvidos continuam ocultos | **Decisão da usuária** (22/10/2026), ainda não confirmada pela equipe nem pelo professor |
@@ -247,6 +248,7 @@ Detalhes de implementação do domínio (códigos de erro, `subscribe`, chaves d
 | P42 | Lista fixa de locais não representa o campus real e a equipe não definiu a lista | **Local onde foi encontrado = texto livre** (3 a 120 caracteres). Filtro de local por texto "contém" (sem caixa nem acentos, até 120). Locais do seed são só exemplos; nenhum local real do campus foi inventado | [Premissa] (27/10/2026) |
 | P43 | O local de guarda precisa ser conhecido da administração para a retirada, mas não pode ser exposto a quem não deveria ver; versão anterior (opcional e só administração) deixava o dono sem saber onde retirar | **`storedAt` obrigatório** (3–120). **Visível à administração e ao usuário com reivindicação aceita nesse item enquanto ele está Em reivindicação (aguardando devolução).** O mock (`services/mock/viewer.ts`, via `canViewStoredAt` de `lib/rules`) e o backend impõem a regra; a UI não decide. **Fluxo de devolução existente reutilizado: sem estados novos e sem verificação de identidade além da análise da administração.** O protótipo **não** integra com a instituição | [Premissa] (27/10/2026), a validar pela equipe e pelo professor |
 | P44 | A SPEC não pedia navegação entre reivindicações do mesmo item nem rótulo no voltar | **Navegação Anterior/Próxima e lista na análise** (ordem de envio, sem expor respostas das demais); **BackLink** de ≥ 768 px com rótulo vindo da mesma regra do header (`getRouteChrome`). Páginas de gestão (Usuários, Convites, Auditoria) voltam ao Painel ("Voltar ao painel", nome do item de navegação). Nenhuma regra de negócio muda | [Premissa] (27/10/2026) |
+| P45 | O painel misturava, em "Itens em reivindicação", itens com posse aceita e itens só com pendentes, que já estão na fila de análise (P23) | A lista inferior do painel passa a se chamar **"Aguardando devolução"** e traz **só itens com reivindicação aceita ainda sem devolução**, da aceitação mais antiga para a mais nova (`summarizeAwaitingReturn`). Pendentes ficam **somente** na fila superior. Contador/aba usam o rótulo curto "Para devolver". Substitui P23 | [Premissa] (27/10/2026), decisão da equipe (opção A) |
 
 ## 10. Backlog de evolução (não implementado)
 

@@ -388,7 +388,7 @@ Mesma geometria do EmptyState, mas ícone `TriangleAlert` em `danger-bg`/`danger
 
 ### 6.11 Tabs e Filtros
 
-**Tabs** (admin, mobile: alterna "Reivindicações pendentes" / "Itens em reivindicação"): `role="tablist"`; cada aba é botão ≥ 44 px, texto `text-body` 600, contagem em pílula `sunken`; selecionada = texto `ink` + barra inferior de 3 px `primary`; não selecionada = `ink-muted`; setas ← → movem entre abas, `Home`/`End`; painel `role="tabpanel"`. Trilho com borda inferior `line`. Rola horizontalmente só dentro do trilho, se necessário.
+**Tabs** (admin, mobile: alterna "Pendentes" / "Para devolver" (Aguardando devolução)): `role="tablist"`; cada aba é botão ≥ 44 px, texto `text-body` 600, contagem em pílula `sunken`; selecionada = texto `ink` + barra inferior de 3 px `primary`; não selecionada = `ink-muted`; setas ← → movem entre abas, `Home`/`End`; painel `role="tabpanel"`. Trilho com borda inferior `line`. Rola horizontalmente só dentro do trilho, se necessário.
 
 **FilterBar** (busca `/itens`): campos Categoria (select), Local (**texto livre**, "contém", máx. 120, aplicado com a mesma espera das datas; chip "Local: …"), **Encontrado de** e **até** (date; o rótulo diz "Encontrado" porque o filtro usa a data em que o item foi encontrado — SPEC P11). Duas apresentações do mesmo componente:
 
@@ -735,10 +735,10 @@ Cada card mostra o status da **reivindicação** e, quando relevante, o do **ite
 |  Painel                                |
 |  +---------+ +---------+ +---------+   |
 |  |    3    | |    2    | |    5    |   |   <- 3 contagens, text-h2
-|  |Pendentes| |Em reiv. | |Devoluç. |   |
+|  |Pendentes| |Para dev.| |Devoluç. |   |
 |  +---------+ +---------+ +---------+   |
 |  [ Reivindicações pendentes (3) |      |
-|    Itens em reivindicação (2) ]        |   <- Tabs (mobile)
+|    Para devolver (2) ]                 |   <- Tabs (mobile; nome completo: Aguardando devolução)
 |  --------------------------------------|
 |  +----------------------------------+  |
 |  | Fone de ouvido preto*            |  |
@@ -752,7 +752,7 @@ Cada card mostra o status da **reivindicação** e, quando relevante, o do **ite
 +----------------------------------------+
 ```
 
-Desktop (≥ 1024): as duas listas **lado a lado** (sem abas), contagens em linha no topo. A lista "Itens em reivindicação" ordena primeiro os que têm reivindicação **Aceita** (aguardando devolução: linha "{CircleCheck Aceita} Maria Exemplo* · aguardando devolução" + [ Abrir ]), depois os que só têm pendentes ("2 pendentes"). Vazio: "Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui." (opcional da SPEC: indicador de contagem de pendências no item "Painel" do nav).
+Desktop (≥ 1024): as duas listas **lado a lado** (sem abas), contagens em linha no topo. A lista **"Aguardando devolução"** (dica "Da aceitação mais antiga para a mais nova.") mostra **somente** itens com reivindicação **Aceita** ainda sem devolução: linha "{CircleCheck Aceita} Para Maria Exemplo* · aguardando devolução" + [ Registrar devolução ] (`aria-label` "Registrar devolução de {título}", leva à reivindicação aceita). Itens que só têm pendentes **não** aparecem aí: ficam apenas na fila "Reivindicações pendentes" ([ Analisar ]). Nos contadores e na aba mobile o rótulo curto "Para devolver" cabe em 320/360 px (o nome completo "Aguardando devolução" vai em texto só para leitor de tela nos contadores; a aba usa o rótulo curto porque `Tabs` ainda não aceita nome acessível próprio). Vazio da fila: "Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui." Vazio da lista: "Nenhum item aguardando devolução. Quando você aceitar uma reivindicação, o item aparece aqui." (opcional da SPEC: indicador de contagem de pendências no item "Painel" do nav).
 
 ### 9.9 `/admin/reivindicacoes/[id]` — Análise (aceitar/recusar)
 
@@ -1149,9 +1149,10 @@ Os passos 1–4 acima **substituem os textos curtos** do painel de `/entrar` (§
 
 | Contexto | Texto |
 |---|---|
-| Painel | Painel · Reivindicações pendentes · Itens em reivindicação · Devoluções |
+| Painel | Painel · Reivindicações pendentes · Aguardando devolução (curto: Para devolver) · Devoluções |
 | Vazio pendentes | Nenhuma reivindicação pendente. Quando chegar uma, ela aparece aqui. |
-| Linha de item | Aceita para {nome} · aguardando devolução / {n} pendentes |
+| Linha de item | Para {nome} · aguardando devolução · [Registrar devolução] |
+| Vazio aguardando devolução | Nenhum item aguardando devolução. Quando você aceitar uma reivindicação, o item aparece aqui. |
 | Análise | Analisar reivindicação · O que foi publicado · O que a pessoa respondeu · Detalhes que só o dono saberia · Onde e quando perdeu |
 | Aviso | Outras {n} reivindicações neste item: se você aceitar, elas serão recusadas automaticamente. |
 | Aceitar (diálogo) | **Aceitar esta reivindicação?** As outras {n} reivindicações deste item serão recusadas automaticamente. O item continua Em reivindicação até você registrar a devolução. [Aceitar reivindicação] |

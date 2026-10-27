@@ -18,20 +18,20 @@ import { TabPanel, Tabs } from "@/components/ui/Tabs";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { useSession } from "@/hooks/use-session";
 import { useServiceQuery } from "@/hooks/use-service-query";
-import { formatCount, formatRelativeInstant } from "@/lib/format";
+import { formatRelativeInstant } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { services, type ClaimView } from "@/services";
 import { AFFILIATION_LABEL } from "@/types/domain";
-import { summarizeClaimedItems, type ClaimedItemSummary } from "./claimed-items";
+import { summarizeAwaitingReturn, type AwaitingReturnRow } from "./awaiting-return";
 import { toStoredItem } from "./stored-item";
 
 interface DashboardData {
   pending: ClaimView[];
-  claimed: ClaimedItemSummary[];
+  awaiting: AwaitingReturnRow[];
   returnsCount: number;
 }
 
-/** Fila de pendentes (mais antigas primeiro, P17), itens em reivindicação e total de devoluções. */
+/** Fila de pendentes (mais antigas primeiro, P17), itens aguardando devolução (P45) e total de devoluções. */
 async function loadDashboard(): Promise<DashboardData> {
   const [pending, underClaim, returns] = await Promise.all([
     services.claims.listPending(),
@@ -41,7 +41,7 @@ async function loadDashboard(): Promise<DashboardData> {
   const claimsByItem = await Promise.all(underClaim.map((item) => services.claims.listByItem(item.id)));
   return {
     pending,
-    claimed: summarizeClaimedItems(underClaim.map(toStoredItem), claimsByItem),
+    awaiting: summarizeAwaitingReturn(underClaim.map(toStoredItem), claimsByItem),
     returnsCount: returns.length,
   };
 }
@@ -73,14 +73,14 @@ function DashboardContent({ data }: { data: DashboardData }) {
   // não há h2 de seção, então os títulos dos cartões sobem para h2 (como em `/itens` e "Minhas reivindicações").
   const cardHeading = wide ? "h3" : "h2";
   const pendingList = <PendingList claims={data.pending} heading={cardHeading} />;
-  const claimedList = <ClaimedList rows={data.claimed} heading={cardHeading} />;
+  const awaitingList = <AwaitingReturnList rows={data.awaiting} heading={cardHeading} />;
 
   return (
     <>
       {/* Abaixo de 360 px (ex.: 320) o espaçamento encolhe: a soma das larguras mínimas dos rótulos não cabe com 12 px de vão. */}
       <ul className="grid grid-cols-[auto_1fr_auto] gap-2 min-[360px]:gap-3 sm:grid-cols-3">
         <Stat label="Pendentes" value={data.pending.length} />
-        <Stat label="Em reivindicação" value={data.claimed.length} />
+        <Stat label="Para devolver" fullLabel="Aguardando devolução" value={data.awaiting.length} />
         <Stat label="Devoluções" value={data.returnsCount} href="/admin/devolucoes" />
       </ul>
 
@@ -92,11 +92,11 @@ function DashboardContent({ data }: { data: DashboardData }) {
             </SectionHeading>
             {pendingList}
           </section>
-          <section aria-labelledby="painel-itens">
-            <SectionHeading id="painel-itens" hint="Aceitas aguardando devolução vêm primeiro.">
-              Itens em reivindicação
+          <section aria-labelledby="painel-devolucao">
+            <SectionHeading id="painel-devolucao" hint="Da aceitação mais antiga para a mais nova.">
+              Aguardando devolução
             </SectionHeading>
-            {claimedList}
+            {awaitingList}
           </section>
         </div>
       ) : (
@@ -108,14 +108,14 @@ function DashboardContent({ data }: { data: DashboardData }) {
             onChange={setTab}
             items={[
               { id: "pending", label: "Pendentes", count: data.pending.length },
-              { id: "claimed", label: "Em reivindicação", count: data.claimed.length },
+              { id: "awaiting", label: "Para devolver", count: data.awaiting.length },
             ]}
           />
           <TabPanel group="painel" id="pending" active={tab === "pending"} className="pt-5">
             {pendingList}
           </TabPanel>
-          <TabPanel group="painel" id="claimed" active={tab === "claimed"} className="pt-5">
-            {claimedList}
+          <TabPanel group="painel" id="awaiting" active={tab === "awaiting"} className="pt-5">
+            {awaitingList}
           </TabPanel>
         </div>
       )}
@@ -151,14 +151,21 @@ function ManagementLinks() {
   );
 }
 
-function Stat({ label, value, href }: { label: string; value: number; href?: string }) {
+function Stat({ label, fullLabel, value, href }: { label: string; fullLabel?: string; value: number; href?: string }) {
   const body = (
     <>
       <span className="flex items-start justify-between">
         <span className="font-display text-h2 font-bold tabular">{value}</span>
         {href ? <ArrowRight aria-hidden="true" className="size-5 shrink-0 text-primary" /> : null}
       </span>
-      <span className="text-meta text-ink-muted">{label}</span>
+      {fullLabel ? (
+        <span className="text-meta text-ink-muted">
+          <span aria-hidden="true">{label}</span>
+          <span className="sr-only">{fullLabel}</span>
+        </span>
+      ) : (
+        <span className="text-meta text-ink-muted">{label}</span>
+      )}
     </>
   );
   const classes = "flex h-full flex-col gap-1 rounded-lg bg-surface p-2 shadow-card min-[360px]:p-2.5 sm:p-4";
@@ -239,19 +246,19 @@ function PendingList({ claims, heading: Heading }: { claims: ClaimView[]; headin
   );
 }
 
-function ClaimedList({ rows, heading: Heading }: { rows: ClaimedItemSummary[]; heading: CardHeading }) {
+function AwaitingReturnList({ rows, heading: Heading }: { rows: AwaitingReturnRow[]; heading: CardHeading }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg bg-surface shadow-card">
-        <EmptyState title="Nenhum item em reivindicação">
-          Itens com reivindicação em andamento aparecem aqui.
+        <EmptyState title="Nenhum item aguardando devolução">
+          Quando você aceitar uma reivindicação, o item aparece aqui.
         </EmptyState>
       </div>
     );
   }
   return (
     <ul className="flex flex-col gap-3">
-      {rows.map(({ item, accepted, pendingCount, reviewClaimId }) => (
+      {rows.map(({ item, accepted }) => (
         <li key={item.id} className={CARD}>
           <div className="flex gap-3">
             <Photo
@@ -262,27 +269,20 @@ function ClaimedList({ rows, heading: Heading }: { rows: ClaimedItemSummary[]; h
             />
             <div className="min-w-0 flex-1">
               <Heading className="user-text line-clamp-2 font-sans text-lead font-semibold tracking-normal">{item.title}</Heading>
-              {accepted ? (
-                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-muted">
-                  <ClaimStatusBadge status="accepted" />
-                  <span className="user-text">Para {accepted.claimant.name} · aguardando devolução</span>
-                </p>
-              ) : (
-                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-muted">
-                  <ClaimStatusBadge status="pending" />
-                  <span>{formatCount(pendingCount, "pendente", "pendentes")}</span>
-                </p>
-              )}
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-muted">
+                <ClaimStatusBadge status="accepted" />
+                <span className="user-text">Para {accepted.claimant.name} · aguardando devolução</span>
+              </p>
             </div>
           </div>
           <LinkButton
-            href={`/admin/reivindicacoes/${reviewClaimId}`}
+            href={`/admin/reivindicacoes/${accepted.id}`}
             variant="secondary"
             width="mobile-full"
-            aria-label={`${accepted ? "Abrir devolução de" : "Abrir análise de"} ${item.title}`}
+            aria-label={`Registrar devolução de ${item.title}`}
             className="self-start max-sm:self-stretch"
           >
-            Abrir
+            Registrar devolução
           </LinkButton>
         </li>
       ))}
