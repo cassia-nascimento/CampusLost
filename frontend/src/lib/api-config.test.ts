@@ -38,16 +38,16 @@ describe("base same-origin (cookie HttpOnly)", () => {
   it("fotos da API no prefixo same-origin são aceitas; outro host ou // não", () => {
     const ok = `/backend/uploads/${UUID}.jpg`;
     expect(isStoredPhotoSrc(ok, "/backend")).toBe(true);
-    expect(isStoredPhotoSrc(`/backend/uploads/seed/mochila.svg`, "/backend")).toBe(true);
+    expect(isStoredPhotoSrc(`/backend/uploads/seed/mochila.webp`, "/backend")).toBe(true);
     expect(isStoredPhotoSrc(`//evil.test/backend/uploads/${UUID}.jpg`, "/backend")).toBe(false);
     expect(isStoredPhotoSrc(`/backend/uploads/../x.jpg`, "/backend")).toBe(false);
-    expect(isSeedImage("/backend/uploads/seed/mochila.svg", "/backend")).toBe(true);
+    expect(isSeedImage("/backend/uploads/seed/mochila.webp", "/backend")).toBe(true);
   });
 });
 
 describe("guardas de foto com a API", () => {
   it("aceita data URL, /seed e /uploads da própria API; recusa o resto", () => {
-    for (const ok of ["data:image/png;base64,AAAA", "/seed/mochila.svg", `${API}/uploads/${UUID}.jpg`, `${API}/uploads/seed/mochila.svg`]) {
+    for (const ok of ["data:image/png;base64,AAAA", "/seed/mochila.webp", `${API}/uploads/${UUID}.jpg`, `${API}/uploads/seed/mochila.webp`]) {
       expect(isStoredPhotoSrc(ok, API), ok).toBe(true);
     }
     for (const bad of [
@@ -78,16 +78,16 @@ describe("guardas de foto com a API", () => {
   });
 
   it("isSeedImage: só ilustrações do seed (legenda 'Imagem ilustrativa')", () => {
-    expect(isSeedImage("/seed/mochila.svg", API)).toBe(true);
+    expect(isSeedImage("/seed/mochila.webp", API)).toBe(true);
     expect(isSeedImage(`${API}/uploads/seed/bone.webp`, API)).toBe(true);
     expect(isStoredPhotoSrc(`${API}/uploads/seed/bone.webp`, API)).toBe(true);
     expect(isStoredPhotoSrc("/seed/bone.webp", API)).toBe(true);
     expect(isStoredPhotoSrc("/seed/../bone.webp", API)).toBe(false);
-    expect(isSeedImage(`${API}/uploads/seed/mochila.svg`, API)).toBe(true);
+    expect(isSeedImage(`${API}/uploads/seed/mochila.webp`, API)).toBe(true);
     expect(isSeedImage(`${API}/uploads/${UUID}.png`, API)).toBe(false);
     expect(isSeedImage("https://exemplo.com/uploads/seed/x.svg", API)).toBe(false);
     expect(isSeedImage(`${API}/uploads/seed/x.svg.png`, API)).toBe(false);
-    expect(itemPhotoAlt("Mochila", `${API}/uploads/seed/mochila.svg`)).toBe("Foto de Mochila"); // base vem do ambiente (vazio nos testes)
-    expect(itemPhotoAlt("Mochila", "/seed/mochila.svg")).toBe("Imagem ilustrativa: Mochila");
+    expect(itemPhotoAlt("Mochila", `${API}/uploads/seed/mochila.webp`)).toBe("Foto de Mochila"); // base vem do ambiente (vazio nos testes)
+    expect(itemPhotoAlt("Mochila", "/seed/mochila.webp")).toBe("Imagem ilustrativa: Mochila");
   });
 });

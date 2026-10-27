@@ -129,13 +129,14 @@ export const AUDIT_LIMIT = 500;
  * v6: papéis `user`/`admin` e `affiliation` (vínculo pelo domínio do e-mail). Contas antigas do mock NÃO são migradas:
  * o banco v5 é descartado e o seed novo o substitui.
  * v7: o seed trocou a "Carteira de estudante" por "Boné bege" e 9 dos 11 itens passaram a usar fotos reais
- * (`/seed/*.webp`); `mochila` e `carregador` seguem ilustrações SVG (P27). O banco v6 é descartado.
+ * (`/seed/*.webp`). O banco v6 é descartado.
  * v8: `categoryOther` nos itens ("Outros" traz a especificação), `foundLocation` virou texto livre e `storedAt` é
  * opcional/privado (só a administração o recebe). O banco v7 é descartado.
  * v9: `returnCodes` (código de retirada: só o hash; a entrega exige a conferência). O banco v8 é descartado.
+ * v10: as fotos de `mochila` e `carregador` substituíram as ilustrações SVG; o banco v9 é descartado.
  * v5: administração (`accounts`, `invites`, `audit`) e 2FA (`twoFactor`); papel/estado de conta desativada.
  */
-export const DB_VERSION = 9;
+export const DB_VERSION = 10;
 
 /** Contas isentas da exigência de 2FA em `/admin/*` (a conta demo, como o backend em `DEMO_MODE`). */
 export const TWO_FACTOR_EXEMPT_USER_IDS: readonly string[] = ["user-admin"];
@@ -295,7 +296,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(10, 218, 9, {
       title: "Mochila preta",
-      photoDataUrl: "/seed/mochila.svg",
+      photoDataUrl: "/seed/mochila.webp",
       description: "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.",
       category: "Outros",
       categoryOther: "Mochila escolar",
@@ -317,7 +318,7 @@ export function buildSeed(now: Date): Db {
     }),
     item(11, 362, 15, {
       title: "Carregador USB-C",
-      photoDataUrl: "/seed/carregador.svg",
+      photoDataUrl: "/seed/carregador.webp",
       description: "Carregador de parede branco com cabo USB-C de 1 metro enrolado.",
       category: "Eletrônicos",
       categoryOther: null,

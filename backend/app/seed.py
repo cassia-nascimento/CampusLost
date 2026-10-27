@@ -57,9 +57,9 @@ ITEMS = [
     (5, 122, 5, "Notebook cinza", "notebook.webp", "Notebook cinza de 14 polegadas, sem capa, com adesivos na tampa.", "Eletrônicos", "Biblioteca", "Portaria", "under_claim", "user-rafael", None),
     (6, 146, 6, "Garrafa térmica verde", "garrafa-termica.webp", "Garrafa térmica de aço verde-escuro, 500 ml, com amassado perto da tampa.", "Outros", "Cantina", "Cantina", "available", "user-admin", "Garrafa térmica"),
     (8, 194, 8, "Guarda-chuva preto", "guarda-chuva.webp", "Guarda-chuva preto automático com cabo curvo de madeira.", "Outros", "Portaria", "Portaria", "available", "user-marina", "Guarda-chuva"),
-    (10, 218, 9, "Mochila preta", "mochila.svg", "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.", "Outros", "Bloco A", "Entregue ao dono", "returned", "user-admin", "Mochila escolar"),
+    (10, 218, 9, "Mochila preta", "mochila.webp", "Mochila preta com zíper azul e um chaveiro de pelúcia pendurado.", "Outros", "Bloco A", "Entregue ao dono", "returned", "user-admin", "Mochila escolar"),
     (9, 266, 11, "Óculos de grau", "oculos.webp", "Óculos de grau com armação preta retangular, dentro de um estojo cinza.", "Outros", "Cantina", "Portaria", "available", "user-rafael", "Óculos de grau"),
-    (11, 362, 15, "Carregador USB-C", "carregador.svg", "Carregador de parede branco com cabo USB-C de 1 metro enrolado.", "Eletrônicos", "Biblioteca", "Entregue ao dono", "returned", "user-admin", None),
+    (11, 362, 15, "Carregador USB-C", "carregador.webp", "Carregador de parede branco com cabo USB-C de 1 metro enrolado.", "Eletrônicos", "Biblioteca", "Entregue ao dono", "returned", "user-admin", None),
 ]
 
 # (n, itemN, claimantId, createdHoursAgo, status, reviewedHoursAgo, proofDetails, lostWhereWhen)

@@ -1,6 +1,6 @@
 # Imagens dos itens de exemplo
 
-Dos 11 itens de exemplo, **9 usam fotos reais** da equipe (`frontend/public/seed/*.webp`, em retrato) e **2 seguem como ilustrações originais** (`mochila.svg`, `carregador.svg`), à espera de foto. As imagens são demonstrativas (não o objeto real encontrado): a interface as rotula "Imagem ilustrativa".
+Dos 11 itens de exemplo, **11 usam fotos reais** da equipe (`frontend/public/seed/*.webp`, em retrato). As imagens são demonstrativas (não o objeto real encontrado): a interface as rotula "Imagem ilustrativa".
 
 | Arquivo | Item | Tipo |
 |---|---|---|
@@ -13,16 +13,10 @@ Dos 11 itens de exemplo, **9 usam fotos reais** da equipe (`frontend/public/seed
 | `garrafa-termica.webp` | Garrafa térmica verde | foto |
 | `guarda-chuva.webp` | Guarda-chuva preto | foto |
 | `oculos.webp` | Óculos de grau | foto |
-| `mochila.svg` | Mochila preta | ilustração (sem foto ainda) |
-| `carregador.svg` | Carregador USB-C | ilustração (sem foto ainda) |
+| `mochila.webp` | Mochila preta | foto |
+| `carregador.webp` | Carregador USB-C | foto |
 
 A carteira de estudante deixou de ser item de exemplo (substituída pelo boné); a categoria "Documentos" ficou sem item de exemplo.
-
-## Para trocar `mochila` e `carregador` por fotos
-
-1. Escolha uma foto de cada (Unsplash/Pexels ou própria; confira a licença na página antes de usar, inclusive em projeto acadêmico). Buscas: [mochila](https://unsplash.com/s/photos/black-backpack) · [carregador](https://unsplash.com/s/photos/usb-c-charger).
-2. Salve como `.webp` em `frontend/public/seed/` (leve, de preferência abaixo de 250 KB). O layout recorta no centro em 4:3, então retrato ou paisagem funcionam.
-3. Avise o Claude para apontar o seed ao novo arquivo e remover o `.svg` (e o backend faz a mesma troca).
 
 ## Observações
 

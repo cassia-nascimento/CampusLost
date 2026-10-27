@@ -39,7 +39,7 @@ describe("cn", () => {
 
 describe("isSeedImage", () => {
   it("reconhece só os caminhos das imagens ilustrativas do seed", () => {
-    expect(isSeedImage("/seed/mochila.svg")).toBe(true);
+    expect(isSeedImage("/seed/mochila.webp")).toBe(true);
     expect(isSeedImage("/seed/bone.webp")).toBe(true);
     expect(isSeedImage("/seed/bone.png")).toBe(false);
     expect(isSeedImage("data:image/jpeg;base64,AAAA")).toBe(false);
@@ -53,7 +53,7 @@ describe("isSeedImage", () => {
 
 describe("itemPhotoAlt", () => {
   it("declara a imagem do seed como ilustrativa e descreve as fotos enviadas", () => {
-    expect(itemPhotoAlt("Mochila preta", "/seed/mochila.svg")).toBe("Imagem ilustrativa: Mochila preta");
+    expect(itemPhotoAlt("Mochila preta", "/seed/mochila.webp")).toBe("Imagem ilustrativa: Mochila preta");
     expect(itemPhotoAlt("Mochila preta", "data:image/jpeg;base64,AAAA")).toBe("Foto de Mochila preta");
     expect(itemPhotoAlt("Mochila preta", undefined)).toBe("Foto de Mochila preta");
   });

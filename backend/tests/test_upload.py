@@ -154,8 +154,8 @@ def test_uploads_path_traversal_is_blocked(client, settings):
 
 
 def test_seed_images_are_served(client):
-    r = client.get("/uploads/seed/mochila.svg")
-    assert r.status_code == 200 and b"<svg" in r.content
+    r = client.get("/uploads/seed/mochila.webp")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/webp" and r.content[:4] == b"RIFF"
     r = client.get("/uploads/seed/bone.webp")
     assert r.status_code == 200 and r.headers["content-type"] == "image/webp" and r.content[:4] == b"RIFF"
     assert client.get("/uploads/seed/../seed/bone.webp").status_code in (200, 404)
