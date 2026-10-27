@@ -156,6 +156,30 @@ Agende ambos (cron/systemd timer), por exemplo limpeza diária e backup diário.
 
 Senhas com bcrypt (nunca devolvidas; política: 10+ caracteres, <= 72 bytes, lista de comuns); JWT com `exp` obrigatório e tipo de token (o `profileToken` do Google não serve como sessão), preso a uma sessão revogável; cookies HttpOnly/SameSite=Lax com refresh rotativo e detecção de reuso; CSRF por `X-Requested-With` + `Origin` no modo cookie; tokens de e-mail só como hash SHA-256, uso único, expiram; e-mail de conta de senha precisa ser confirmado antes de cadastrar item/reivindicar; login Google descarta conta de senha **não verificada** do mesmo e-mail (anti pre-hijack); limite de login persistido com bloqueio progressivo; consultas via ORM (parametrizadas); fotos validadas pelo conteúdo (assinatura), nome gerado e limite de 10 MB; corpo limitado; erros internos não expõem detalhes; CORS restrito.
 
+## Publicar a API (host com disco persistente)
+
+Requer um host que mantenha disco entre reinícios (VM, container com volume). Variáveis (valores de exemplo):
+
+```
+ENV=production                       DEMO_MODE=false
+SECRET_KEY=<python -c "import secrets; print(secrets.token_urlsafe(48))">
+DATABASE_URL=sqlite:////dados/campuslost.db    UPLOADS_DIR=/dados/uploads     # /dados = volume persistente
+CORS_ORIGINS=https://SEU-SITE.vercel.app       APP_BASE_URL=https://SEU-SITE.vercel.app   # origem exata, sem "/" final
+COOKIE_REFRESH_PATH=/
+MAIL_BACKEND=smtp  SMTP_HOST=...  SMTP_PORT=587  SMTP_USER=...  SMTP_PASSWORD=...  SMTP_FROM="CampusLost <remetente-verificado@...>"
+```
+
+```bash
+pip install -r requirements.txt
+alembic upgrade head                 # em produção o esquema só vem do Alembic (não apaga dados)
+python -m app.create_admin --email <e-mail> --name "<nome>"    # 1º administrador (senha pedida no terminal ou ADMIN_PASSWORD)
+uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'   # um único worker
+```
+
+Na Vercel (Settings > Environment Variables, depois **novo deploy**): `NEXT_PUBLIC_API_URL` e `API_INTERNAL_URL`, ambas com a URL pública da API (`https://...`, sem "/" final). O navegador só fala com `/backend/*` do próprio site; o Next repassa à API. Cada domínio de preview da Vercel que for usado precisa estar em `CORS_ORIGINS`.
+
+E-mail: o log da API mostra `E-mail aceito pelo servidor para ...` (o SMTP aceitou; a entrega na caixa de entrada não é confirmada) ou `Falha ao enviar ... (SMTP 535)`. O remetente precisa estar verificado no provedor; alguns planos gratuitos de hospedagem bloqueiam as portas SMTP de saída (tente `SMTP_PORT=2525`, que também usa STARTTLS, se o provedor oferecer). Sem `SMTP_HOST`/`SMTP_FROM` a API **não sobe** em produção.
+
 ## Limitações conhecidas
 
 - **Hospedagem serverless (ex.: Vercel) não persiste** o arquivo SQLite nem `uploads/`. Em produção é preciso um host com disco persistente (VM, container com volume) ou trocar banco/armazenamento de fotos. Decisão da equipe (SPEC P31).

@@ -102,6 +102,15 @@ def test_smtp_password_never_appears_in_repr_or_logs(monkeypatch, smtp_settings,
     with caplog.at_level(logging.DEBUG):
         deliver(make_mailer(smtp_settings), MSG)  # não propaga
     assert "SEGREDO-SMTP-123" not in caplog.text and "Falha ao enviar" in caplog.text
+    assert "SMTP 535" in caplog.text  # o código ajuda a diagnosticar credenciais recusadas
+
+
+def test_accepted_delivery_is_logged_without_link_or_secret(monkeypatch, smtp_settings, caplog):
+    monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
+    with caplog.at_level(logging.INFO):
+        deliver(make_mailer(smtp_settings), MSG)
+    assert "E-mail aceito pelo servidor" in caplog.text
+    assert "SEGREDO-SMTP-123" not in caplog.text and (MSG.link or "@@") not in caplog.text
 
 
 def test_failed_delivery_does_not_break_signup(tmp_path, monkeypatch, smtp_settings):

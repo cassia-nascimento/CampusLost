@@ -70,15 +70,26 @@ class MemoryMailer(Mailer):
 
 
 def make_mailer(settings: Settings) -> Mailer:
-    return SmtpMailer(settings) if settings.mail_backend == "smtp" else ConsoleMailer()
+    if settings.mail_backend == "smtp":
+        mailer = SmtpMailer(settings)
+        log.info("E-mail: SMTP %s:%s (usuário %s, remetente %s)", mailer.host, mailer.port, mailer.user or "-", mailer.sender)
+        return mailer
+    return ConsoleMailer()
 
 
 def deliver(mailer: Mailer, message: OutgoingEmail) -> None:
-    """Envia sem nunca derrubar a requisição: falhas ficam só no log (sem o corpo da mensagem)."""
+    """Envia sem nunca derrubar a requisição. O resultado fica no log (sem corpo, link, token nem senha): "aceito"
+    significa que o servidor SMTP aceitou a mensagem, não que ela foi entregue na caixa de entrada."""
     try:
         mailer.send(message)
     except Exception as exc:  # noqa: BLE001 - SMTP pode falhar de várias formas
-        log.error("Falha ao enviar e-mail para %s: %s", message.to, type(exc).__name__)
+        code = getattr(exc, "smtp_code", None)  # ex.: 535 = credenciais recusadas, 550 = destinatário recusado
+        log.error(
+            "Falha ao enviar e-mail para %s: %s%s", message.to, type(exc).__name__, f" (SMTP {code})" if code else ""
+        )
+    else:
+        if not isinstance(mailer, ConsoleMailer):
+            log.info("E-mail aceito pelo servidor para %s (%r)", message.to, message.subject)
 
 
 def verification_email(settings: Settings, to: str, name: str, token: str) -> OutgoingEmail:
