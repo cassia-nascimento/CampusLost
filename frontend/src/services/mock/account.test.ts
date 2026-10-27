@@ -12,15 +12,22 @@ const tokenOf = (link?: string) => new URL(link ?? "", "http://x").searchParams.
 
 async function signUp(h: Harness, over: Partial<typeof base> = {}) {
   const user = await h.services.auth.signUp({ ...base, ...over });
-  const mail = await h.services.auth.peekSimulatedEmail?.();
-  return { user, token: tokenOf(mail?.devLink) };
+  // O cadastro não envia e-mail; a confirmação é opcional e começa pelo pedido de reenvio.
+  const { devLink } = await h.services.auth.resendVerification();
+  return { user, token: tokenOf(devLink) };
 }
 
-describe("cadastro por senha: conta nasce não verificada", () => {
-  it("emailVerified=false, e-mail simulado com link /verificar-email", async () => {
+describe("cadastro por senha: sem confirmação de e-mail", () => {
+  it("o cadastro não envia e-mail e a conta fica emailVerified=false por dentro", async () => {
     const h = createHarness();
-    const { user, token } = await signUp(h);
+    const user = await h.services.auth.signUp(base);
     expect(user.emailVerified).toBe(false);
+    expect(await h.services.auth.peekSimulatedEmail?.()).toBeNull();
+  });
+
+  it("o reenvio opcional gera o e-mail simulado com link /verificar-email", async () => {
+    const h = createHarness();
+    const { token } = await signUp(h);
     const mail = await h.services.auth.peekSimulatedEmail?.();
     expect(mail?.kind).toBe("verify_email");
     expect(mail?.devLink).toMatch(/^\/verificar-email\?token=[0-9a-f]{32}$/);
@@ -63,20 +70,22 @@ describe("cadastro por senha: conta nasce não verificada", () => {
     }
   });
 
-  it("não verificada NÃO cadastra item nem reivindica (EMAIL_NOT_VERIFIED); leitura segue livre", async () => {
+  it("conta recém-cadastrada (não verificada) cadastra item e reivindica", async () => {
     const h = createHarness();
-    await signUp(h);
-    await expectCode(h.services.items.create(validItem), "EMAIL_NOT_VERIFIED");
-    await expectCode(h.services.claims.create("item-01", validClaim), "EMAIL_NOT_VERIFIED");
+    await h.services.auth.signUp(base);
     const detail = await h.services.items.get("item-01");
-    expect(detail.viewer.claim).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
-    expect((await h.services.items.list()).length).toBeGreaterThan(0);
-    expect(await h.services.claims.listMine()).toEqual([]);
+    expect(detail.viewer.claim).toMatchObject({ allowed: true });
+    const item = await h.services.items.create(validItem);
+    expect(item.status).toBe("available");
+    const claim = await h.services.claims.create("item-01", validClaim);
+    expect(claim.status).toBe("pending");
+    expect((await h.services.claims.listMine()).map((c) => c.id)).toContain(claim.id);
+    expect((await h.services.auth.getCurrentUser())?.emailVerified).toBe(false);
   });
 });
 
 describe("verifyEmail / resendVerification", () => {
-  it("token válido verifica e libera cadastrar item e reivindicar; é de uso único", async () => {
+  it("token válido verifica o e-mail; é de uso único", async () => {
     const h = createHarness();
     const { token } = await signUp(h);
     await h.services.auth.verifyEmail(token);

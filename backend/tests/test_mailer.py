@@ -25,10 +25,12 @@ def test_console_backend_is_default_in_dev_and_logs_the_link_not_the_body(caplog
     assert "http://x/y?token=abc" in caplog.text and "a@exemplo.com" in caplog.text
 
 
-def test_app_with_console_backend_signs_up_and_logs_link(tmp_path, caplog):
+def test_app_with_console_backend_signup_sends_no_email_and_resend_logs_link(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="campuslost.mail"):
         with TestClient(create_app(make_settings(tmp_path), clock=Clock(FIXED_NOW))) as c:
             assert c.post("/auth/signup", json=signup_payload("log@exemplo.com")).status_code == 201
+            assert "/verificar-email?token=" not in caplog.text  # cadastro não envia e-mail
+            assert c.post("/auth/resend-verification", json={"email": "log@exemplo.com"}, headers={"X-Requested-With": "fetch"}).status_code == 202
     assert "/verificar-email?token=" in caplog.text
     assert PASSWORD not in caplog.text  # nunca loga senha
 

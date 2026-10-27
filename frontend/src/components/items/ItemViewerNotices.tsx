@@ -9,8 +9,8 @@ import type { Claim, ClaimStatus } from "@/types/domain";
 
 const MY_CLAIMS_HREF = "/minhas-reivindicacoes";
 
-/** Motivo do bloqueio de "É meu" → tom do aviso. E-mail não confirmado pede ação da pessoa (a faixa global oferece o reenvio). */
-const CLAIM_BLOCK_TONE: Partial<Record<string, Tone>> = { FORBIDDEN: "neutral", EMAIL_NOT_VERIFIED: "warning" };
+/** Motivo do bloqueio de "É meu" → tom do aviso. */
+const CLAIM_BLOCK_TONE: Partial<Record<string, Tone>> = { FORBIDDEN: "neutral" };
 
 const CLAIM_NOTICE_TONE: Record<ClaimStatus, Tone> = { pending: "info", accepted: "success", rejected: "danger" };
 
@@ -54,7 +54,7 @@ function VisitorNotice({ itemId }: { itemId: string }) {
         </p>
       }
     >
-      Para reivindicar este item, entre na sua conta. Só quem tem conta e e-mail confirmado pode reivindicar.
+      Para reivindicar este item, entre na sua conta. Só quem tem conta pode reivindicar.
     </Notice>
   );
 }

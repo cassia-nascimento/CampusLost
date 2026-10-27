@@ -27,7 +27,6 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ServiceErrorCode>([
   "CLAIM_BLOCKED",
   "ITEM_RETURNED",
   "EMAIL_TAKEN",
-  "EMAIL_NOT_VERIFIED",
   "TOKEN_INVALID",
   "TOKEN_EXPIRED",
   "INVALID_TOKEN",

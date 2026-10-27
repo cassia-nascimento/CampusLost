@@ -158,7 +158,6 @@ export function createAuthService(ctx: MockContext): AuthService {
             target: ["user", created.id],
             metadata: { role: created.role, affiliation: created.affiliation, provider: "password" },
           });
-          issueToken(ctx, db, created.id, "verify_email");
           return created;
         });
         store.setSessionUserId(user.id);

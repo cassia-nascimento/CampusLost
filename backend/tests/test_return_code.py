@@ -191,11 +191,12 @@ def test_changing_the_url_id_or_body_gives_no_access(client, app, marina):
     assert rows(app) == []
 
 
-def test_unverified_email_cannot_issue(client, app):
+def test_unverified_email_is_not_a_barrier_to_issue(client, app):
+    # sem confirmação de e-mail o papel/estado é o que vale: quem não é o dono da reivindicação segue com 403 FORBIDDEN
     make_user(app, "novo@exemplo.com", role="user", verified=False)
     h = token_of(client, "novo@exemplo.com")
     r = client.post(f"/claims/{CLAIM}/return-code", headers=h)
-    assert r.status_code == 403 and r.json()["code"] == "EMAIL_NOT_VERIFIED"
+    assert r.status_code == 403 and r.json()["code"] == "FORBIDDEN"
 
 
 # ---------- (5) antes da aprovação / fora de estado ----------

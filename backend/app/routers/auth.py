@@ -90,8 +90,8 @@ def _terms_fields(settings, now) -> dict[str, Any]:
 
 @router.post("/signup", status_code=201)
 def signup(
-    request: Request, response: Response, background: BackgroundTasks, payload: dict[str, Any] = Body(...), *,
-    db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep, mailer: MailerDep,
+    request: Request, response: Response, payload: dict[str, Any] = Body(...), *,
+    db: DbDep, settings: SettingsDep, now: ClockDep, lock: LockDep,
 ):
     verify_turnstile(settings, payload, client_ip(request))
     data = validate_signup(payload)
@@ -100,8 +100,9 @@ def signup(
     with lock:
         if _find_by_email(db, data["email"]):
             raise _email_taken()
-        # Conta de senha nasce NÃO verificada (mesmo com e-mail institucional): só o link enviado por e-mail prova
-        # o controle da caixa de entrada. Sem isso, qualquer um cadastraria o e-mail de outra pessoa.
+        # Conta de senha nasce com `email_verified_at=None` (mesmo com e-mail institucional) e NÃO recebe e-mail de
+        # verificação no cadastro; ela já pode registrar/reivindicar. Manter nulo: o login Google usa isso para
+        # descartar contas de senha não verificadas (anti pre-hijack).
         user = UserRow(
             id=random_id("user"), name=data["name"], email=data["email"], role="user",
             affiliation=affiliation_for_email(data["email"], settings.google_allowed_domains),
@@ -114,12 +115,10 @@ def signup(
         except IntegrityError:
             db.rollback()
             raise _email_taken() from None
-        token = email_tokens.issue_token(db, settings, user, email_tokens.VERIFY, instant)
     audit.record(
         db, instant, audit.SIGNUP, actor_id=user.id, target_type="user", target_id=user.id, ip=client_ip(request),
         metadata={"role": user.role, "affiliation": user.affiliation, "provider": "password"},
     )
-    background.add_task(deliver, mailer, verification_email(settings, user.email, user.name, token))
     return issue_session(db, settings, user, instant, response)
 
 

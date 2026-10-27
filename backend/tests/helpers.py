@@ -26,8 +26,16 @@ def signup(client, **kw):
     return r.json()
 
 
-def signup_verified(client, mailbox, **kw):
+def signup_with_link(client, **kw):
+    """Cadastra e pede o link de verificação (o cadastro em si não envia e-mail); o link é `mailbox.sent[-1]`."""
     body = signup(client, **kw)
+    r = client.post("/auth/resend-verification", json={"email": body["user"]["email"]})
+    assert r.status_code == 202, r.text
+    return body
+
+
+def signup_verified(client, mailbox, **kw):
+    body = signup_with_link(client, **kw)
     r = client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])})
     assert r.status_code == 200, r.text
     return body

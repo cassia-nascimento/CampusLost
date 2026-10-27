@@ -97,6 +97,6 @@ def test_signup_ignores_role_and_extra_fields_and_derives_affiliation(client):
 
 def test_password_signup_works_after_verification_for_both_affiliations(client, mailbox):
     for email in ("ext2@exemplo.com", "inst@undb.edu.br"):
-        body = signup_verified(client, mailbox, email=email)
+        body = signup_verified(client, mailbox, email=email)  # verificar é opcional; o fluxo segue válido
         h = {"Authorization": f"Bearer {body['token']}"}
         assert create_item(client, h).status_code == 201

@@ -79,6 +79,7 @@ def test_google_sign_in_with_accept_terms_creates_user_directly(client, fake_goo
 
 def test_existing_verified_account_signs_in_directly(client, fake_google, mailbox):
     client.post("/auth/signup", json={"name": "Ana Souza", "email": "ana.souza@undb.edu.br", "password": "senha-forte-1", "acceptTerms": True})
+    client.post("/auth/resend-verification", json={"email": "ana.souza@undb.edu.br"}, headers={"X-Requested-With": "fetch"})
     assert client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])}).status_code == 200
     r = post(client)
     assert r.status_code == 200

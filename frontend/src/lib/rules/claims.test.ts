@@ -4,15 +4,15 @@ import { admin, externalUser, makeClaim, makeItem, NOW, otherStudent, student, t
 
 const input = { proofDetails: "Detalhe secreto do objeto.", lostWhereWhen: "Biblioteca, segunda." };
 
-describe("canClaim: external e e-mail verificado", () => {
+describe("canClaim: external e e-mail não verificado", () => {
   it("usuário externo verificado reivindica como qualquer usuário", () => {
     expect(canClaim(externalUser, makeItem(), [])).toEqual({ allowed: true });
   });
-  it("conta não verificada: EMAIL_NOT_VERIFIED, mesmo em item Disponível", () => {
-    expect(canClaim(unverified, makeItem(), [])).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
-    expect(() => submitClaim({ actor: unverified, item: makeItem(), itemClaims: [], input, now: NOW, id: "c1" })).toThrow(
-      expect.objectContaining({ code: "EMAIL_NOT_VERIFIED" }),
-    );
+  it("conta não verificada reivindica normalmente (a verificação não é exigida)", () => {
+    expect(canClaim(unverified, makeItem(), [])).toEqual({ allowed: true });
+    expect(submitClaim({ actor: unverified, item: makeItem(), itemClaims: [], input, now: NOW, id: "c1" })).toMatchObject({
+      claim: { claimantId: unverified.id, status: "pending" },
+    });
   });
 });
 
@@ -52,8 +52,8 @@ describe("canClaim (AC04.1, P46)", () => {
     });
   });
 
-  it("cadastrante com e-mail não verificado: EMAIL_NOT_VERIFIED vem antes", () => {
-    expect(canClaim(unverified, makeItem({ createdById: unverified.id }), [])).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
+  it("cadastrante com e-mail não verificado continua sem reivindicar o próprio item", () => {
+    expect(canClaim(unverified, makeItem({ createdById: unverified.id }), [])).toMatchObject({ allowed: false, code: "FORBIDDEN" });
   });
 
   it("administração não reivindica", () => {

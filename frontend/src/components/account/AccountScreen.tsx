@@ -13,12 +13,11 @@ import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
-import { checkEmailVerified, isAdmin } from "@/lib/rules";
+import { isAdmin } from "@/lib/rules";
 import { services } from "@/services";
 import { AFFILIATION_LABEL, AFFILIATION_NOTICE, ROLE_LABEL } from "@/types/domain";
 import { DeleteAccountDialog } from "./DeleteAccountDialog";
 import { TwoFactorSection } from "./TwoFactorSection";
-import { AdminTwoFactorNotice } from "./TwoFactorNotice";
 import { adminNeedsTwoFactor, effectiveTwoFactor, parseAccountReason } from "./two-factor";
 import { exportFileName, serializeExport } from "./export-file";
 
@@ -58,9 +57,9 @@ export function AccountScreen() {
     }
   }
 
-  const verified = checkEmailVerified(user).allowed;
+  const verified = user.emailVerified;
 
-  // Aviso para a administração sem 2FA. `?motivo=` explica por que a pessoa veio parar aqui.
+  // `?motivo=convite` explica a administração recém-convidada que chega aqui sem 2FA.
   const needsTwoFactor = adminNeedsTwoFactor(user) && !effectiveTwoFactor(user.twoFactorEnabled, null);
 
   return (
@@ -72,9 +71,6 @@ export function AccountScreen() {
         <Notice tone="success" title="Convite aceito" className="mb-6">
           Sua conta de administração foi criada. Falta um passo: ative a verificação em duas etapas abaixo para liberar usuários, convites e auditoria.
         </Notice>
-      ) : null}
-      {needsTwoFactor && reason !== "convite" ? (
-        <AdminTwoFactorNotice className="mb-6" />
       ) : null}
 
       <section aria-labelledby="account-data" className="flex flex-col gap-4">
@@ -92,8 +88,8 @@ export function AccountScreen() {
         />
         <p className="text-meta text-ink-muted">{AFFILIATION_NOTICE}</p>
         {verified ? null : (
-          <Notice tone="warning" title="Confirme seu e-mail">
-            Enquanto não confirmar, você não pode cadastrar itens nem reivindicar.
+          <Notice tone="info" title="E-mail ainda não confirmado">
+            A confirmação é opcional: você já pode cadastrar itens e reivindicar.
             <ResendVerification className="mt-3" />
           </Notice>
         )}

@@ -141,8 +141,6 @@ export type ServiceErrorCode =
   | "CLAIM_BLOCKED"
   | "ITEM_RETURNED"
   | "EMAIL_TAKEN"
-  /** Ação que exige e-mail verificado (cadastrar item, reivindicar). */
-  | "EMAIL_NOT_VERIFIED"
   /** Token de verificação/redefinição inexistente ou já usado. */
   | "TOKEN_INVALID"
   /** Token de verificação/redefinição expirado. */

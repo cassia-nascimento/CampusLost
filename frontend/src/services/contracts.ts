@@ -233,8 +233,9 @@ export interface AuthService {
    * Cria conta com senha e abre sessão. NÃO há campo de papel: a conta nasce `user` (um `role` enviado é ignorado) e o
    * vínculo (`institutional`/`externo`) é derivado do DOMÍNIO do e-mail, sem verificação. Exige `acceptedTerms: true`.
    * Política de senha: mín. 10 caracteres, máx. 72 bytes UTF-8, fora da lista de comuns, diferente de e-mail/nome.
-   * A conta nasce NÃO verificada (`emailVerified: false`): não cadastra item nem reivindica até verificar
-   * (`EMAIL_NOT_VERIFIED`). `EMAIL_TAKEN` se o e-mail já existe (AC01.1).
+   * Não envia e-mail de confirmação e não exige verificação: a conta já cadastra item e reivindica. A flag interna
+   * `emailVerified` continua `false` (o login Google descarta contas de senha não verificadas). `EMAIL_TAKEN` se o
+   * e-mail já existe (AC01.1).
    */
   signUp(input: SignUpValues): Promise<User>;
   /**
@@ -243,7 +244,7 @@ export interface AuthService {
    * para inválido/expirado; o mock também pode lançar `TOKEN_EXPIRED` — trate os dois igual).
    */
   verifyEmail(token: string): Promise<void>;
-  /** Reenvia o e-mail de verificação ao usuário atual (POST /auth/resend-verification). Já verificado: sem efeito. */
+  /** Reenvia o e-mail de verificação ao usuário atual (POST /auth/resend-verification), opcional. Já verificado: sem efeito. */
   resendVerification(turnstileToken?: string): Promise<EmailDispatch>;
   /** Pede o link de redefinição (POST /auth/forgot-password). Sempre "sucesso", exista a conta ou não. */
   forgotPassword(email: string, turnstileToken?: string): Promise<EmailDispatch>;
@@ -333,7 +334,7 @@ export interface ItemService {
    * `viewer.*` negado com `UNAUTHENTICATED`; item Devolvido é `NOT_FOUND` para ele.
    */
   get(id: string): Promise<ItemDetail>;
-  /** Usuário logado com e-mail verificado (`EMAIL_NOT_VERIFIED`). Nasce Disponível. */
+  /** Qualquer usuário logado (não exige e-mail verificado). Nasce Disponível. */
   create(input: ItemInput): Promise<Item>;
   /** Somente administração; item Devolvido é somente leitura. */
   update(id: string, input: ItemInput): Promise<Item>;

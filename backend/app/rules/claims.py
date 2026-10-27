@@ -9,7 +9,7 @@ from ..errors import ServiceError
 from ..models import ClaimRow, ItemRow
 from .decision import ALLOW, Decision, assert_allowed, deny
 from .item_status import assert_transition
-from .permissions import email_not_verified, has_capability
+from .permissions import has_capability
 
 
 CREATOR_CLAIM_MESSAGE = "Você registrou este item, então não pode reivindicá-lo. Se ele é seu, procure a administração."
@@ -38,9 +38,6 @@ def can_claim(actor: Any, item: ItemRow, item_claims: Sequence[ClaimRow]) -> Dec
         return deny("UNAUTHENTICATED", "Entre para reivindicar este item.")
     if not has_capability(actor, "claim_item"):
         return deny("FORBIDDEN", "A administração analisa reivindicações, mas não reivindica itens.")
-    unverified = email_not_verified(actor)
-    if unverified:
-        return unverified
     # Quem registrou o item não o reivindica (P46): a identidade vem da sessão e de `items.created_by_id`.
     if item.created_by_id == actor.id:
         return deny("FORBIDDEN", CREATOR_CLAIM_MESSAGE)

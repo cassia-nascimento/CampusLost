@@ -16,7 +16,7 @@ import { services } from "@/services";
 import { isServiceError, type ItemStatus } from "@/types/domain";
 
 /** Erros que significam "o estado do item mudou e você não pode mais reivindicar" (a regra é do serviço). */
-const BLOCKING_CODES = ["DUPLICATE_CLAIM", "CLAIM_BLOCKED", "ITEM_RETURNED", "FORBIDDEN", "EMAIL_NOT_VERIFIED"];
+const BLOCKING_CODES = ["DUPLICATE_CLAIM", "CLAIM_BLOCKED", "ITEM_RETURNED", "FORBIDDEN"];
 
 export interface ClaimFormProps {
   itemId: string;
