@@ -4,6 +4,7 @@ import { Archive, Calendar, Check, FileText, LogIn, MapPin, Pencil, Tag, UserRou
 import { useParams } from "next/navigation";
 import { withNext } from "@/components/auth/next-param";
 import { ActionBar } from "@/components/layout/ActionBar";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { DefinitionList } from "@/components/layout/DefinitionList";
 import { LinkButton } from "@/components/ui/Button";
@@ -27,6 +28,7 @@ import { ItemViewerNotices } from "./ItemViewerNotices";
 function DetailSkeleton() {
   return (
     <Container size="page">
+      <BackLink />
       <LoadingRegion label="Carregando item…">
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
           <Skeleton className="aspect-[4/3] w-full rounded-lg lg:col-span-5" />
@@ -91,6 +93,7 @@ function ItemDetailBody({ detail }: { detail: ItemDetail }) {
 
   return (
     <Container size="page">
+      <BackLink />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-10">
         <div className="lg:col-span-5">
           <Photo

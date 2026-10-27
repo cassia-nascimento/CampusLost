@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ResendVerification } from "@/components/auth/ResendVerification";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
@@ -28,6 +29,7 @@ export function NewItemScreen() {
 
   return (
     <Container size="form">
+      <BackLink />
       <PageHeader title="Registrar item" />
       {user && !verification.allowed ? (
         <EmptyState

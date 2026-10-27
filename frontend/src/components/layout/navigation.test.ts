@@ -58,22 +58,25 @@ describe("cromo por rota", () => {
   });
 
   it("detalhe e formulários: título e voltar", () => {
-    expect(getRouteChrome("/itens/novo")).toEqual({ kind: "detail", title: "Registrar item", backHref: "/itens" });
-    expect(getRouteChrome("/itens/i1")).toEqual({ kind: "detail", title: "Detalhe do item", backHref: "/itens" });
+    expect(getRouteChrome("/itens/novo")).toEqual({ kind: "detail", title: "Registrar item", backHref: "/itens", backLabel: "Voltar aos itens" });
+    expect(getRouteChrome("/itens/i1")).toEqual({ kind: "detail", title: "Detalhe do item", backHref: "/itens", backLabel: "Voltar aos itens" });
     expect(getRouteChrome("/itens/i1/reivindicar")).toEqual({
       kind: "detail",
       title: "Reivindicar item",
       backHref: "/itens/i1",
+      backLabel: "Voltar ao item",
     });
     expect(getRouteChrome("/admin/reivindicacoes/c1")).toEqual({
       kind: "detail",
       title: "Analisar reivindicação",
       backHref: "/admin",
+      backLabel: "Voltar ao painel",
     });
     expect(getRouteChrome("/admin/itens/i1/editar")).toEqual({
       kind: "detail",
       title: "Editar item",
       backHref: "/itens/i1",
+      backLabel: "Voltar ao item",
     });
     expect(showsBottomNav("/itens/novo")).toBe(false);
     expect(showsBottomNav("/itens/i1")).toBe(false);
@@ -86,17 +89,17 @@ describe("cromo por rota", () => {
       "/admin/auditoria": "Auditoria",
     };
     for (const [path, title] of Object.entries(titles)) {
-      expect(getRouteChrome(path, "?categoria=Chaves")).toEqual({ kind: "detail", title, backHref: "/admin" });
+      expect(getRouteChrome(path, "?categoria=Chaves")).toEqual({ kind: "detail", title, backHref: "/admin", backLabel: "Voltar ao painel" });
       expect(showsBottomNav(path)).toBe(false);
     }
   });
 
   it("minha conta e privacidade: voltar para os itens, sem BottomNav", () => {
-    expect(getRouteChrome("/conta")).toEqual({ kind: "detail", title: "Minha conta", backHref: "/itens" });
-    expect(getRouteChrome("/privacidade")).toEqual({ kind: "detail", title: "Privacidade", backHref: "/itens" });
+    expect(getRouteChrome("/conta")).toEqual({ kind: "detail", title: "Minha conta", backHref: "/itens", backLabel: "Voltar aos itens" });
+    expect(getRouteChrome("/privacidade")).toEqual({ kind: "detail", title: "Privacidade", backHref: "/itens", backLabel: "Voltar aos itens" });
     expect(showsBottomNav("/conta")).toBe(false);
     expect(showsBottomNav("/privacidade")).toBe(false);
-    expect(getRouteChrome("/termos")).toEqual({ kind: "detail", title: "Termos de uso", backHref: "/itens" });
+    expect(getRouteChrome("/termos")).toEqual({ kind: "detail", title: "Termos de uso", backHref: "/itens", backLabel: "Voltar aos itens" });
     expect(showsBottomNav("/termos")).toBe(false);
   });
 
@@ -172,6 +175,64 @@ describe("página de origem (?de=) no voltar", () => {
     expect(getRouteChrome("/itens/novo", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens" });
     expect(getRouteChrome("/itens/i1/reivindicar", "", "/minhas-reivindicacoes")).toMatchObject({ backHref: "/itens/i1" });
     expect(getRouteChrome("/admin/itens/i1/editar", "", "/admin/devolucoes")).toMatchObject({ backHref: "/itens/i1" });
+  });
+});
+
+describe("rótulo do voltar (backLabel) acompanha o destino", () => {
+  const label = (path: string, search = "", origin: string | null = null) => {
+    const chrome = getRouteChrome(path, search, origin);
+    return chrome.kind === "detail" ? { href: chrome.backHref, label: chrome.backLabel } : null;
+  };
+
+  it("detalhe do item: um rótulo por origem", () => {
+    expect(label("/itens/i1", "", "/minhas-reivindicacoes")).toEqual({
+      href: "/minhas-reivindicacoes",
+      label: "Voltar às minhas reivindicações",
+    });
+    expect(label("/itens/i1", "", "/admin/devolucoes")).toEqual({ href: "/admin/devolucoes", label: "Voltar às devoluções" });
+    expect(label("/itens/i1", "", "/admin/reivindicacoes/c1")).toEqual({
+      href: "/admin/reivindicacoes/c1",
+      label: "Voltar à análise",
+    });
+  });
+
+  it("detalhe do item sem origem válida: lista de itens com a busca preservada", () => {
+    const search = "?categoria=Chaves&pagina=2";
+    expect(label("/itens/i1", search)).toEqual({ href: `/itens${search}`, label: "Voltar aos itens" });
+    expect(label("/itens/i1", search, "//evil.test")).toEqual({ href: `/itens${search}`, label: "Voltar aos itens" });
+    expect(label("/itens/novo", search)).toEqual({ href: `/itens${search}`, label: "Voltar aos itens" });
+  });
+
+  it("análise: do item volta ao item; abertura direta ou origem não aceita, ao painel", () => {
+    expect(label("/admin/reivindicacoes/c1", "", "/itens/i1")).toEqual({ href: "/itens/i1", label: "Voltar ao item" });
+    expect(label("/admin/reivindicacoes/c1")).toEqual({ href: "/admin", label: "Voltar ao painel" });
+    expect(label("/admin/reivindicacoes/c1", "", "/minhas-reivindicacoes")).toEqual({
+      href: "/admin",
+      label: "Voltar ao painel",
+    });
+  });
+
+  it("reivindicar e editar voltam ao item; gestão ao painel; conta e textos legais aos itens", () => {
+    expect(label("/itens/i1/reivindicar")).toEqual({ href: "/itens/i1", label: "Voltar ao item" });
+    expect(label("/admin/itens/i1/editar")).toEqual({ href: "/itens/i1", label: "Voltar ao item" });
+    for (const path of ["/admin/usuarios", "/admin/convites", "/admin/auditoria"]) {
+      expect(label(path)).toEqual({ href: "/admin", label: "Voltar ao painel" });
+    }
+    for (const path of ["/conta", "/privacidade", "/termos"]) {
+      expect(label(path, "?categoria=Chaves")).toEqual({ href: "/itens", label: "Voltar aos itens" });
+    }
+  });
+
+  it("páginas de topo não têm voltar", () => {
+    for (const path of ["/itens", "/minhas-reivindicacoes", "/admin", "/admin/devolucoes"]) {
+      expect(label(path)).toBeNull();
+    }
+  });
+
+  it("toda rota de detalhe tem rótulo não vazio que começa com Voltar", () => {
+    for (const path of ["/itens/novo", "/itens/i1", "/itens/i1/reivindicar", "/admin/reivindicacoes/c1", "/admin/itens/i1/editar", "/conta"]) {
+      expect(label(path)?.label).toMatch(/^Voltar /);
+    }
   });
 });
 

@@ -1,12 +1,14 @@
 "use client";
 
-import { Calendar, MapPin, Tag, Warehouse } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Tag, Warehouse } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActionBar } from "@/components/layout/ActionBar";
 import { Container } from "@/components/layout/Container";
 import { DefinitionList } from "@/components/layout/DefinitionList";
-import { withOrigin } from "@/components/layout/navigation";
+import { BackLink } from "@/components/layout/BackLink";
+import { ORIGIN_PARAM, parseOrigin, withOrigin } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
@@ -23,11 +25,21 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { formatCategory, formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import { canReviewClaim, reviewClaim } from "@/lib/rules";
-import { itemPhotoAlt } from "@/lib/utils";
-import { services, type ClaimDecisionResult, type ClaimView, type ItemDetail } from "@/services";
+import { cn, itemPhotoAlt } from "@/lib/utils";
+import {
+  services,
+  type ClaimDecisionResult,
+  type ClaimView,
+  type ClaimWithClaimant,
+  type ItemDetail,
+} from "@/services";
 import { AFFILIATION_LABEL, AFFILIATION_NOTICE, isServiceError, type ItemStatus, type User } from "@/types/domain";
 import { applyDecision, type ReviewState } from "./apply-decision";
+import { relatedClaims } from "./related-claims";
 import { toStoredItem } from "./stored-item";
+
+/** Marcado ao trocar de reivindicação pelos links de `RelatedClaims` (a nova página lê e limpa). */
+let focusAfterSwitch = false;
 
 type Dialog = "accept" | "reject" | "return" | null;
 
@@ -81,6 +93,15 @@ function acceptedMessage(autoRejected: number): string {
 export function ClaimReview({ claimId }: { claimId: string }) {
   const { user } = useSession();
   const itemIdRef = useRef<string | undefined>(undefined);
+  // Ao passar para outra reivindicação do item (Anterior/Próxima/lista) a rota troca de página e o link clicado
+  // some: o foco iria ao <body>. `RelatedClaims` avisa; aqui o foco vai ao conteúdo (alvo do "Pular para o
+  // conteúdo") e a página volta ao topo. Numa abertura direta ou vinda de outra tela nada muda.
+  useEffect(() => {
+    if (!focusAfterSwitch) return;
+    focusAfterSwitch = false;
+    document.getElementById("conteudo")?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0 });
+  }, []);
   const query = useServiceQuery(() => loadReview(claimId, itemIdRef.current), [claimId]);
   const latest = query.data;
   const latestRef = useRef<ReviewState | undefined>(undefined);
@@ -101,6 +122,7 @@ export function ClaimReview({ claimId }: { claimId: string }) {
 
   return (
     <Container size="admin">
+      <BackLink />
       <PageHeader title="Analisar reivindicação" />
       {query.status === "loading" ? <ReviewSkeleton /> : null}
       {query.status === "error" && query.error?.code === "NOT_FOUND" ? (
@@ -287,6 +309,8 @@ function ReviewContent({
         </ActionBar>
       ) : null}
 
+      <RelatedClaims claims={detail.claims} currentId={claim.id} />
+
       <ConfirmDialog
         open={dialog === "accept"}
         onClose={() => setDialog(null)}
@@ -410,6 +434,91 @@ function DecisionNotice({
     );
   }
   return null;
+}
+
+/**
+ * Reivindicações do mesmo item: posição da aberta, Anterior/Próxima e lista compacta. Sai sempre do `detail`
+ * exibido, então depois de aceitar/recusar (`applyDecision`) os estados das demais já estão corretos.
+ * Sem as respostas de cada pessoa: elas só aparecem na reivindicação aberta. Não compara nem sugere ninguém.
+ */
+function RelatedClaims({ claims, currentId }: { claims: ClaimWithClaimant[]; currentId: string }) {
+  const origin = parseOrigin(useSearchParams().get(ORIGIN_PARAM));
+  const { list, index, total, previous, next } = relatedClaims(claims, currentId);
+  // Uma só reivindicação: nada a navegar (o aviso acima já diz se é a única ativa).
+  if (total < 2) return null;
+
+  const markSwitch = () => {
+    focusAfterSwitch = true;
+  };
+  const hrefOf = (id: string) => (origin ? withOrigin(`/admin/reivindicacoes/${id}`, origin) : `/admin/reivindicacoes/${id}`);
+
+  return (
+    <section
+      aria-labelledby="related-claims-heading"
+      className="mt-6 flex min-w-0 flex-col gap-4 rounded-lg bg-surface p-4 shadow-card md:p-5"
+    >
+      <div>
+        <h2 id="related-claims-heading" className="text-meta font-semibold tracking-wide text-ink-subtle uppercase">
+          Reivindicações deste item ({total})
+        </h2>
+        {index >= 0 ? (
+          <p className="mt-1 text-body text-ink-muted">
+            Reivindicação {index + 1} de {total}, da mais antiga para a mais recente.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        {previous ? (
+          <LinkButton
+            href={hrefOf(previous.id)}
+            variant="secondary"
+            icon={ChevronLeft}
+            aria-label="Reivindicação anterior"
+            onClick={markSwitch}
+          >
+            Anterior
+          </LinkButton>
+        ) : (
+          <span />
+        )}
+        {next ? (
+          <LinkButton href={hrefOf(next.id)} variant="secondary" aria-label="Próxima reivindicação" onClick={markSwitch}>
+            Próxima
+            <ChevronRight aria-hidden="true" className="size-5 shrink-0" />
+          </LinkButton>
+        ) : null}
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {list.map((item) => {
+          const current = item.id === currentId;
+          return (
+            <li key={item.id}>
+              <Link
+                href={hrefOf(item.id)}
+                aria-current={current ? "true" : undefined}
+                onClick={markSwitch}
+                className={cn(
+                  "flex min-h-11 flex-col gap-1.5 rounded-md border px-3 py-2 no-underline hover:bg-primary-soft sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+                  current ? "border-primary bg-primary-soft" : "border-line bg-surface",
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="user-text block text-body font-semibold text-ink">{item.claimant.name}</span>
+                  <span className="block text-meta text-ink-subtle">
+                    Enviada em {formatInstantDate(item.createdAt)}
+                    {current ? " · Aberta agora" : ""}
+                  </span>
+                </span>
+                <ClaimStatusBadge status={item.status} />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function ItemHeading({ title, status }: { title: string; status: ItemStatus }) {

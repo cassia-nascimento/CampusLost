@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ACCOUNT_TWO_FACTOR_PATH } from "@/components/account/two-factor";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -99,6 +100,7 @@ export function UsersScreen() {
 
   return (
     <Container size="admin">
+      <BackLink />
       <PageHeader title="Usuários" description="Veja as contas, mude o papel de cada pessoa e ative ou desative o acesso." />
       <AdminSectionNav current={PATH} />
       <p className="mb-4 text-meta text-ink-muted">{AFFILIATION_NOTICE}</p>

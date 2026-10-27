@@ -3,6 +3,7 @@
 import { FileText } from "lucide-react";
 import { useState } from "react";
 import { ResendVerification } from "@/components/auth/ResendVerification";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,6 +28,7 @@ export function ClaimScreen({ itemId }: { itemId: string }) {
 
   return (
     <Container size="form">
+      <BackLink />
       <h1 className="mb-6 max-md:sr-only">Reivindicar item</h1>
       {sent ? (
         <ScreenLoading label="Reivindicação enviada. Abrindo suas reivindicações…" />

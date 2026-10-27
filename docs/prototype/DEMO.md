@@ -43,6 +43,7 @@ Também é possível **criar conta** em `/cadastro` (nome, e-mail, senha de pelo
 
 - **Recusar:** na análise, **Recusar** a **última** reivindicação ativa → o item volta a **Disponível**; a pessoa vê a reivindicação como recusada e **não pode reenviar** para o mesmo item.
 - **Duas reivindicações no mesmo item:** aceitar uma **recusa automaticamente** a outra. (No estado inicial, `Chaveiro com três chaves` já tem duas pendentes.)
+- **Várias reivindicações na análise:** como Administração, abrir o item `Chaveiro com três chaves` (duas pendentes), **Analisar** uma delas e usar **Próxima**/**Anterior** ou a lista "Reivindicações deste item" para alternar sem voltar ao item. Aceitar uma: as outras aparecem como **Recusada** na lista, sem recarregar. A partir de 768 px, o link **Voltar ao item** (ou **Voltar ao painel**, se abriu pelo painel) aparece acima do título; no celular a seta do header faz o mesmo.
 - **Editar/excluir (admin):** no detalhe do item, **Editar**; na edição há **Excluir item**, que pede confirmação e informa quantas reivindicações serão removidas junto.
 - **Permissões:** com qualquer usuário comum (institucional ou externo), abrir `/admin` → **Acesso restrito**. A administração **não vê "É meu"** (não reivindica; premissa P8).
 - **Voltar no celular:** de **Minhas reivindicações** → **Ver item** → voltar retorna a **Minhas reivindicações**; da busca com filtros, o voltar preserva os filtros.

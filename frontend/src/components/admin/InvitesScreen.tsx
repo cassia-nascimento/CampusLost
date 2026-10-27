@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ACCOUNT_TWO_FACTOR_PATH } from "@/components/account/two-factor";
 import { SimulatedEmailBox } from "@/components/auth/SimulatedEmailBox";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -67,6 +68,7 @@ export function InvitesScreen() {
 
   return (
     <Container size="admin">
+      <BackLink />
       <PageHeader
         title="Convites"
         description={`Convide alguém para a administração. O convite vale ${INVITE_TTL_HOURS} horas e só pode ser usado uma vez.`}

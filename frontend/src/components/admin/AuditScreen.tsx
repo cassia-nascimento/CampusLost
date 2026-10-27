@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DATE_FILTER_DEBOUNCE_MS } from "@/components/items/search-params";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -59,6 +60,7 @@ export function AuditScreen() {
 
   return (
     <Container size="admin">
+      <BackLink />
       <PageHeader title="Auditoria" description="Registro dos eventos de segurança e de administração, do mais recente para o mais antigo." />
       <AdminSectionNav current={PATH} />
 

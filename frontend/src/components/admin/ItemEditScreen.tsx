@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, LinkButton } from "@/components/ui/Button";
@@ -70,6 +71,7 @@ export function ItemEditScreen({ itemId }: { itemId: string }) {
 
   return (
     <Container size="form">
+      <BackLink />
       <PageHeader title="Editar item" />
       {loading ? <EditSkeleton /> : null}
       {!leaving && query.status === "error" && query.error?.code === "NOT_FOUND" ? (

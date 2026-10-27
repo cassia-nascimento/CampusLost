@@ -27,7 +27,7 @@ export function AppHeader({ chrome, pathname }: { chrome: RouteChrome; pathname:
           <div className="flex min-w-0 flex-1 items-center gap-1 md:hidden">
             <Link
               href={chrome.backHref}
-              aria-label="Voltar"
+              aria-label={chrome.backLabel}
               className="touch-target -ml-3 inline-flex shrink-0 items-center justify-center rounded-md hover:bg-primary-soft active:bg-primary-softer"
             >
               <ChevronLeft aria-hidden="true" className="size-6" />

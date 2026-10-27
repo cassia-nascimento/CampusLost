@@ -102,8 +102,12 @@ export function isTopLevelPath(pathname: string): boolean {
 
 export type RouteChrome =
   | { kind: "top" }
-  /** Página de detalhe/formulário: botão voltar + título no header (celular); sem BottomNav. */
-  | { kind: "detail"; title: string; backHref: string };
+  /**
+   * Página de detalhe/formulário: botão voltar + título no header (celular); sem BottomNav. `backHref` e
+   * `backLabel` (texto do destino, ex.: "Voltar ao item") vêm da mesma regra, para o link nunca dizer uma
+   * coisa e levar a outra (header mobile e `BackLink` de ≥ 768 px).
+   */
+  | { kind: "detail"; title: string; backHref: string; backLabel: string };
 
 /**
  * Página de origem (`?de=`): o link que abre um detalhe diz de onde veio, e o voltar do header mobile
@@ -129,6 +133,16 @@ export function withOrigin(href: string, origin: string): string {
   return `${href}?${ORIGIN_PARAM}=${encodeURIComponent(origin)}`;
 }
 
+/** Destino do voltar e o texto que o descreve. */
+interface BackTarget {
+  href: string;
+  label: string;
+}
+
+const BACK_TO_ITEMS = (itemsSearch: string): BackTarget => ({ href: `/itens${itemsSearch}`, label: "Voltar aos itens" });
+const BACK_TO_ITEM = (itemId: string): BackTarget => ({ href: `/itens/${itemId}`, label: "Voltar ao item" });
+const BACK_TO_DASHBOARD: BackTarget = { href: "/admin", label: "Voltar ao painel" };
+
 const DETAIL_ROUTES: {
   pattern: RegExp;
   title: string;
@@ -136,29 +150,34 @@ const DETAIL_ROUTES: {
    * `itemsSearch`: query string da última busca de `/itens` (`""` ou `?categoria=…`).
    * `origin`: página de origem já validada (ou `null`); cada rota só aceita as origens que fazem sentido nela.
    */
-  back: (match: RegExpMatchArray, itemsSearch: string, origin: string | null) => string;
+  back: (match: RegExpMatchArray, itemsSearch: string, origin: string | null) => BackTarget;
 }[] = [
-  { pattern: /^\/itens\/novo$/, title: "Registrar item", back: (_, itemsSearch) => `/itens${itemsSearch}` },
-  { pattern: /^\/itens\/([^/]+)\/reivindicar$/, title: "Reivindicar item", back: (m) => `/itens/${m[1]}` },
+  { pattern: /^\/itens\/novo$/, title: "Registrar item", back: (_, itemsSearch) => BACK_TO_ITEMS(itemsSearch) },
+  { pattern: /^\/itens\/([^/]+)\/reivindicar$/, title: "Reivindicar item", back: (m) => BACK_TO_ITEM(m[1]) },
   {
     pattern: /^\/itens\/([^/]+)$/,
     title: "Detalhe do item",
     // Do detalhe, o voltar vai à lista de onde se veio; sem origem (ou vindo da busca), reabre a última busca.
-    back: (_, itemsSearch, origin) => (origin && !origin.startsWith("/itens/") ? origin : `/itens${itemsSearch}`),
+    back: (_, itemsSearch, origin) => {
+      if (origin === "/minhas-reivindicacoes") return { href: origin, label: "Voltar às minhas reivindicações" };
+      if (origin === "/admin/devolucoes") return { href: origin, label: "Voltar às devoluções" };
+      if (origin?.startsWith("/admin/reivindicacoes/")) return { href: origin, label: "Voltar à análise" };
+      return BACK_TO_ITEMS(itemsSearch);
+    },
   },
   {
     pattern: /^\/admin\/reivindicacoes\/[^/]+$/,
     title: "Analisar reivindicação",
-    // Vindo do item, o voltar retorna ao item; vindo do painel (sem origem), ao painel.
-    back: (_, __, origin) => (origin?.startsWith("/itens/") ? origin : "/admin"),
+    // Vindo do item, o voltar retorna ao item; vindo do painel (sem origem), ao painel (onde ficam as pendentes).
+    back: (_, __, origin) => (origin?.startsWith("/itens/") ? { href: origin, label: "Voltar ao item" } : BACK_TO_DASHBOARD),
   },
-  { pattern: /^\/admin\/itens\/([^/]+)\/editar$/, title: "Editar item", back: (m) => `/itens/${m[1]}` },
-  { pattern: /^\/admin\/usuarios$/, title: "Usuários", back: () => "/admin" },
-  { pattern: /^\/admin\/convites$/, title: "Convites", back: () => "/admin" },
-  { pattern: /^\/admin\/auditoria$/, title: "Auditoria", back: () => "/admin" },
-  { pattern: /^\/conta$/, title: "Minha conta", back: () => "/itens" },
-  { pattern: /^\/privacidade$/, title: "Privacidade", back: () => "/itens" },
-  { pattern: /^\/termos$/, title: "Termos de uso", back: () => "/itens" },
+  { pattern: /^\/admin\/itens\/([^/]+)\/editar$/, title: "Editar item", back: (m) => BACK_TO_ITEM(m[1]) },
+  { pattern: /^\/admin\/usuarios$/, title: "Usuários", back: () => BACK_TO_DASHBOARD },
+  { pattern: /^\/admin\/convites$/, title: "Convites", back: () => BACK_TO_DASHBOARD },
+  { pattern: /^\/admin\/auditoria$/, title: "Auditoria", back: () => BACK_TO_DASHBOARD },
+  { pattern: /^\/conta$/, title: "Minha conta", back: () => BACK_TO_ITEMS("") },
+  { pattern: /^\/privacidade$/, title: "Privacidade", back: () => BACK_TO_ITEMS("") },
+  { pattern: /^\/termos$/, title: "Termos de uso", back: () => BACK_TO_ITEMS("") },
 ];
 
 /**
@@ -170,7 +189,10 @@ export function getRouteChrome(pathname: string, itemsSearch = "", origin: strin
   const safeOrigin = parseOrigin(origin);
   for (const route of DETAIL_ROUTES) {
     const match = pathname.match(route.pattern);
-    if (match) return { kind: "detail", title: route.title, backHref: route.back(match, itemsSearch, safeOrigin) };
+    if (match) {
+      const { href, label } = route.back(match, itemsSearch, safeOrigin);
+      return { kind: "detail", title: route.title, backHref: href, backLabel: label };
+    }
   }
   return { kind: "top" };
 }

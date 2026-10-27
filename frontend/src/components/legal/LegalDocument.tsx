@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { Notice } from "@/components/ui/Notice";
 
@@ -34,6 +35,7 @@ export function LegalDocument({
 }) {
   return (
     <Container size="form">
+      <BackLink />
       <h1>{title}</h1>
       <p className="mt-2 text-body text-ink-muted">{subtitle}</p>
       <Notice tone="warning" title="Texto-modelo, a ser revisado pela equipe" className="mt-6">

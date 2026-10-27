@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ResendVerification } from "@/components/auth/ResendVerification";
+import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { DefinitionList } from "@/components/layout/DefinitionList";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -64,6 +65,7 @@ export function AccountScreen() {
 
   return (
     <Container size="form">
+      <BackLink />
       <PageHeader title="Minha conta" />
 
       {reason === "convite" && needsTwoFactor ? (
