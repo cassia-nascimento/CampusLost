@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { ActionBar } from "@/components/layout/ActionBar";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Field } from "@/components/ui/Field";
@@ -19,8 +18,6 @@ import { accountErrorMessage } from "./error-messages";
 import { PASSWORD_HINT } from "./password-strength";
 import { PasswordInput } from "./PasswordInput";
 import { PasswordStrengthMeter } from "./PasswordStrengthMeter";
-import { withNext } from "./next-param";
-import { useNextPath } from "./use-next-path";
 
 const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
@@ -38,7 +35,6 @@ export function SignUpForm({
 }) {
   const { signUp } = useSession();
   const toast = useToast();
-  const next = useNextPath();
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const turnstile = useTurnstile();
@@ -93,8 +89,7 @@ export function SignUpForm({
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-1 flex-col">
-      <div className="flex flex-col gap-5">
+    <form noValidate onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col gap-5">
         {formError ? (
           <Notice tone="danger" role="alert">
             {formError}
@@ -137,22 +132,13 @@ export function SignUpForm({
           }
           {...register("acceptedTerms")}
         />
-        <p className="text-body text-ink-muted">
-          Já tem conta?{" "}
-          <Link href={withNext("/entrar", next)} className="link touch-target inline-flex items-center font-semibold">
-            Entrar
-          </Link>
-        </p>
         {turnstile.widget}
         <p role="status" className="sr-only">
           {announcement}
         </p>
-      </div>
-      <ActionBar>
-        <Button type="submit" size="lg" width="mobile-full" disabled={turnstile.blocked} loading={isSubmitting} loadingText="Criando conta…">
-          Criar conta
-        </Button>
-      </ActionBar>
+      <Button type="submit" size="lg" width="full" disabled={turnstile.blocked} loading={isSubmitting} loadingText="Criando conta…">
+        Criar conta
+      </Button>
     </form>
   );
 }

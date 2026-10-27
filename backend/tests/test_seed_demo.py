@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 
 from app.config import ConfigError, load_settings
 from app.main import create_app
-from app.models import ClaimRow, ItemRow, ReturnRow, UserRow
+from app.db import make_engine
+from app.models import Base, ClaimRow, ItemRow, ReturnRow, UserRow
 from app.seed import DEMO_PASSWORD, seed_database
 from tests.conftest import FIXED_NOW, ITEM_FORM, JPEG, Clock, login, make_settings
 
@@ -142,7 +143,9 @@ def prod_settings(tmp_path):
 
 
 def test_demo_endpoints_are_off_in_production(tmp_path):
-    with TestClient(create_app(prod_settings(tmp_path), clock=Clock(FIXED_NOW))) as c:
+    settings = prod_settings(tmp_path)
+    Base.metadata.create_all(make_engine(settings))  # em produção o esquema vem do Alembic (aqui, simulado)
+    with TestClient(create_app(settings, clock=Clock(FIXED_NOW))) as c:
         for method, path in (("GET", "/demo/profiles"), ("POST", "/demo/login/admin"), ("POST", "/demo/reset")):
             r = c.request(method, path)
             assert r.status_code == 404, path
