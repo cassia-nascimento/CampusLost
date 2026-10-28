@@ -6,11 +6,12 @@ import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import { BottomNav } from "./BottomNav";
 import { DemoBanner } from "./DemoNotice";
+import { EmailVerificationBanner } from "./EmailVerificationBanner";
 import { showsBottomNav } from "./navigation";
 import { useRouteChrome } from "./use-route-chrome";
 
 /**
- * Estrutura das páginas autenticadas: aviso de armazenamento, header, `<main id="conteudo">`
+ * Estrutura das páginas autenticadas: aviso de armazenamento, header, faixa de e-mail não confirmado, `<main id="conteudo">`
  * (alvo do link "Pular para o conteúdo"), rodapé e BottomNav (celular, páginas de topo).
  * As páginas escolhem a largura com `Container`. Lê `useSearchParams`: precisa estar dentro de `<Suspense>`.
  */
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col">
       <DemoBanner />
       <AppHeader chrome={chrome} pathname={pathname} />
+      <EmailVerificationBanner />
       <main id="conteudo" tabIndex={-1} className={cn("flex flex-1 flex-col outline-none", bottomNav && "max-md:pb-bottomnav")}>
         {children}
       </main>

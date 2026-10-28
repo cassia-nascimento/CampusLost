@@ -5,7 +5,7 @@ import {
   type User,
 } from "@/types/domain";
 import { ALLOW, assertAllowed, deny, type Decision } from "./decision";
-import { hasCapability } from "./permissions";
+import { checkEmailVerified, hasCapability } from "./permissions";
 import { assertTransition } from "./item-status";
 
 export function isActiveClaim(claim: Pick<Claim, "status">): boolean {
@@ -36,6 +36,8 @@ export function canClaim(
   if (!hasCapability(actor, "claim_item")) {
     return deny("FORBIDDEN", "A administração analisa reivindicações, mas não reivindica itens.");
   }
+  const verified = checkEmailVerified(actor);
+  if (!verified.allowed) return verified;
   // Quem registrou o item não o reivindica (P46).
   if (item.createdById === actor.id) {
     return deny(

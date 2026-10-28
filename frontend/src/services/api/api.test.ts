@@ -372,6 +372,7 @@ describe("contas: verificação, senha, exportação, exclusão (REST)", () => {
   it("códigos novos do servidor viram ServiceError tipado; INVALID_TOKEN vira TOKEN_INVALID", async () => {
     const { api, services } = createHarness();
     const cases: [string, number, string][] = [
+      ["EMAIL_NOT_VERIFIED", 403, "EMAIL_NOT_VERIFIED"],
       ["INVALID_TOKEN", 400, "TOKEN_INVALID"],
       ["CSRF_FAILED", 403, "CSRF_FAILED"],
       ["CAPTCHA_FAILED", 400, "CAPTCHA_FAILED"],

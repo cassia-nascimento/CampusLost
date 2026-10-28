@@ -22,6 +22,10 @@ PERMISSIONS: dict[str, tuple[str, ...]] = {
     "view_returns": ADMIN,
 }
 
+# Capacidades que exigem e-mail confirmado (contas de senha nascem não verificadas).
+REQUIRES_VERIFIED_EMAIL = ("register_item", "claim_item", "generate_return_code")
+EMAIL_NOT_VERIFIED_MESSAGE = "Confirme seu e-mail para continuar. Enviamos um link de confirmação para a sua caixa de entrada."
+
 # Visitante (P26): só ver lista e detalhe.
 GUEST_CAPABILITIES = ("search_items",)
 
@@ -36,6 +40,14 @@ def has_capability(actor: HasRole | None, capability: str) -> bool:
     return actor.role in PERMISSIONS[capability]
 
 
+def email_not_verified(actor: HasRole | None) -> Decision | None:
+    """`Decision` de negação se o ator existe e ainda não confirmou o e-mail; senão `None`."""
+    # `getattr`: regras puras também recebem atores simples (só `role`), tratados como verificados.
+    if actor is not None and getattr(actor, "email_verified_at", "ok") is None:
+        return deny("EMAIL_NOT_VERIFIED", EMAIL_NOT_VERIFIED_MESSAGE)
+    return None
+
+
 def is_admin(actor: HasRole | None) -> bool:
     return actor is not None and actor.role == "admin"
 
@@ -47,4 +59,6 @@ def check_capability(actor: HasRole | None, capability: str) -> Decision:
         return deny("UNAUTHENTICATED", "Entre na sua conta para continuar.")
     if not has_capability(actor, capability):
         return deny("FORBIDDEN", "Você não tem permissão para realizar esta ação.")
+    if capability in REQUIRES_VERIFIED_EMAIL:
+        return email_not_verified(actor) or ALLOW
     return ALLOW

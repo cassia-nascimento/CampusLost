@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { AdminTwoFactorNotice } from "@/components/account/TwoFactorNotice";
+import { adminNeedsTwoFactor } from "@/components/account/two-factor";
 import { Container } from "@/components/layout/Container";
 import { ADMIN_SECTIONS } from "@/components/layout/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -14,6 +16,7 @@ import { LoadingRegion, Skeleton } from "@/components/ui/Skeleton";
 import { ClaimStatusBadge } from "@/components/ui/StatusBadge";
 import { TabPanel, Tabs } from "@/components/ui/Tabs";
 import { useMinWidth } from "@/hooks/use-min-width";
+import { useSession } from "@/hooks/use-session";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { formatRelativeInstant } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -46,10 +49,12 @@ async function loadDashboard(): Promise<DashboardData> {
 /** `/admin`: ponto de partida da administração (RF04/RF05, AC04.4). */
 export function AdminDashboard() {
   const query = useServiceQuery(loadDashboard);
+  const { user } = useSession();
 
   return (
     <Container size="admin">
       <PageHeader title="Painel" description="Analise as reivindicações e registre as devoluções." />
+      {user && adminNeedsTwoFactor(user) ? <AdminTwoFactorNotice withLink className="mb-6" /> : null}
       {query.status === "loading" ? <DashboardSkeleton /> : null}
       {query.status === "error" ? (
         <AdminQueryError error={query.error} title="Não conseguimos carregar o painel" onRetry={query.refetch} />

@@ -45,7 +45,6 @@ def test_login_failure_for_unknown_email_has_no_actor_and_no_plain_email(client,
 def test_signup_verify_logout_reset_are_recorded(client, app, mailbox):
     body = signup(client)
     assert actions(app) == ["signup"]
-    client.post("/auth/resend-verification", json={"email": "novo@exemplo.com"})
     client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])})
     login_r = client.post("/auth/login", json={"email": "novo@exemplo.com", "password": "senha-forte-1"})
     h = bearer(login_r.json()["token"])

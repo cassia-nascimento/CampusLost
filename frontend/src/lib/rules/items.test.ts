@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { canDeleteItem, canEditItem, canRegisterItem, canViewStoredAt, filterItems, isOtherCategory, matchesLocation, normalizeSearchText, searchItems, sortItems } from "./items";
 import { admin, externalUser, makeClaim, makeItem, otherStudent, student, teacher, unverified } from "./test-fixtures";
 
-describe("canRegisterItem: external e e-mail não verificado", () => {
-  it("externo e conta não verificada registram; visitante não", () => {
+describe("canRegisterItem: external e e-mail verificado", () => {
+  it("externo verificado registra; não verificado não; visitante não", () => {
     expect(canRegisterItem(externalUser)).toEqual({ allowed: true });
-    expect(canRegisterItem(unverified)).toEqual({ allowed: true });
+    expect(canRegisterItem(unverified)).toMatchObject({ allowed: false, code: "EMAIL_NOT_VERIFIED" });
     expect(canRegisterItem(null)).toMatchObject({ allowed: false, code: "UNAUTHENTICATED" });
   });
 });

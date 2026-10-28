@@ -10,17 +10,20 @@ import { useNextPath } from "./use-next-path";
 /**
  * Guarda das rotas públicas (`/entrar`, `/cadastro`): quem já tem sessão vai direto para o destino `?next=`
  * (P28, só `/itens/<id>`) ou, sem ele, para a página inicial do seu perfil. Nada é mostrado antes de a sessão
- * ser lida, para o formulário não piscar para quem está logado. Exige `<Suspense>` acima (`useSearchParams`).
+ * ser lida, para o formulário não piscar para quem está logado. `hold` suspende o redirecionamento (o cadastro
+ * mostra "Confirme seu e-mail" para a conta recém-criada, que já tem sessão). Exige `<Suspense>` acima (`useSearchParams`).
  */
-export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
+export function RedirectIfAuthenticated({ children, hold = false }: { children: ReactNode; hold?: boolean }) {
   const { user, status } = useSession();
   const router = useRouter();
   const next = useNextPath();
 
   useEffect(() => {
+    if (hold) return;
     if (status === "ready" && user) router.replace(next ?? homePathFor(user.role));
-  }, [status, user, next, router]);
+  }, [hold, status, user, next, router]);
 
+  if (hold) return <>{children}</>;
   if (status !== "ready" || user) return <AuthLoading />;
   return <>{children}</>;
 }

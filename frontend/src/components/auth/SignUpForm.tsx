@@ -13,7 +13,7 @@ import { useSession } from "@/hooks/use-session";
 import { useToast } from "@/hooks/use-toast";
 import { useTurnstile } from "@/hooks/use-turnstile";
 import { signUpSchema, type SignUpValues } from "@/lib/validation";
-import { isServiceError } from "@/types/domain";
+import { isServiceError, type User } from "@/types/domain";
 import { accountErrorMessage } from "./error-messages";
 import { PASSWORD_HINT } from "./password-strength";
 import { PasswordInput } from "./PasswordInput";
@@ -23,9 +23,16 @@ const EMAIL_TAKEN = "Esse e-mail já tem cadastro. Entre com ele.";
 
 /**
  * Cadastro com senha (RF01 / AC01.1) com nome, e-mail, senha e aceite dos termos.
- * Sem confirmação de e-mail: a conta nasce com sessão e `RedirectIfAuthenticated` leva a pessoa adiante.
+ * `onCreatingChange` avisa a tela quando o envio começa/termina (segura o redirecionamento da sessão nova)
+ * e `onCreated` entrega a conta criada, para a tela mostrar "Confirme seu e-mail".
  */
-export function SignUpForm() {
+export function SignUpForm({
+  onCreatingChange,
+  onCreated,
+}: {
+  onCreatingChange(creating: boolean): void;
+  onCreated(user: User): void;
+}) {
   const { signUp } = useSession();
   const toast = useToast();
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,10 +55,13 @@ export function SignUpForm() {
   async function onSubmit(values: SignUpValues) {
     setFormError(null);
     setAnnouncement("");
+    onCreatingChange(true);
     try {
-      await signUp({ ...values, turnstileToken: turnstile.token });
-      toast.success("Conta criada. Você já pode usar o CampusLost.");
+      const user = await signUp({ ...values, turnstileToken: turnstile.token });
+      toast.success("Conta criada. Falta confirmar seu e-mail.");
+      onCreated(user);
     } catch (error) {
+      onCreatingChange(false);
       turnstile.reset();
       if (isServiceError(error) && error.code === "EMAIL_TAKEN") {
         setError("email", { type: "server", message: EMAIL_TAKEN });

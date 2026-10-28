@@ -1009,7 +1009,8 @@ Mesmo conteúdo, filtros, ordem (mais recentes primeiro), skeleton e estados de 
 |                                        |
 |  (i) Para reivindicar este item,       |  <- Notice info
 |      entre na sua conta. Só quem tem   |
-|      conta pode reivindicar.           |
+|      conta e e-mail confirmado pode   |
+|      reivindicar.                      |
 +----------------------------------------+
 | [ -> Entre para reivindicar ]          |  <- ActionBar fixa, primary lg
 +----------------------------------------+
@@ -1061,7 +1062,7 @@ Regras: voz ativa, "você", verbo no botão, sem pontuação em rótulo de botã
 | Rodapé | CampusLost · Achados e perdidos do campus · Projeto acadêmico · UNDB |
 | Notice do visitante em `/itens` | Entre para reivindicar um item ou registrar o que você achou. [Entrar] [Criar conta] |
 | Detalhe — botão | Entre para reivindicar |
-| Detalhe — Notice | Para reivindicar este item, entre na sua conta. Só quem tem conta pode reivindicar. Ainda não tem conta? Criar conta |
+| Detalhe — Notice | Para reivindicar este item, entre na sua conta. Só quem tem conta e e-mail confirmado pode reivindicar. Ainda não tem conta? Criar conta |
 | Legenda de imagem do seed | Imagem ilustrativa |
 | Visitante: item devolvido ou inexistente | **Item não encontrado** — Este item não está mais disponível: ele pode ter sido excluído ou já devolvido. [Ver itens] |
 | Carregando detalhe | Carregando item… |

@@ -2,6 +2,7 @@
 
 import { FileText } from "lucide-react";
 import { useState } from "react";
+import { ResendVerification } from "@/components/auth/ResendVerification";
 import { BackLink } from "@/components/layout/BackLink";
 import { Container } from "@/components/layout/Container";
 import { LinkButton } from "@/components/ui/Button";
@@ -94,10 +95,13 @@ function ClaimContent({
           title={
             decision.code === "DUPLICATE_CLAIM"
               ? "Você já reivindicou este item"
-              : "Não é possível reivindicar este item"
+              : decision.code === "EMAIL_NOT_VERIFIED"
+                ? "Confirme seu e-mail para reivindicar"
+                : "Não é possível reivindicar este item"
           }
           action={
             <div className="flex flex-col gap-3 sm:flex-row">
+              {decision.code === "EMAIL_NOT_VERIFIED" ? <ResendVerification className="sm:max-w-xs" /> : null}
               <LinkButton href={`/itens/${item.id}`} width="mobile-full">
                 Ver item
               </LinkButton>

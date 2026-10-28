@@ -113,7 +113,6 @@ def test_forgot_is_limited_per_account_silently(client, mailbox):
 
 def test_verification_token_cannot_reset_password(client, mailbox):
     signup(client)
-    client.post("/auth/resend-verification", json={"email": "novo@exemplo.com"})
     verify_token = extract_token(mailbox.sent[-1])
     r = client.post("/auth/reset-password", json={"token": verify_token, "password": NEW})
     assert r.status_code == 400

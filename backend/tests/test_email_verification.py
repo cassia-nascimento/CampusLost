@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app import google_auth
 from app.models import EmailTokenRow, UserRow
 from tests.conftest import extract_token
-from tests.helpers import CLAIM, PASSWORD, bearer, create_item, db_user, signup, signup_payload, signup_with_link
+from tests.helpers import CLAIM, PASSWORD, bearer, create_item, db_user, signup, signup_payload
 
 from tests.test_google import tokeninfo
 
@@ -23,18 +23,9 @@ def fake_google(monkeypatch):
     return state
 
 
-def test_signup_sends_no_email_and_issues_no_token(client, mailbox, app):
+def test_signup_sends_one_email_with_link_and_stores_only_the_hash(client, mailbox, app):
     r = client.post("/auth/signup", json=signup_payload("Ana@Exemplo.com"))
     assert r.status_code == 201 and r.json()["user"]["emailVerified"] is False
-    assert mailbox.sent == []
-    with app.state.session_factory() as s:
-        assert s.scalars(select(EmailTokenRow)).all() == []
-        assert s.scalar(select(UserRow).where(UserRow.email == "ana@exemplo.com")).email_verified_at is None
-
-
-def test_resend_sends_one_email_with_link_and_stores_only_the_hash(client, mailbox, app):
-    signup(client, email="Ana@Exemplo.com")
-    client.post("/auth/resend-verification", json={"email": "ana@exemplo.com"})
     assert len(mailbox.sent) == 1
     mail = mailbox.sent[0]
     assert mail.to == "ana@exemplo.com"
@@ -54,30 +45,26 @@ def test_institutional_email_by_password_still_requires_verification(client, app
     assert db_user(app, "aluno@undb.edu.br").email_verified_at is None
 
 
-def test_unverified_password_account_can_register_and_claim_right_after_signup(client, mailbox, app):
-    body = client.post("/auth/signup", json=signup_payload()).json()
-    h = bearer(body["token"])
-    assert create_item(client, h).status_code == 201
-    assert client.post("/items/item-01/claims", json=CLAIM, headers=h).status_code == 201
-    viewer = client.get("/items/item-02", headers=h).json()["viewer"]
-    assert viewer["claim"]["allowed"] is True
-    assert mailbox.sent == []
-    assert db_user(app, "novo@exemplo.com").email_verified_at is None  # segue não verificada (anti pre-hijack)
-
-
-def test_unverified_can_login_and_still_works(client):
+def test_unverified_can_login_but_cannot_register_or_claim(client):
     signup(client)
     login = client.post("/auth/login", json={"email": "novo@exemplo.com", "password": PASSWORD})
     assert login.status_code == 200 and login.json()["user"]["emailVerified"] is False
     h = bearer(login.json()["token"])
     assert client.get("/auth/me", headers=h).json()["emailVerified"] is False
-    assert create_item(client, h).status_code == 201
+    r = create_item(client, h)
+    assert r.status_code == 403 and r.json()["code"] == "EMAIL_NOT_VERIFIED"
+    r = client.post("/items/item-01/claims", json=CLAIM, headers=h)
+    assert r.status_code == 403 and r.json()["code"] == "EMAIL_NOT_VERIFIED"
+    # leitura e "minhas reivindicações" continuam
     assert client.get("/items", headers=h).status_code == 200
     assert client.get("/claims/mine", headers=h).status_code == 200
+    # a interface sabe antes de tentar
+    viewer = client.get("/items/item-01", headers=h).json()["viewer"]
+    assert viewer["claim"]["allowed"] is False and viewer["claim"]["code"] == "EMAIL_NOT_VERIFIED"
 
 
-def test_verify_email_marks_verified_and_is_single_use(client, mailbox):
-    token_bearer = signup_with_link(client)["token"]
+def test_verify_email_unlocks_writes_and_is_single_use(client, mailbox):
+    token_bearer = signup(client)["token"]
     token = extract_token(mailbox.sent[-1])
     ok = client.post("/auth/verify-email", json={"token": token})
     assert ok.status_code == 200 and ok.json() == {"verified": True}
@@ -97,7 +84,7 @@ def test_verify_email_rejects_garbage_tokens(client, token):
 
 
 def test_verify_token_expires_after_24_hours(client, mailbox, clock):
-    signup_with_link(client)
+    signup(client)
     token = extract_token(mailbox.sent[-1])
     clock.advance(hours=24, seconds=1)
     r = client.post("/auth/verify-email", json={"token": token})
@@ -105,7 +92,7 @@ def test_verify_token_expires_after_24_hours(client, mailbox, clock):
 
 
 def test_verify_token_valid_just_before_24_hours(client, mailbox, clock):
-    signup_with_link(client)
+    signup(client)
     token = extract_token(mailbox.sent[-1])
     clock.advance(hours=23, minutes=59)
     assert client.post("/auth/verify-email", json={"token": token}).status_code == 200
@@ -133,10 +120,9 @@ def test_resend_is_generic_and_only_sends_for_unverified_accounts(client, mailbo
     assert again.status_code == 202 and again.json() == known.json() and len(mailbox.sent) == n
 
 
-def test_resend_invalidates_the_previous_link(client, mailbox, clock):
-    signup_with_link(client)
+def test_resend_invalidates_the_previous_link(client, mailbox):
+    signup(client)
     old = extract_token(mailbox.sent[-1])
-    clock.advance(hours=1)
     client.post("/auth/resend-verification", json={"email": "novo@exemplo.com"})
     assert client.post("/auth/verify-email", json={"token": old}).status_code == 400
     assert client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])}).status_code == 200
@@ -201,7 +187,7 @@ def test_google_login_discards_unverified_non_institutional_account_too(client, 
 
 
 def test_google_login_keeps_verified_password_account(client, fake_google, mailbox, app):
-    signup_with_link(client, email="ana.souza@undb.edu.br")
+    signup(client, email="ana.souza@undb.edu.br")
     client.post("/auth/verify-email", json={"token": extract_token(mailbox.sent[-1])})
     r = client.post("/auth/google", json={"credential": "x"}).json()
     assert r["status"] == "signed_in"

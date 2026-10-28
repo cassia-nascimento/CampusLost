@@ -1,6 +1,6 @@
 import type { Claim, Item, ItemStatus, User } from "@/types/domain";
 import { ALLOW, deny, type Decision } from "./decision";
-import { hasCapability } from "./permissions";
+import { checkEmailVerified, hasCapability } from "./permissions";
 import { isItemLocked } from "./item-status";
 
 export { isOtherCategory } from "@/types/catalog";
@@ -63,7 +63,7 @@ export function canRegisterItem(actor: User | null | undefined): Decision {
   if (!hasCapability(actor, "register_item")) {
     return deny("FORBIDDEN", "Você não tem permissão para registrar itens.");
   }
-  return ALLOW;
+  return checkEmailVerified(actor);
 }
 
 function checkMutable(
